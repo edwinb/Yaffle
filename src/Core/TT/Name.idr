@@ -8,6 +8,7 @@ import Decidable.Equality
 import Libraries.Data.String.Extra
 import Libraries.Text.PrettyPrint.Prettyprinter
 import Libraries.Text.PrettyPrint.Prettyprinter.Util
+import Libraries.Utils.String
 
 ||| A username has some structure
 public export
@@ -15,6 +16,15 @@ data UserName : Type where
   Basic : String -> UserName -- default name constructor       e.g. map
   Field : String -> UserName -- field accessor                 e.g. .fst
   Underscore : UserName      -- no name                        e.g. _
+
+||| A smart constructor taking a string and parsing it as the appropriate
+||| username
+export
+mkUserName : String -> UserName
+mkUserName "_" = Underscore
+mkUserName str with (strM str)
+  mkUserName _   | StrCons '.' n = Field n
+  mkUserName str | _             = Basic str
 
 public export
 data Name : Type where
@@ -25,6 +35,151 @@ data Name : Type where
      DN : String -> Name -> Name -- a name and how to display it
      WithBlock : String -> Int -> Name -- with block nested in (resolved) name
      Resolved : Int -> Name -- resolved, index into context
+
+export
+mkNamespacedName : Maybe Namespace -> UserName -> Name
+mkNamespacedName Nothing nm = UN nm
+mkNamespacedName (Just ns) nm = NS ns (UN nm)
+
+||| `matches a b` checks that the name `a` matches `b` assuming
+||| the name roots are already known to be matching.
+||| For instance, both `reverse` and `List.reverse` match the fully
+||| qualified name `Data.List.reverse`.
+export
+matches : Name -> Name -> Bool
+matches (NS ns _) (NS cns _) = isApproximationOf ns cns
+matches (NS _ _) _
+  -- gallais: I don't understand this case but that's what was there.
+  = True -- no in library name, so root doesn't match
+matches _ _ = True -- no prefix, so root must match, so good
+
+-- Update a name imported with 'import as', for creating an alias
+export
+asName : ModuleIdent -> -- Initial module name
+         Namespace -> -- 'as' module name
+         Name -> -- identifier
+         Name
+asName old new (DN s n) = DN s (asName old new n)
+asName old new (NS ns n)
+    = NS (replace old new ns) n
+asName _ _ n = n
+
+export
+userNameRoot : Name -> Maybe UserName
+userNameRoot (NS _ n) = userNameRoot n
+userNameRoot (UN n) = Just n
+userNameRoot (DN _ n) = userNameRoot n
+userNameRoot _ = Nothing
+
+export
+isUnderscoreName : Name -> Bool
+isUnderscoreName (UN Underscore) = True
+isUnderscoreName (MN "_" _) = True
+isUnderscoreName _ = False
+
+export
+isPatternVariable : UserName -> Bool
+isPatternVariable (Basic nm) = lowerFirst nm
+isPatternVariable (Field _) = False
+isPatternVariable Underscore = True
+
+export
+isUserName : Name -> Bool
+isUserName (PV _ _) = False
+isUserName (MN _ _) = False
+isUserName (NS _ n) = isUserName n
+isUserName (DN _ n) = isUserName n
+isUserName _ = True
+
+||| True iff name can be traced back to a source name.
+||| Used to determine whether it needs semantic highlighting.
+export
+isSourceName : Name -> Bool
+isSourceName (NS _ n) = isSourceName n
+isSourceName (UN _) = True
+isSourceName (MN _ _) = False
+isSourceName (PV n _) = isSourceName n
+isSourceName (DN _ n) = isSourceName n
+isSourceName (WithBlock _ _) = False
+isSourceName (Resolved _) = False
+
+export
+isRF : Name -> Maybe (Namespace, String)
+isRF (NS ns n) = map (mapFst (ns <.>)) (isRF n)
+isRF (UN (Field n)) = Just (emptyNS, n)
+isRF _ = Nothing
+
+export
+isUN : Name -> Maybe (Namespace, UserName)
+isUN (UN un) = Just (emptyNS, un)
+isUN (NS ns n) = map (mapFst (ns <.>)) (isUN n)
+isUN _ = Nothing
+
+export
+isBasic : UserName -> Maybe String
+isBasic (Basic str) = Just str
+isBasic _ = Nothing
+
+export
+displayUserName : UserName -> String
+displayUserName (Basic n) = n
+displayUserName (Field n) = n
+displayUserName Underscore = "_"
+
+export
+nameRoot : Name -> String
+nameRoot (NS _ n) = nameRoot n
+nameRoot (UN n) = displayUserName n
+nameRoot (MN n _) = n
+nameRoot (PV n _) = nameRoot n
+nameRoot (DN _ n) = nameRoot n
+nameRoot (WithBlock n _) = "$" ++ show n
+nameRoot (Resolved i) = "$" ++ show i
+
+export
+displayName : Name -> (Maybe Namespace, String)
+displayName (NS ns n) = mapFst (pure . maybe ns (ns <.>)) $ displayName n
+displayName (UN n) = (Nothing, displayUserName n)
+displayName (MN n _) = (Nothing, n)
+displayName (PV n _) = displayName n
+displayName (DN n _) = (Nothing, n)
+displayName (WithBlock outer _) = (Nothing, "with block in " ++ show outer)
+displayName (Resolved i) = (Nothing, "$resolved" ++ show i)
+
+export
+splitNS : Name -> (Namespace, Name)
+splitNS (NS ns nm) = mapFst (ns <.>) (splitNS nm)
+splitNS nm = (emptyNS, nm)
+
+--- Drop a namespace from a name
+export
+dropNS : Name -> Name
+dropNS (NS _ n) = n
+dropNS n = n
+
+-- Drop all of the namespaces from a name
+export
+dropAllNS : Name -> Name
+dropAllNS (NS _ n) = dropAllNS n
+dropAllNS n = n
+
+export
+mbApplyNS : Maybe Namespace -> Name -> Name
+mbApplyNS Nothing n = n
+mbApplyNS (Just ns) n = NS ns n
+
+export
+isUnsafeBuiltin : Name -> Bool
+isUnsafeBuiltin nm = case splitNS nm of
+  (ns, UN (Basic str)) =>
+       (ns == builtinNS || ns == emptyNS)
+    && any {t = List} id
+           [ "assert_" `isPrefixOf` str
+           , str `elem` [ "prim__believe_me", "believe_me"
+                        , "prim__crash", "idris_crash"
+                        ]
+           ]
+  _ => False
 
 export
 Show UserName where

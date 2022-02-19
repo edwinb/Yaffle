@@ -145,6 +145,14 @@ Catchable (CoreE err) err where
   breakpoint (MkCore prog) = MkCore (pure <$> prog)
   throw = coreFail
 
+export
+wrap : (e -> e') -> CoreE e a -> CoreE e' a
+wrap f (MkCore prog)
+    = MkCore (do p' <- prog
+                 case p' of
+                      Left e => pure (Left (f e))
+                      Right val => pure (Right val))
+
 -- Prelude.Monad.foldlM hand specialised for Core
 export
 foldlC : Foldable t => (a -> b -> CoreE err a) -> a -> t b -> CoreE err a
