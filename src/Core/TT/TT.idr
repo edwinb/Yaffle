@@ -230,12 +230,7 @@ data Term : List Name -> Type where
      -- As patterns, including whether (in a linear setting) it's the name
      -- or the pattern that is consumed
      As : FC -> UseSide -> (as : AsName vars) -> (pat : Term vars) -> Term vars
-
-     -- Case expressions, including initial patterns (optionally) and the
-     -- compiled case trees
-     Case : FC ->
-            Maybe (List (PatternClause vars)) ->
-            CaseTree vars -> Term vars
+     Case : FC -> CaseTree vars -> Term vars
 
      -- Typed laziness annotations
      TDelayed : FC -> LazyReason -> Term vars -> Term vars
@@ -246,10 +241,6 @@ data Term : List Name -> Type where
               Term vars
      TType : FC -> Name -> -- universe variable
              Term vars
-
-||| Pattern matching clause, before compilation to case trees
-public export
-data PatternClause : List Name -> Type where
 
 ||| Case trees in A-normal forms
 ||| i.e. we may only dispatch on variables, not expressions

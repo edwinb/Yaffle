@@ -8,6 +8,8 @@ modules
     Core.Core,
 
     -- The core type theory
+    Core.Context,
+    Core.Context.Def,
     Core.FC,
     Core.TT,
     Core.TT.Name,
@@ -17,6 +19,9 @@ modules
 
     -- Things we'd expect in a base library, but since this project is the
     -- core of everything, include them here for bootstrapping.
+
+    -- These are just copied from Idris 2. It will turn out that we don't
+    -- need all of them, so (TODO) prune later.
     Libraries.Control.ANSI,
     Libraries.Control.ANSI.CSI,
     Libraries.Control.ANSI.SGR,
