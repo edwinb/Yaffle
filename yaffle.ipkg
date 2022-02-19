@@ -1,18 +1,22 @@
-package ttimp
+package yaffle
 
 version = 0.6.0
 sourcedir = "src"
 
 modules
-  = Core.Core,
-    Core.FC,
+  = -- The Core 'Monad', a specialised IO+errors
+    Core.Core,
 
+    -- The core type theory
+    Core.FC,
     Core.TT,
     Core.TT.Name,
     Core.TT.Namespace,
     Core.TT.RigCount,
     Core.TT.TT,
 
+    -- Things we'd expect in a base library, but since this project is the
+    -- core of everything, include them here for bootstrapping.
     Libraries.Control.ANSI,
     Libraries.Control.ANSI.CSI,
     Libraries.Control.ANSI.SGR,

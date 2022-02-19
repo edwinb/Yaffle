@@ -188,9 +188,6 @@ data IsVar : Name -> Nat -> List Name -> Type where
      First : IsVar n Z (n :: ns)
      Later : IsVar n i ns -> IsVar n (S i) (m :: ns)
 
--- Typechecked terms
--- These are guaranteed to be well-scoped wrt local variables, because they are
--- indexed by the names of local variables in scope
 public export
 data LazyReason = LInf | LLazy | LUnknown
 
@@ -206,12 +203,19 @@ data AsName : List Name -> Type where
      -- not yet resolved name
      AsRef : FC -> Name -> AsName vars
 
+-- Terms use case-trees, case-trees refer to terms, so forward declare
 public export
 data CaseTree : List Name -> Type
 
 public export
 data CaseAlt : List Name -> Type
 
+public export
+data PatternClause : List Name -> Type
+
+-- Typechecked terms
+-- These are guaranteed to be well-scoped wrt local variables, because they are
+-- indexed by the names of local variables in scope
 public export
 data Term : List Name -> Type where
      Local : FC -> (isLet : Maybe Bool) ->
@@ -229,7 +233,9 @@ data Term : List Name -> Type where
 
      -- Case expressions, including initial patterns (optionally) and the
      -- compiled case trees
-     Case : FC -> CaseTree vars -> Term vars
+     Case : FC ->
+            Maybe (List (PatternClause vars)) ->
+            CaseTree vars -> Term vars
 
      -- Typed laziness annotations
      TDelayed : FC -> LazyReason -> Term vars -> Term vars
@@ -240,6 +246,10 @@ data Term : List Name -> Type where
               Term vars
      TType : FC -> Name -> -- universe variable
              Term vars
+
+||| Pattern matching clause, before compilation to case trees
+public export
+data PatternClause : List Name -> Type where
 
 ||| Case trees in A-normal forms
 ||| i.e. we may only dispatch on variables, not expressions
