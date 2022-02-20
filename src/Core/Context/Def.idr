@@ -1,5 +1,13 @@
 module Core.Context.Def
 
+-- This module includes:
+-- * The forms of definition (function, data type etc)
+-- * The raw context (the array of definitions in the current file)
+-- * Looking up values in the context
+
+-- Context entries read from TTC files will be stored as Binary, so when
+-- we look them up, we have to decode them
+
 import Core.Binary
 import Core.Error
 import Core.TT
@@ -426,6 +434,9 @@ addEntry n entry ctxt_in
 getContent : Context -> Ref Arr (IOArray ContextEntry)
 getContent = content
 
+-- Conversion between full names and resolved names. We can only do this
+-- once we have a context to refer to to get the full names, so we'll
+-- define the basic implementations for core terms and definitions here.
 public export
 interface HasNames a where
   full : Context -> a -> Core a

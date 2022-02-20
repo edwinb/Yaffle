@@ -1,6 +1,5 @@
 module Libraries.Utils.Shunting
 
-import Core.Context
 import Core.Core
 import Core.FC
 
@@ -10,6 +9,20 @@ import Core.FC
 -- a parse tree expressing the precedence and associativity correctly.
 -- We assume that brackets, functions etc are dealt with in a higher level
 -- parser, so we're only dealing with operators here.
+
+public export
+data ShuntError
+        = InvalidInput
+        | NonAssocOp String
+
+export
+Show ShuntError where
+  show InvalidInput = "Invalid input to shunting"
+  show (NonAssocOp op) = "Operator " ++ op ++ " is non-associative"
+
+public export
+CoreSh : Type -> Type
+CoreSh = CoreE ShuntError
 
 -- Precedences/associativities
 public export
@@ -35,7 +48,6 @@ data Tok op a
 -- which is the one that compares precedences. So I've just used simple
 -- types instead and will rely on tests. It would be interesting to see if
 -- there's a better way though!
-
 public export
 data Tree op a = Infix FC FC op (Tree op a) (Tree op a)
                | Pre FC FC op (Tree op a)
@@ -62,15 +74,15 @@ export
 data Out : Type where
 
 output : List (Tree op a) -> Tok op a ->
-         Core (List (Tree op a))
-output [] (Op _ _ _ _) = throw (InternalError "Invalid input to shunting")
+         CoreSh (List (Tree op a))
+output [] (Op _ _ _ _) = throw InvalidInput
 output (x :: stk) (Op loc opFC str (Prefix _)) = pure $ Pre loc opFC str x :: stk
 output (x :: y :: stk) (Op loc opFC str _) = pure $ Infix loc opFC str y x :: stk
 output stk (Expr a) = pure $ Leaf a :: stk
-output _ _ = throw (InternalError "Invalid input to shunting")
+output _ _ = throw InvalidInput
 
 emit : {auto o : Ref Out (List (Tree op a))} ->
-       Tok op a -> Core ()
+       Tok op a -> CoreSh ()
 emit t
     = do out <- get Out
          put Out !(output out t)
@@ -87,17 +99,15 @@ isLAssoc _ = False
 
 -- Return whether the first operator should be applied before the second,
 -- assuming
-higher : Show op => FC -> op -> OpPrec -> op -> OpPrec -> Core Bool
+higher : Show op => FC -> op -> OpPrec -> op -> OpPrec -> CoreSh Bool
 higher loc opx op opy (Prefix p) = pure False
 higher loc opx (NonAssoc x) opy oy
     = if x == getPrec oy
-         then throw (GenericMsg loc ("Operator '" ++ show opx ++
-                                     "' is non-associative"))
+         then throw (NonAssocOp (show opx))
          else pure (x > getPrec oy)
 higher loc opx ox opy (NonAssoc y)
     = if getPrec ox == y
-         then throw (GenericMsg loc ("Operator '" ++ show opy ++
-                                     "' is non-associative"))
+         then throw (NonAssocOp (show opy))
          else pure (getPrec ox > y)
 higher loc opl l opr r
     = pure $ (getPrec l > getPrec r) ||
@@ -105,7 +115,7 @@ higher loc opl l opr r
 
 processStack : Show op => {auto o : Ref Out (List (Tree op a))} ->
                List (FC, FC, op, OpPrec) -> op -> OpPrec ->
-               Core (List (FC, FC, op, OpPrec))
+               CoreSh (List (FC, FC, op, OpPrec))
 processStack [] op prec = pure []
 processStack (x@(loc, opFC, opx, sprec) :: xs) opy prec
     = if !(higher loc opx sprec opy prec)
@@ -115,7 +125,7 @@ processStack (x@(loc, opFC, opx, sprec) :: xs) opy prec
 
 shunt : Show op => {auto o : Ref Out (List (Tree op a))} ->
         (opstk : List (FC, FC, op, OpPrec)) ->
-        List (Tok op a) -> Core (Tree op a)
+        List (Tok op a) -> CoreSh (Tree op a)
 shunt stk (Expr x :: rest)
     = do emit (Expr x)
          shunt stk rest
@@ -125,14 +135,14 @@ shunt stk (Op loc opFC op prec :: rest)
 shunt stk []
     = do traverse_ (emit . mkOp) stk
          [out] <- get Out
-             | out => throw (InternalError "Invalid input to shunting")
+             | out => throw InvalidInput
          pure out
   where
     mkOp : (FC, FC, op, OpPrec) -> Tok op a
     mkOp (loc, opFC, op, prec) = Op loc opFC op prec
 
 export
-parseOps : Show op => List (Tok op a) -> Core (Tree op a)
+parseOps : Show op => List (Tok op a) -> CoreSh (Tree op a)
 parseOps toks
     = do o <- newRef {t = List (Tree op a)} Out []
          shunt [] toks
