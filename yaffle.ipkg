@@ -12,11 +12,15 @@ modules
     Core.Context,
     Core.Context.Def,
     Core.FC,
+    Core.Options,
     Core.TT,
     Core.TT.Name,
     Core.TT.Namespace,
     Core.TT.RigCount,
     Core.TT.TT,
+
+    -- The input language and elaborator
+    TTImp.TTImp,
 
     -- Things we'd expect in a base library, but since this project is the
     -- core of everything, include them here for bootstrapping.

@@ -300,3 +300,23 @@ condC : List (CoreE err Bool, CoreE err a) -> CoreE err a -> CoreE err a
 condC [] def = def
 condC ((x, y) :: xs) def
     = if !x then y else condC xs def
+
+namespace Functor
+
+  export
+  [CORE] Functor (CoreE err) where
+    map = Core.map
+
+namespace Applicative
+
+  export
+  [CORE] Applicative (CoreE err) using Functor.CORE where
+    pure = Core.pure
+    (<*>) = Core.(<*>)
+
+namespace Monad
+
+  export
+  [CORE] Monad (CoreE err) using Applicative.CORE where
+    (>>=) = Core.(>>=)
+    join mma = Core.(>>=) mma id

@@ -10,12 +10,12 @@ module Core.Context.Def
 
 import Core.Binary
 import Core.Error
+import Core.Options
 import Core.TT
 
 import Data.IORef
+import Data.Maybe
 
-import Libraries.Text.PrettyPrint.Prettyprinter
-import Libraries.Text.PrettyPrint.Prettyprinter.Util
 import Libraries.Data.IntMap
 import Libraries.Data.IOArray
 import Libraries.Data.NameMap
@@ -27,8 +27,8 @@ record FnInfo where
   alwaysReduce : Bool -- Always reduce - typically for inlinable metavar sulutions
 
 public export
-record ConInfo where
-  constructor MkConInfo
+record DataConInfo where
+  constructor MkDataConInfo
   newTypeArg : Maybe (Bool, Nat)
                -- if it's the only constructor, and only one argument is
                -- non-Rig0, flag it here.
@@ -55,7 +55,7 @@ public export
 data Def : Type where
     None : Def -- Not yet defined
     Function : FnInfo -> Term [] -> Def -- normal function
-    DCon : ConInfo ->
+    DCon : DataConInfo ->
            (tag : Int) -> (arity : Nat) -> Def -- data constructor
     TCon : TyConInfo ->
            (tag : Int) -> (arity : Nat) -> Def -- type constructor
@@ -84,177 +84,8 @@ data Def : Type where
     Delayed : Def
 
 public export
-data Visibility = Private | Export | Public
-
-export
-Show Visibility where
-  show Private = "private"
-  show Export = "export"
-  show Public = "public export"
-
-export
-Pretty Visibility where
-  pretty Private = pretty "private"
-  pretty Export = pretty "export"
-  pretty Public = pretty "public" <+> pretty "export"
-
-export
-Eq Visibility where
-  Private == Private = True
-  Export == Export = True
-  Public == Public = True
-  _ == _ = False
-
-export
-Ord Visibility where
-  compare Private Export = LT
-  compare Private Public = LT
-  compare Export Public = LT
-
-  compare Private Private = EQ
-  compare Export Export = EQ
-  compare Public Public = EQ
-
-  compare Export Private = GT
-  compare Public Private = GT
-  compare Public Export = GT
-
-public export
-data TotalReq = Total | CoveringOnly | PartialOK
-
-export
-Eq TotalReq where
-    (==) Total Total = True
-    (==) CoveringOnly CoveringOnly = True
-    (==) PartialOK PartialOK = True
-    (==) _ _ = False
-
-||| Bigger means more requirements
-||| So if a definition was checked at b, it can be accepted at a <= b.
-export
-Ord TotalReq where
-  PartialOK <= _ = True
-  _ <= Total = True
-  a <= b = a == b
-
-  a < b = a <= b && a /= b
-
-export
-Show TotalReq where
-    show Total = "total"
-    show CoveringOnly = "covering"
-    show PartialOK = "partial"
-
-public export
-data PartialReason
-       = NotStrictlyPositive
-       | BadCall (List Name)
-       | RecPath (List Name)
-
-export
-Show PartialReason where
-  show NotStrictlyPositive = "not strictly positive"
-  show (BadCall [n])
-      = "possibly not terminating due to call to " ++ show n
-  show (BadCall ns)
-      = "possibly not terminating due to calls to " ++ showSep ", " (map show ns)
-  show (RecPath ns)
-      = "possibly not terminating due to recursive path " ++ showSep " -> " (map show ns)
-
-export
-Pretty PartialReason where
-  pretty NotStrictlyPositive = reflow "not strictly positive"
-  pretty (BadCall [n])
-    = reflow "possibly not terminating due to call to" <++> pretty n
-  pretty (BadCall ns)
-    = reflow "possibly not terminating due to calls to" <++> concatWith (surround (comma <+> space)) (pretty <$> ns)
-  pretty (RecPath ns)
-    = reflow "possibly not terminating due to recursive path" <++> concatWith (surround (pretty " -> ")) (pretty <$> ns)
-
-public export
-data Terminating
-       = Unchecked
-       | IsTerminating
-       | NotTerminating PartialReason
-
-export
-Show Terminating where
-  show Unchecked = "not yet checked"
-  show IsTerminating = "terminating"
-  show (NotTerminating p) = show p
-
-export
-Pretty Terminating where
-  pretty Unchecked = reflow "not yet checked"
-  pretty IsTerminating = pretty "terminating"
-  pretty (NotTerminating p) = pretty p
-
-public export
-data Covering
-       = IsCovering
-       | MissingCases (List (Term []))
-       | NonCoveringCall (List Name)
-
-export
-Show Covering where
-  show IsCovering = "covering"
-  show (MissingCases c) = "not covering all cases"
-  show (NonCoveringCall [f])
-     = "not covering due to call to function " ++ show f
-  show (NonCoveringCall cs)
-     = "not covering due to calls to functions " ++ showSep ", " (map show cs)
-
-export
-Pretty Covering where
-  pretty IsCovering = pretty "covering"
-  pretty (MissingCases c) = reflow "not covering all cases"
-  pretty (NonCoveringCall [f])
-     = reflow "not covering due to call to function" <++> pretty f
-  pretty (NonCoveringCall cs)
-     = reflow "not covering due to calls to functions" <++> concatWith (surround (comma <+> space)) (pretty <$> cs)
-
--- Totality status of a definition. We separate termination checking from
--- coverage checking.
-public export
-record Totality where
-     constructor MkTotality
-     isTerminating : Terminating
-     isCovering : Covering
-
-export
-Show Totality where
-  show tot
-    = let t = isTerminating tot
-          c = isCovering tot in
-        showTot t c
-    where
-      showTot : Terminating -> Covering -> String
-      showTot IsTerminating IsCovering = "total"
-      showTot IsTerminating c = show c
-      showTot t IsCovering = show t
-      showTot t c = show c ++ "; " ++ show t
-
-export
-Pretty Totality where
-  pretty (MkTotality IsTerminating IsCovering) = pretty "total"
-  pretty (MkTotality IsTerminating c) = pretty c
-  pretty (MkTotality t IsCovering) = pretty t
-  pretty (MkTotality t c) = pretty c <+> semi <++> pretty t
-
-export
-unchecked : Totality
-unchecked = MkTotality Unchecked IsCovering
-
-export
-isTotal : Totality
-isTotal = MkTotality Unchecked IsCovering
-
-export
-notCovering : Totality
-notCovering = MkTotality Unchecked (MissingCases [])
-
-public export
 record GlobalDef where
+  constructor MkGlobalDef
   location : FC
   fullname : Name -- original unresolved name
   type : Term []
@@ -504,3 +335,217 @@ lookupCtxtExactI n ctxt
     = do let Just idx = lookup n (resolvedAs ctxt)
                   | Nothing => pure Nothing
          lookupCtxtExactI (Resolved idx) ctxt
+
+export
+lookupCtxtExact : Name -> Context -> Core (Maybe GlobalDef)
+lookupCtxtExact (Resolved idx) ctxt
+    = case lookup idx (staging ctxt) of
+           Just res =>
+                do def <- decode ctxt idx True res
+                   pure $ map (\(_, def) => def) $
+                     returnDef (inlineOnly ctxt) idx def
+           Nothing =>
+              do arr <- get Arr @{content ctxt}
+                 Just res <- coreLift (readArray arr idx)
+                      | Nothing => pure Nothing
+                 def <- decode ctxt idx True res
+                 pure $ map (\(_, def) => def) $
+                   returnDef (inlineOnly ctxt) idx def
+lookupCtxtExact n ctxt
+    = do Just (i, def) <- lookupCtxtExactI n ctxt
+              | Nothing => pure Nothing
+         pure (Just def)
+
+export
+lookupContextEntry : Name -> Context -> Core (Maybe (Int, ContextEntry))
+lookupContextEntry (Resolved idx) ctxt
+    = case lookup idx (staging ctxt) of
+           Just res => pure (Just (idx, res))
+           Nothing =>
+              do let a = content ctxt
+                 arr <- get Arr
+                 Just res <- coreLift (readArray arr idx)
+                      | Nothing => pure Nothing
+                 pure (Just (idx, res))
+lookupContextEntry n ctxt
+    = do let Just idx = lookup n (resolvedAs ctxt)
+                  | Nothing => pure Nothing
+         lookupContextEntry (Resolved idx) ctxt
+
+||| Check if the given name has been hidden by the `%hide` directive.
+export
+isHidden : Name -> Context -> Bool
+isHidden fulln ctxt = isJust $ lookup fulln (hidden ctxt)
+
+||| Look up a possibly hidden name in the context. The first (boolean) argument
+||| controls whether names hidden by `%hide` are returned too (True=yes, False=no).
+export
+lookupCtxtName' : Bool -> Name -> Context -> Core (List (Name, Int, GlobalDef))
+lookupCtxtName' allowHidden n ctxt
+    = case userNameRoot n of
+           Nothing => do Just (i, res) <- lookupCtxtExactI n ctxt
+                              | Nothing => pure []
+                         pure [(n, i, res)]
+           Just r =>
+              do let Just ps = lookup r (possibles ctxt)
+                      | Nothing => pure []
+                 lookupPossibles [] ps
+  where
+
+    resn : (Name, Int, GlobalDef) -> Int
+    resn (_, i, _) = i
+
+    hlookup : Name -> NameMap () -> Maybe ()
+    hlookup fulln hiddens = if allowHidden
+      then Nothing
+      else lookup fulln hiddens
+
+    lookupPossibles : List (Name, Int, GlobalDef) -> -- accumulator
+                      List PossibleName ->
+                      Core (List (Name, Int, GlobalDef))
+    lookupPossibles acc [] = pure (reverse acc)
+    lookupPossibles acc (Direct fulln i :: ps)
+       = case (hlookup fulln (hidden ctxt)) of
+              Nothing =>
+                do Just res <- lookupCtxtExact (Resolved i) ctxt
+                        | Nothing => lookupPossibles acc ps
+                   if matches n fulln && not (i `elem` map resn acc)
+                      then lookupPossibles ((fulln, i, res) :: acc) ps
+                      else lookupPossibles acc ps
+              _ => lookupPossibles acc ps
+    lookupPossibles acc (Alias asn fulln i :: ps)
+       = case (hlookup fulln (hidden ctxt)) of
+              Nothing =>
+                do Just res <- lookupCtxtExact (Resolved i) ctxt
+                        | Nothing => lookupPossibles acc ps
+                   if (matches n asn) && not (i `elem` map resn acc)
+                      then lookupPossibles ((fulln, i, res) :: acc) ps
+                      else lookupPossibles acc ps
+              _ => lookupPossibles acc ps
+
+||| Look up a name in the context, ignoring names hidden by `%hide`.
+export
+lookupCtxtName : Name -> Context -> Core (List (Name, Int, GlobalDef))
+lookupCtxtName = lookupCtxtName' False
+
+||| Look up a (possible hidden) name in the context.
+export
+lookupHiddenCtxtName : Name -> Context -> Core (List (Name, Int, GlobalDef))
+lookupHiddenCtxtName = lookupCtxtName' True
+
+hideName : Name -> Context -> Context
+hideName n ctxt = { hidden $= insert n () } ctxt
+
+unhideName : Name -> Context -> Context
+unhideName n ctxt = { hidden $= delete n } ctxt
+
+branchCtxt : Context -> Core Context
+branchCtxt ctxt = pure ({ branchDepth $= S } ctxt)
+
+commitCtxt : Context -> Core Context
+commitCtxt ctxt
+    = case branchDepth ctxt of
+           Z => pure ctxt
+           S Z => -- add all the things from 'staging' to the real array
+                  do let a = content ctxt
+                     arr <- get Arr
+                     coreLift $ commitStaged (toList (staging ctxt)) arr
+                     pure ({ staging := empty,
+                             branchDepth := Z } ctxt)
+           S k => pure ({ branchDepth := k } ctxt)
+  where
+    -- We know the array must be big enough, because it will have been resized
+    -- if necessary in the branch to fit the index we've been given here
+    commitStaged : List (Int, ContextEntry) -> IOArray ContextEntry -> IO ()
+    commitStaged [] arr = pure ()
+    commitStaged ((idx, val) :: rest) arr
+        = do writeArray arr idx val
+             commitStaged rest arr
+
+export
+newDef : FC -> Name -> RigCount -> List Name ->
+         Term [] -> Visibility -> Def -> GlobalDef
+newDef fc n rig vars ty vis def
+    = MkGlobalDef
+        { location = fc
+        , fullname = n
+        , type = ty
+        , definition = def
+        , visibility = vis
+        , totality = unchecked
+        , multiplicity = rig
+        }
+
+public export
+record Defs where
+  constructor MkDefs
+  gamma : Context
+  currentNS : Namespace -- namespace for current definitions
+  nestedNS : List Namespace -- other nested namespaces we can look in
+  options : Options
+  toSave : NameMap ()
+  nextTag : Int
+  typeHints : NameMap (List (Name, Bool))
+     -- ^ a mapping from type names to hints (and a flag setting whether it's
+     -- a "direct" hint). Direct hints are searched first (as part of a group)
+     -- the indirect hints. Indirect hints, in practice, are used to find
+     -- instances of parent interfaces, and we don't search these until we've
+     -- tried to find a direct result via a constructor or a top level hint.
+  autoHints : NameMap Bool
+     -- ^ global search hints. A mapping from the hint name, to whether it is
+     -- a "default hint". A default hint is used only if all other attempts
+     -- to search fail (this flag is really only intended as a mechanism
+     -- for defaulting of literals)
+  openHints : NameMap ()
+     -- ^ currently open global hints; just for the rest of this module (not exported)
+     -- and prioritised
+  localHints : NameMap ()
+     -- ^ Hints defined in the current environment
+  saveTypeHints : List (Name, Name, Bool)
+     -- We don't look up anything in here, it's merely for saving out to TTC.
+     -- We save the hints in the 'GlobalDef' itself for faster lookup.
+  saveAutoHints : List (Name, Bool)
+  namedirectives : NameMap (List String)
+  ifaceHash : Int
+  importHashes : List (Namespace, Int)
+     -- ^ interface hashes of imported modules
+  imported : List (ModuleIdent, Bool, Namespace)
+     -- ^ imported modules, whether to rexport, as namespace
+  allImported : List (String, (ModuleIdent, Bool, Namespace))
+     -- ^ all imported filenames/namespaces, just to avoid loading something
+     -- twice unnecessarily (this is a record of all the things we've
+     -- called 'readFromTTC' with, in practice)
+  userHoles : NameMap Bool
+     -- ^ Metavariables the user still has to fill in. In practice, that's
+     -- everything with a user accessible name and a definition of Hole.
+     -- The Bool says whether it was introduced in another module.
+
+-- Label for context references
+export
+data Ctxt : Type where
+
+export
+initDefs : Core Defs
+initDefs
+    = do gam <- initCtxt
+         opts <- defaults
+         pure $ MkDefs
+           { gamma = gam
+           , currentNS = mainNS
+           , nestedNS = []
+           , options = opts
+           , toSave = empty
+           , nextTag = 100
+           , typeHints = empty
+           , autoHints = empty
+           , openHints = empty
+           , localHints = empty
+           , saveTypeHints = []
+           , saveAutoHints = []
+           , namedirectives = empty
+           , ifaceHash = 5381
+           , importHashes = []
+           , imported = []
+           , allImported = []
+           , userHoles = empty
+           }
