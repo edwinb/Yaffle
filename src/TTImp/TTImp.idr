@@ -253,13 +253,14 @@ data ImpDecl' : Type -> Type where
      INamespace : FC -> Namespace -> List (ImpDecl' nm) -> ImpDecl' nm
      ITransform : FC -> Name -> RawImp' nm -> RawImp' nm -> ImpDecl' nm
      IRunElabDecl : FC -> RawImp' nm -> ImpDecl' nm
+     -- TODO: Put it back when we've worked out what an Env is!
 --      IPragma : List Name -> -- pragmas might define names that wouldn't
 --                      -- otherwise be spotted in 'definedInBlock' so they
 --                      -- can be flagged here.
 --                ({vars : _} -> Env Term vars -> Core ()) ->
 --                ImpDecl' nm
      ILog : Maybe (List String, Nat) -> ImpDecl' nm
---      IBuiltin : FC -> BuiltinType -> Name -> ImpDecl' nm
+     IBuiltin : FC -> BuiltinType -> Name -> ImpDecl' nm
 
 public export
 data IField' : Type -> Type where
@@ -462,4 +463,4 @@ mutual
     show (ILog (Just (topic, lvl))) = "%logging " ++ case topic of
       [] => show lvl
       _  => concat (intersperse "." topic) ++ " " ++ show lvl
-  --   show (IBuiltin _ type name) = "%builtin " ++ show type ++ " " ++ show name
+    show (IBuiltin _ type name) = "%builtin " ++ show type ++ " " ++ show name

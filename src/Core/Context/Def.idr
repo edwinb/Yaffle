@@ -476,6 +476,20 @@ newDef fc n rig vars ty vis def
         , multiplicity = rig
         }
 
+||| Types that are transformed into a faster representation
+||| during codegen.
+public export
+data BuiltinType : Type where
+    BuiltinNatural : BuiltinType
+    NaturalToInteger : BuiltinType
+    IntegerToNatural : BuiltinType
+
+export
+Show BuiltinType where
+    show BuiltinNatural = "Natural"
+    show NaturalToInteger = "NaturalToInteger"
+    show IntegerToNatural = "IntegerToNatural"
+
 public export
 record Defs where
   constructor MkDefs
