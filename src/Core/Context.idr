@@ -4,6 +4,7 @@ import Core.CompileExpr
 import Core.Error
 import Core.TT
 import public Core.Context.Def
+import public Core.Context.Ctxt
 
 import Data.Either
 import Data.List

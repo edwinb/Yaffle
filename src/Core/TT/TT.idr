@@ -20,31 +20,192 @@ data NameType : Type where
 
 public export
 data Constant =
-       I Integer
-     | Str String
-     | Ch Char
-     | Db Double
-     | WorldVal
+      I Int
+    | I8  Int8
+    | I16 Int16
+    | I32 Int32
+    | I64 Int64
+    | BI  Integer
+    | B8  Bits8
+    | B16 Bits16
+    | B32 Bits32
+    | B64 Bits64
 
-     | IntegerType
-     | StringType
-     | CharType
-     | DoubleType
-     | WorldType
+    | Str String
+    | Ch Char
+    | Db Double
+    | WorldVal
+
+    | IntType
+    | Int8Type
+    | Int16Type
+    | Int32Type
+    | Int64Type
+    | IntegerType
+    | Bits8Type
+    | Bits16Type
+    | Bits32Type
+    | Bits64Type
+
+    | StringType
+    | CharType
+    | DoubleType
+    | WorldType
 
 export
 Show Constant where
   show (I x) = show x
+  show (I8 x) = show x
+  show (I16 x) = show x
+  show (I32 x) = show x
+  show (I64 x) = show x
+  show (BI x) = show x
+  show (B8 x) = show x
+  show (B16 x) = show x
+  show (B32 x) = show x
+  show (B64 x) = show x
   show (Str x) = show x
   show (Ch x) = show x
   show (Db x) = show x
   show WorldVal = "%MkWorld"
-
+  show IntType = "Int"
+  show Int8Type = "Int8"
+  show Int16Type = "Int16"
+  show Int32Type = "Int32"
+  show Int64Type = "Int64"
   show IntegerType = "Integer"
+  show Bits8Type = "Bits8"
+  show Bits16Type = "Bits16"
+  show Bits32Type = "Bits32"
+  show Bits64Type = "Bits64"
   show StringType = "String"
   show CharType = "Char"
   show DoubleType = "Double"
   show WorldType = "%World"
+
+export
+Pretty Constant where
+  pretty (I x) = pretty x
+  pretty (I8 x) = pretty x
+  pretty (I16 x) = pretty x
+  pretty (I32 x) = pretty x
+  pretty (I64 x) = pretty x
+  pretty (BI x) = pretty x
+  pretty (B8 x) = pretty x
+  pretty (B16 x) = pretty x
+  pretty (B32 x) = pretty x
+  pretty (B64 x) = pretty x
+  pretty (Str x) = dquotes (pretty x)
+  pretty (Ch x) = squotes (pretty x)
+  pretty (Db x) = pretty x
+  pretty WorldVal = pretty "%MkWorld"
+  pretty IntType = pretty "Int"
+  pretty Int8Type = pretty "Int8"
+  pretty Int16Type = pretty "Int16"
+  pretty Int32Type = pretty "Int32"
+  pretty Int64Type = pretty "Int64"
+  pretty IntegerType = pretty "Integer"
+  pretty Bits8Type = pretty "Bits8"
+  pretty Bits16Type = pretty "Bits16"
+  pretty Bits32Type = pretty "Bits32"
+  pretty Bits64Type = pretty "Bits64"
+  pretty StringType = pretty "String"
+  pretty CharType = pretty "Char"
+  pretty DoubleType = pretty "Double"
+  pretty WorldType = pretty "%World"
+
+export
+Eq Constant where
+  (I x) == (I y) = x == y
+  (I8 x) == (I8 y) = x == y
+  (I16 x) == (I16 y) = x == y
+  (I32 x) == (I32 y) = x == y
+  (I64 x) == (I64 y) = x == y
+  (BI x) == (BI y) = x == y
+  (B8 x) == (B8 y) = x == y
+  (B16 x) == (B16 y) = x == y
+  (B32 x) == (B32 y) = x == y
+  (B64 x) == (B64 y) = x == y
+  (Str x) == (Str y) = x == y
+  (Ch x) == (Ch y) = x == y
+  (Db x) == (Db y) = x == y
+  WorldVal == WorldVal = True
+  IntType == IntType = True
+  Int8Type == Int8Type = True
+  Int16Type == Int16Type = True
+  Int32Type == Int32Type = True
+  Int64Type == Int64Type = True
+  IntegerType == IntegerType = True
+  Bits8Type == Bits8Type = True
+  Bits16Type == Bits16Type = True
+  Bits32Type == Bits32Type = True
+  Bits64Type == Bits64Type = True
+  StringType == StringType = True
+  CharType == CharType = True
+  DoubleType == DoubleType = True
+  WorldType == WorldType = True
+  _ == _ = False
+
+-- for typecase
+export
+constTag : Constant -> Int
+-- 1 = ->, 2 = Type
+constTag IntType = 3
+constTag IntegerType = 4
+constTag Bits8Type = 5
+constTag Bits16Type = 6
+constTag Bits32Type = 7
+constTag Bits64Type = 8
+constTag StringType = 9
+constTag CharType = 10
+constTag DoubleType = 11
+constTag WorldType = 12
+constTag Int8Type = 13
+constTag Int16Type = 14
+constTag Int32Type = 15
+constTag Int64Type = 16
+constTag _ = 0
+
+||| Precision of integral types.
+public export
+data Precision = P Int | Unlimited
+
+export
+Eq Precision where
+  (P m) == (P n)         = m == n
+  Unlimited == Unlimited = True
+  _         == _         = False
+
+export
+Ord Precision where
+  compare (P m) (P n)         = compare m n
+  compare Unlimited Unlimited = EQ
+  compare Unlimited _         = GT
+  compare _         Unlimited = LT
+
+-- so far, we only support limited precision
+-- unsigned integers
+public export
+data IntKind = Signed Precision | Unsigned Int
+
+public export
+intKind : Constant -> Maybe IntKind
+intKind IntegerType = Just $ Signed Unlimited
+intKind Int8Type    = Just . Signed   $ P 8
+intKind Int16Type   = Just . Signed   $ P 16
+intKind Int32Type   = Just . Signed   $ P 32
+intKind Int64Type   = Just . Signed   $ P 64
+intKind IntType     = Just . Signed   $ P 64
+intKind Bits8Type   = Just $ Unsigned 8
+intKind Bits16Type  = Just $ Unsigned 16
+intKind Bits32Type  = Just $ Unsigned 32
+intKind Bits64Type  = Just $ Unsigned 64
+intKind _           = Nothing
+
+public export
+precision : IntKind -> Precision
+precision (Signed p)   = p
+precision (Unsigned p) = P p
 
 -- All the internal operators, parameterised by their arity
 public export
@@ -167,6 +328,9 @@ export
 Eq t => Eq (PiInfo t) where
   (==) = eqPiInfoBy (==)
 
+-- Perhaps The 'RigCount' should be first class, and therefore 'type'?
+-- We can revisit this later without too many drastic changes (as long as
+-- we don't revisit it *too much* later)
 public export
 data Binder : Type -> Type where
      -- Lambda bound variables with their implicitness
@@ -221,8 +385,7 @@ data PatternClause : List Name -> Type
 -- indexed by the names of local variables in scope
 public export
 data Term : List Name -> Type where
-     Local : FC -> (isLet : Maybe Bool) ->
-             (idx : Nat) -> (0 p : IsVar name idx vars) -> Term vars
+     Local : FC -> (idx : Nat) -> (0 p : IsVar name idx vars) -> Term vars
      Ref : FC -> NameType -> (name : Name) -> Term vars
      -- Metavariables and the scope they are applied to
      Meta : FC -> Name -> Int -> List (Term vars) -> Term vars
