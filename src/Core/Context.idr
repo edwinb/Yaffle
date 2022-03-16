@@ -2,6 +2,7 @@ module Core.Context
 
 import Core.CompileExpr
 import Core.Error
+import Core.Options
 import Core.TT
 import public Core.Context.Def
 import public Core.Context.Ctxt
@@ -15,6 +16,8 @@ import Data.Nat
 import Libraries.Data.NameMap
 import Libraries.Data.UserNameMap
 import Libraries.Text.Distance.Levenshtein
+
+import System.Directory
 
 getVisibility : {auto c : Ref Ctxt Defs} ->
                 FC -> Name -> Core Visibility
@@ -182,3 +185,86 @@ parameters {auto c : Ref Ctxt Defs}
                then pure as
                else findAlias ps
       findAlias (_ :: ps) = findAlias ps
+
+-- Dealing with various options
+
+  export
+  getSession : CoreE err Session
+  getSession
+      = do defs <- get Ctxt
+           pure (session (options defs))
+
+  export
+  setSession : Session -> CoreE err ()
+  setSession sopts = update Ctxt { options->session := sopts }
+
+  export
+  updateSession : (Session -> Session) -> CoreE err ()
+  updateSession f = setSession (f !getSession)
+
+  export
+  getDirs : CoreE err Dirs
+  getDirs
+      = do defs <- get Ctxt
+           pure (dirs (options defs))
+
+  export
+  addExtraDir : String -> CoreE err ()
+  addExtraDir dir = update Ctxt { options->dirs->extra_dirs $= (++ [dir]) }
+
+  export
+  addPackageDir : String -> CoreE err ()
+  addPackageDir dir = update Ctxt { options->dirs->package_dirs $= (++ [dir]) }
+
+  export
+  addDataDir : String -> CoreE err ()
+  addDataDir dir = update Ctxt { options->dirs->data_dirs $= (++ [dir]) }
+
+  export
+  addLibDir : String -> CoreE err ()
+  addLibDir dir = update Ctxt { options->dirs->lib_dirs $= (++ [dir]) }
+
+  export
+  setBuildDir : String -> CoreE err ()
+  setBuildDir dir = update Ctxt { options->dirs->build_dir := dir }
+
+  export
+  setDependsDir : String -> CoreE err ()
+  setDependsDir dir = update Ctxt { options->dirs->depends_dir := dir }
+
+  export
+  setOutputDir : Maybe String -> CoreE err ()
+  setOutputDir dir = update Ctxt { options->dirs->output_dir := dir }
+
+  export
+  setSourceDir : Maybe String -> CoreE err ()
+  setSourceDir mdir = update Ctxt { options->dirs->source_dir := mdir }
+
+  export
+  setWorkingDir : String -> CoreFile ()
+  setWorkingDir dir
+      = do coreLift_ $ changeDir dir
+           Just cdir <- coreLift $ currentDir
+                | Nothing => throw (TTFileErr "Can't get current directory")
+           update Ctxt { options->dirs->working_dir := cdir }
+
+  export
+  getWorkingDir : CoreFile String
+  getWorkingDir
+      = do Just d <- coreLift $ currentDir
+                | Nothing => throw (TTFileErr "Can't get current directory")
+           pure d
+
+  export
+  toFullNames : HasNames a =>
+                a -> CoreE err a
+  toFullNames t
+      = do defs <- get Ctxt
+           full (gamma defs) t
+
+  export
+  toResolvedNames : HasNames a =>
+                    a -> CoreE err a
+  toResolvedNames t
+      = do defs <- get Ctxt
+           resolved (gamma defs) t

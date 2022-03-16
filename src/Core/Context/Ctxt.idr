@@ -217,8 +217,8 @@ getContent = content
 -- define the basic implementations for core terms and definitions here.
 public export
 interface HasNames a where
-  full : Context -> a -> Core a
-  resolved : Context -> a -> Core a
+  full : Context -> a -> CoreE err a
+  resolved : Context -> a -> CoreE err a
 
 export
 HasNames Name where
@@ -240,6 +240,11 @@ export
 HasNames GlobalDef where
   full ctxt def = ?todo_hasnames1
   resolved ctxt def = ?todo_hasnames2
+
+export
+HasNames (Term vars) where
+  full ctxt def = ?todo_hasnamesterm1
+  resolved ctxt def = ?todo_hasnamesterm2
 
 decode : Context -> Int -> (update : Bool) -> ContextEntry ->
          Core GlobalDef

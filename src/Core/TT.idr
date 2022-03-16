@@ -276,3 +276,7 @@ addVars : SizeOf outer -> Bounds bound ->
           NVar name (outer ++ vars) ->
           NVar name (outer ++ (bound ++ vars))
 addVars p = insertNVarNames p . sizeOf
+
+export
+{vars : _} -> Show (Term vars) where
+  show tm = ?todo_showtm
