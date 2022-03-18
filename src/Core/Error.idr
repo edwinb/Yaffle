@@ -14,6 +14,12 @@ data TFileError : Type where
      SystemFileErr : String -> FileError -> TFileError
      TTFileErr : String -> TFileError
 
+export
+Show TFileError where
+  show (SystemFileErr fname ferr)
+      = show fname ++ ":" ++ show ferr
+  show (TTFileErr str) = str
+
 public export
 data Error : Type where
      UndefinedName : FC -> Name -> Error

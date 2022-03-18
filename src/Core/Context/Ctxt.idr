@@ -486,6 +486,7 @@ record Defs where
      -- ^ Metavariables the user still has to fill in. In practice, that's
      -- everything with a user accessible name and a definition of Hole.
      -- The Bool says whether it was introduced in another module.
+  schemeEvalLoaded : Bool
 
 -- Label for context references
 export
@@ -515,4 +516,5 @@ initDefs
            , imported = []
            , allImported = []
            , userHoles = empty
+           , schemeEvalLoaded = False
            }
