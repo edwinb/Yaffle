@@ -10,6 +10,7 @@ module Core.Context.Ctxt
 import Core.Binary
 import public Core.Context.Def
 import Core.Error
+import Core.Hash
 import Core.Options
 import Core.TT
 
@@ -170,6 +171,7 @@ getPosition n ctxt
               do pure (idx, ctxt)
            Nothing => newEntry n ctxt
 
+export
 newAlias : Name -> Name -> Context -> CoreE err Context
 newAlias alias full ctxt
     = do (idx, ctxt) <- getPosition full ctxt
@@ -235,6 +237,11 @@ HasNames Name where
       = do let Just i = getNameID n gam
                     | Nothing => pure n
            pure (Resolved i)
+
+export
+HasNames Def where
+  full ctxt def = ?todo_hasnamesdef1
+  resolved ctxt def = ?todo_hasnamesdef2
 
 export
 HasNames GlobalDef where
@@ -518,3 +525,77 @@ initDefs
            , userHoles = empty
            , schemeEvalLoaded = False
            }
+
+parameters {auto c : Ref Ctxt Defs}
+
+  -- Beware: if your hashable thing contains (potentially resolved) names,
+  -- it'll be better to use addHashWithNames to make the hash independent
+  -- of the internal numbering of names.
+  export
+  addHash : Hashable a => a -> CoreE err ()
+  addHash x = update Ctxt { ifaceHash $= flip hashWithSalt x }
+
+  export
+  initHash : CoreE err ()
+  initHash = update Ctxt { ifaceHash := 5381 }
+
+  export
+  addUserHole : Bool -> -- defined in another module?
+                Name -> -- hole name
+                CoreE err ()
+  addUserHole ext n = update Ctxt { userHoles $= insert n ext }
+
+  export
+  clearUserHole : Name -> CoreE err ()
+  clearUserHole n = update Ctxt { userHoles $= delete n }
+
+  export
+  getUserHoles : Core (List Name)
+  getUserHoles
+      = do defs <- get Ctxt
+           let hs = sort (keys (userHoles defs))
+           filterM (isHole defs) hs
+    where
+      -- If a hole is declared in one file and defined in another, its
+      -- name won't have been cleared unless we've already looked up its
+      -- definition (as addDef needs to be called to clear it). So here
+      -- check that it's really a hole
+      isHole : Defs -> Name -> Core Bool
+      isHole defs n
+          = do Just def <- lookupCtxtExact n (gamma defs)
+                    | Nothing => pure True
+               pure $ case definition def of
+                    None => True
+                    Hole _ => True
+                    _ => False
+
+  export
+  addDef : Name -> GlobalDef -> CoreE err Int
+  addDef n def
+      = do defs <- get Ctxt
+           (idx, gam') <- addCtxt n def (gamma defs)
+           put Ctxt ({ gamma := gam' } defs)
+           case definition def of
+                None => pure ()
+                Hole _ => pure ()
+                _ => clearUserHole (fullname def)
+           pure idx
+
+  export
+  addContextEntry : Ref STable (IntMap String) =>
+                    Name -> Binary -> CoreE err Int
+  addContextEntry n def
+      = do defs <- get Ctxt
+           smap <- get STable
+           (idx, gam') <- addEntry n (Coded smap n def) (gamma defs)
+           put Ctxt ({ gamma := gam' } defs)
+           pure idx
+
+  export
+  addContextAlias : Name -> Name -> Core ()
+  addContextAlias alias full
+      = do defs <- get Ctxt
+           Nothing <- lookupCtxtExact alias (gamma defs)
+               | _ => pure () -- Don't add the alias if the name exists already
+           gam' <- newAlias alias full (gamma defs)
+           put Ctxt ({ gamma := gam' } defs)

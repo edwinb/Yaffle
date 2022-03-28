@@ -268,3 +268,12 @@ parameters {auto c : Ref Ctxt Defs}
   toResolvedNames t
       = do defs <- get Ctxt
            resolved (gamma defs) t
+
+reducibleIn : Namespace -> Name -> Visibility -> Bool
+reducibleIn nspace (NS ns (UN n)) Export = isParentOf ns nspace
+reducibleIn nspace (NS ns (UN n)) Private = isParentOf ns nspace
+reducibleIn nspace n _ = True
+
+export
+reducibleInAny : List Namespace -> Name -> Visibility -> Bool
+reducibleInAny nss n vis = any (\ns => reducibleIn ns n vis) nss

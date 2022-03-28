@@ -11,7 +11,7 @@ import public Libraries.Utils.Binary
 ||| (Increment this when changing anything in the data format)
 export
 ttcVersion : Int
-ttcVersion = 100
+ttcVersion = 0
 
 ||| Get a file's modified time. If it doesn't exist, return 0 (UNIX Epoch)
 export

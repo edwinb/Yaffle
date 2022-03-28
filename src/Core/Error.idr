@@ -26,6 +26,7 @@ data Error : Type where
      MaybeMisspelling : Error -> List1 String -> Error
      ModuleNotFound : FC -> ModuleIdent -> Error
      UserError : String -> Error
+     InternalError : String -> Error
      TTCErr : TTCError -> Error
      FileErr : TFileError -> Error
 
