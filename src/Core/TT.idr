@@ -281,6 +281,15 @@ export
 Weaken Term where
   weakenNs = ?foo
 
+-- Build a simple function type
+export
+fnType : {vars : _} -> FC -> Term vars -> Term vars -> Term vars
+fnType fc arg scope = Bind emptyFC (MN "_" 0) (Pi fc top Explicit arg) (weaken scope)
+
+export
+linFnType : {vars : _} -> FC -> Term vars -> Term vars -> Term vars
+linFnType fc arg scope = Bind emptyFC (MN "_" 0) (Pi fc linear Explicit arg) (weaken scope)
+
 export
 embed : Term vars -> Term (vars ++ more)
 embed tm = believe_me tm
