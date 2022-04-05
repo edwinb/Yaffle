@@ -278,5 +278,13 @@ addVars : SizeOf outer -> Bounds bound ->
 addVars p = insertNVarNames p . sizeOf
 
 export
+Weaken Term where
+  weakenNs = ?foo
+
+export
+embed : Term vars -> Term (vars ++ more)
+embed tm = believe_me tm
+
+export
 {vars : _} -> Show (Term vars) where
   show tm = ?todo_showtm

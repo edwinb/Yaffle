@@ -48,6 +48,8 @@ data Def : Type where
            Def
     BySearch : RigCount -> (maxdepth : Nat) -> (defining : Name) -> Def
          -- ^ a name which will be found via auto-search
+    -- A 'Guess' is a term which will only be well typed if the unification
+    -- constraints are solved. It's promoted into a 'Function' when they are.
     -- Constraints are integer references into the current map of
     -- constraints in the UnifyState (see Core.UnifyState)
     Guess : (guess : Term []) ->
@@ -60,7 +62,6 @@ data Def : Type where
                  List String -> -- supported calling conventions,
                                 -- e.g "C:printf,libc,stdlib.h", "scheme:display", ...
                  Def
-    Builtin : {arity : Nat} -> PrimFn arity -> Def -- primitive
     ImpBind : Def -- global name temporarily standing for an implicitly bound name
     UniverseLevel : Integer -> Def -- a name standing for a universe level in a Type
     -- A delayed elaboration. The elaborators themselves are stored in the

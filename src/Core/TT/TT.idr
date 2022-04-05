@@ -4,12 +4,13 @@ import public Core.FC
 import public Core.TT.Name
 import public Core.TT.RigCount
 
+import Data.Vect
 import Libraries.Text.PrettyPrint.Prettyprinter
 import Libraries.Text.PrettyPrint.Prettyprinter.Util
 
 public export
 Tag : Type
-Tag = Integer
+Tag = Int
 
 public export
 data NameType : Type where
@@ -350,6 +351,36 @@ data Binder : Type -> Type where
      -- the type of pattern bound variables
      PVTy : FC -> RigCount -> (ty : type) -> Binder type
 
+export
+Functor PiInfo where
+  map func Explicit = Explicit
+  map func Implicit = Implicit
+  map func AutoImplicit = AutoImplicit
+  map func (DefImplicit t) = (DefImplicit (func t))
+
+export
+Foldable PiInfo where
+  foldr f acc Implicit = acc
+  foldr f acc Explicit = acc
+  foldr f acc AutoImplicit = acc
+  foldr f acc (DefImplicit x) = f x acc
+
+export
+Traversable PiInfo where
+  traverse f Implicit = pure Implicit
+  traverse f Explicit = pure Explicit
+  traverse f AutoImplicit = pure AutoImplicit
+  traverse f (DefImplicit x) = map DefImplicit (f x)
+
+export
+Functor Binder where
+  map func (Lam fc c x ty) = Lam fc c (map func x) (func ty)
+  map func (Let fc c val ty) = Let fc c (func val) (func ty)
+  map func (Pi fc c x ty) = Pi fc c (map func x) (func ty)
+  map func (PVar fc c p ty) = PVar fc c (map func p) (func ty)
+  map func (PLet fc c val ty) = PLet fc c (func val) (func ty)
+  map func (PVTy fc c ty) = PVTy fc c (func ty)
+
 public export
 data IsVar : Name -> Nat -> List Name -> Type where
      First : IsVar n Z (n :: ns)
@@ -370,10 +401,6 @@ data AsName : List Name -> Type where
      -- not yet resolved name
      AsRef : FC -> Name -> AsName vars
 
--- Terms use case-trees, case-trees refer to terms, so forward declare
-public export
-data CaseTree : List Name -> Type
-
 public export
 data CaseAlt : List Name -> Type
 
@@ -385,7 +412,8 @@ data PatternClause : List Name -> Type
 -- indexed by the names of local variables in scope
 public export
 data Term : List Name -> Type where
-     Local : FC -> (idx : Nat) -> (0 p : IsVar name idx vars) -> Term vars
+     Local : FC -> Maybe Bool -> -- Is it a let bound local?
+             (idx : Nat) -> (0 p : IsVar name idx vars) -> Term vars
      Ref : FC -> NameType -> (name : Name) -> Term vars
      -- Metavariables and the scope they are applied to
      Meta : FC -> Name -> Int -> List (Term vars) -> Term vars
@@ -396,51 +424,43 @@ data Term : List Name -> Type where
      -- As patterns, including whether (in a linear setting) it's the name
      -- or the pattern that is consumed
      As : FC -> UseSide -> (as : AsName vars) -> (pat : Term vars) -> Term vars
-     Case : FC -> CaseTree vars -> Term vars
-
+     Case : FC -> (sc : Term vars) -> (scTy : Term vars) ->
+            List (CaseAlt vars) ->
+            Term vars
      -- Typed laziness annotations
      TDelayed : FC -> LazyReason -> Term vars -> Term vars
      TDelay : FC -> LazyReason -> (ty : Term vars) -> (arg : Term vars) -> Term vars
      TForce : FC -> LazyReason -> Term vars -> Term vars
      PrimVal : FC -> (c : Constant) -> Term vars
+     PrimOp : FC -> PrimFn arity -> Vect arity (Term vars) -> Term vars
      Erased : FC -> (imp : Bool) -> -- True == impossible term, for coverage checker
               Term vars
+     Unmatched : FC -> String -> Term vars -- error from a partialmatch
+     Impossible : FC -> Term vars --impossible case
      TType : FC -> Name -> -- universe variable
              Term vars
 
-||| Case trees in A-normal forms
-||| i.e. we may only dispatch on variables, not expressions
+-- Scope of a case expression - bind the arguments one by one, as this makes
+-- more sense during evaluation and is consistent with the way we bind
+-- arguments in 'Bind'.
 public export
-data CaseTree : List Name -> Type where
-     ||| case x return scTy of { p1 => e1 ; ... }
-     Switch : {name : _} ->
-              (idx : Nat) ->
-              (0 p : IsVar name idx vars) ->
-              (scTy : Term vars) -> List (CaseAlt vars) ->
-              CaseTree vars
-     ||| RHS: no need for further inspection
-     ||| The Int is a clause id that allows us to see which of the
-     ||| initial clauses are reached in the tree
-     STerm : Int -> Term vars -> CaseTree vars
-     ||| error from a partial match
-     Unmatched : (msg : String) -> CaseTree vars
-     ||| Absurd context
-     Impossible : CaseTree vars
+data CaseScope : List Name -> Type where
+     RHS : Term vars -> CaseScope vars
+     Arg : (x : Name) -> CaseScope (x :: vars) -> CaseScope vars
 
 ||| Case alternatives. Unlike arbitrary patterns, they can be at most
 ||| one constructor deep.
 public export
 data CaseAlt : List Name -> Type where
      ||| Constructor for a data type; bind the arguments and subterms.
-     ConCase : Name -> (tag : Int) -> (args : List Name) ->
-               CaseTree (args ++ vars) -> CaseAlt vars
+     ConCase : Name -> (tag : Int) -> CaseScope vars -> CaseAlt vars
      ||| Lazy match for the Delay type use for codata types
      DelayCase : (ty : Name) -> (arg : Name) ->
-                 CaseTree (ty :: arg :: vars) -> CaseAlt vars
+                 Term (ty :: arg :: vars) -> CaseAlt vars
      ||| Match against a literal
-     ConstCase : Constant -> CaseTree vars -> CaseAlt vars
+     ConstCase : Constant -> Term vars -> CaseAlt vars
      ||| Catch-all case
-     DefaultCase : CaseTree vars -> CaseAlt vars
+     DefaultCase : Term vars -> CaseAlt vars
 
 public export
 data Visibility = Private | Export | Public
