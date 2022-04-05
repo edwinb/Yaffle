@@ -5,6 +5,7 @@ import Core.Core
 import Core.Env
 import Core.Error
 import Core.Evaluate.Value
+import Core.Primitives
 import Core.TT
 
 import Data.List
@@ -89,8 +90,12 @@ mkEnv {vars} ext = rewrite sym (appendNilRightNeutral ns) in go ext []
         = rewrite sym (appendAssociative xs [x] rest) in
                   go ext (val :: locs)
 
-runOp : FC -> PrimFn arity -> Vect arity (Value vars) -> Value vars
-runOp fc op args = VPrimOp fc op args -- TODO when we've got primitives added
+runOp : {vars : _} ->
+        FC -> PrimFn arity -> Vect arity (Value vars) -> Value vars
+runOp fc op args
+    = case getOp op args of
+           Just res => res
+           Nothing => VPrimOp fc op args
 
 parameters {auto c : Ref Ctxt Defs}
 
