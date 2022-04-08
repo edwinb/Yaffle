@@ -28,8 +28,8 @@ apply fc (VMeta mfc n i sc spine go) arg
               Just <$> apply fc go' arg
 apply fc (VDCon dfc n t a spine) arg
     = pure $ VDCon dfc n t a (spine :< (fc, arg))
-apply fc (VTCon tfc n t a spine) arg
-    = pure $ VTCon tfc n t a (spine :< (fc, arg))
+apply fc (VTCon tfc n a spine) arg
+    = pure $ VTCon tfc n a (spine :< (fc, arg))
 apply fc (VAs _ _ _ pat) arg
     = apply fc pat arg -- doesn't really make sense to keep the name
 apply fc (VForce ffc r v spine) arg
@@ -68,6 +68,7 @@ applyAll fc f (x :: xs)
     = do f' <- apply fc f x
          applyAll fc f' xs
 
+public export
 data LocalEnv : List Name -> List Name -> Type where
      Nil : LocalEnv [] vars
      (::) : Value vars -> LocalEnv free vars -> LocalEnv (x :: free) vars
@@ -91,7 +92,7 @@ mkEnv {vars} ext = rewrite sym (appendNilRightNeutral ns) in go ext []
                   go ext (val :: locs)
 
 runOp : {vars : _} ->
-        FC -> PrimFn arity -> Vect arity (Value vars) -> Value vars
+        FC -> PrimFn ar -> Vect ar (Value vars) -> Value vars
 runOp fc op args
     = case getOp op args of
            Just res => res
@@ -100,6 +101,7 @@ runOp fc op args
 parameters {auto c : Ref Ctxt Defs}
 
   -- Forward declared since these are all mutual
+  export
   eval : {vars : _} ->
          LocalEnv free vars ->
          Env Term vars ->
@@ -240,8 +242,8 @@ parameters {auto c : Ref Ctxt Defs}
   eval locs env (Local fc l idx p) = evalLocal env fc l p locs
   eval locs env (Ref fc (DataCon t a) n)
       = pure $ VDCon fc n t a [<]
-  eval locs env (Ref fc (TyCon t a) n)
-      = pure $ VTCon fc n t a [<]
+  eval locs env (Ref fc (TyCon a) n)
+      = pure $ VTCon fc n a [<]
   eval locs env tm@(Ref fc nt n)
       = pure $ VApp fc nt n [<] $
              do defs <- get Ctxt

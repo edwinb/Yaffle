@@ -17,7 +17,7 @@ data NameType : Type where
      Bound   : NameType
      Func    : NameType
      DataCon : (tag : Tag) -> (arity : Nat) -> NameType
-     TyCon   : (tag : Tag) -> (arity : Nat) -> NameType
+     TyCon   : (arity : Nat) -> NameType
 
 public export
 data Constant =

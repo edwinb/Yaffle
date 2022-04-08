@@ -422,9 +422,9 @@ commitCtxt ctxt
              commitStaged rest arr
 
 export
-newDef : FC -> Name -> RigCount -> List Name ->
+newDef : FC -> Name -> RigCount ->
          Term [] -> Visibility -> Def -> GlobalDef
-newDef fc n rig vars ty vis def
+newDef fc n rig ty vis def
     = MkGlobalDef
         { location = fc
         , fullname = n

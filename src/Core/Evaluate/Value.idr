@@ -45,7 +45,7 @@ data Value : List Name -> Type where
               Value vars
      VDCon    : FC -> Name -> (tag : Tag) -> (arity : Nat) ->
                 Spine vars -> Value vars
-     VTCon    : FC -> Name -> (tag : Tag) -> (arity : Nat) ->
+     VTCon    : FC -> Name -> (arity : Nat) ->
                 Spine vars -> Value vars
      VAs      : FC -> UseSide -> Value vars -> Value vars -> Value vars
      VCase    : FC -> (sc : Value vars) -> (scTy : Value vars) ->

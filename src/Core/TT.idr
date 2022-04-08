@@ -279,7 +279,18 @@ addVars p = insertNVarNames p . sizeOf
 
 export
 Weaken Term where
-  weakenNs = ?foo
+  weakenNs = ?weakenNs_rhs
+
+export
+apply : FC -> Term vars -> List (Term vars) -> Term vars
+apply loc fn [] = fn
+apply loc fn (a :: args) = apply loc (App loc fn a) args
+
+-- Creates a chain of `App` nodes, each with its own file context
+export
+applyWithFC : Term vars -> List (FC, Term vars) -> Term vars
+applyWithFC fn [] = fn
+applyWithFC fn ((fc, arg) :: args) = applyWithFC (App fc fn arg) args
 
 -- Build a simple function type
 export
@@ -291,9 +302,94 @@ linFnType : {vars : _} -> FC -> Term vars -> Term vars -> Term vars
 linFnType fc arg scope = Bind emptyFC (MN "_" 0) (Pi fc linear Explicit arg) (weaken scope)
 
 export
+getFnArgs : Term vars -> (Term vars, List (Term vars))
+getFnArgs tm = getFA [] tm
+  where
+    getFA : List (Term vars) -> Term vars ->
+            (Term vars, List (Term vars))
+    getFA args (App _ f a) = getFA (a :: args) f
+    getFA args tm = (tm, args)
+
+export
+getFn : Term vars -> Term vars
+getFn (App _ f a) = getFn f
+getFn tm = tm
+
+export
+getArgs : Term vars -> (List (Term vars))
+getArgs = snd . getFnArgs
+
+export
+Weaken Var where
+  weaken = later
+
+export
+varExtend : IsVar x idx xs -> IsVar x idx (xs ++ ys)
+-- What Could Possibly Go Wrong?
+-- This relies on the runtime representation of the term being the same
+-- after embedding! It is just an identity function at run time, though, and
+-- we don't need its definition at compile time, so let's do it...
+varExtend p = believe_me p
+
+export
 embed : Term vars -> Term (vars ++ more)
 embed tm = believe_me tm
 
 export
+nameAt : {vars : _} -> {idx : Nat} -> (0 p : IsVar n idx vars) -> Name
+nameAt {vars = n :: ns} First     = n
+nameAt {vars = n :: ns} (Later p) = nameAt p
+
+export
+withPiInfo : Show t => PiInfo t -> String -> String
+withPiInfo Explicit tm = "(" ++ tm ++ ")"
+withPiInfo Implicit tm = "{" ++ tm ++ "}"
+withPiInfo AutoImplicit tm = "{auto " ++ tm ++ "}"
+withPiInfo (DefImplicit t) tm = "{default " ++ show t ++ " " ++ tm ++ "}"
+
+{vars : _} -> Show (AsName vars) where
+  show (AsLoc _ _ p) = show (nameAt p)
+  show (AsRef _ n) = show n
+
+export
 {vars : _} -> Show (Term vars) where
-  show tm = ?todo_showtm
+  show tm = let (fn, args) = getFnArgs tm in assert_total (showApp fn args)
+    where
+      -- TODO: There's missing cases here, and the assert_total above
+      -- shouldn't be necessary, so fix that!
+      showApp : {vars : _} -> Term vars -> List (Term vars) -> String
+      showApp (Local _ c idx p) []
+         = show (nameAt p) ++ "[" ++ show idx ++ "]"
+      showApp (Ref _ _ n) [] = show n
+      showApp (Meta _ n _ args) []
+          = "?" ++ show n ++ "_" ++ show args
+      showApp (Bind _ x (Lam _ c info ty) sc) []
+          = "\\" ++ withPiInfo info (show c ++ show x ++ " : " ++ show ty) ++
+            " => " ++ show sc
+      showApp (Bind _ x (Let _ c val ty) sc) []
+          = "let " ++ show c ++ show x ++ " : " ++ show ty ++
+            " = " ++ show val ++ " in " ++ show sc
+      showApp (Bind _ x (Pi _ c info ty) sc) []
+          = withPiInfo info (show c ++ show x ++ " : " ++ show ty) ++
+            " -> " ++ show sc ++ ")"
+      showApp (Bind _ x (PVar _ c info ty) sc) []
+          = withPiInfo info ("pat " ++ show c ++ show x ++ " : " ++ show ty) ++
+            " => " ++ show sc
+      showApp (Bind _ x (PLet _ c val ty) sc) []
+          = "plet " ++ show c ++ show x ++ " : " ++ show ty ++
+            " = " ++ show val ++ " in " ++ show sc
+      showApp (Bind _ x (PVTy _ c ty) sc) []
+          = "pty " ++ show c ++ show x ++ " : " ++ show ty ++
+            " => " ++ show sc
+      showApp (App _ _ _) [] = "[can't happen]"
+      showApp (As _ _ n tm) [] = show n ++ "@" ++ show tm
+      showApp (TDelayed _ _ tm) [] = "%Delayed " ++ show tm
+      showApp (TDelay _ _ _ tm) [] = "%Delay " ++ show tm
+      showApp (TForce _ _ tm) [] = "%Force " ++ show tm
+      showApp (PrimVal _ c) [] = show c
+      showApp (Erased _ _) [] = "[__]"
+      showApp (TType _ u) [] = "Type"
+      showApp _ [] = "???"
+      showApp f args = "(" ++ assert_total (show f) ++ " " ++
+                        assert_total (showSep " " (map show args))
+                     ++ ")"

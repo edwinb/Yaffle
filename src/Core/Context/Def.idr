@@ -41,8 +41,7 @@ data Def : Type where
     Function : FnInfo -> Term [] -> Def -- normal function
     DCon : DataConInfo ->
            (tag : Int) -> (arity : Nat) -> Def -- data constructor
-    TCon : TyConInfo ->
-           (tag : Int) -> (arity : Nat) -> Def -- type constructor
+    TCon : TyConInfo -> (arity : Nat) -> Def -- type constructor
     Hole : (numlocs : Nat) -> -- Number of locals in scope at binding point
                               -- (mostly to help display)
            Def
