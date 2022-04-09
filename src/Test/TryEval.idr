@@ -6,6 +6,8 @@ import Core.Env
 import Core.Error
 import Core.Evaluate.Normalise
 import Core.Evaluate.Quote
+import Core.InitPrimitives
+import Core.Primitives
 import Core.TT
 
 var : String -> Name
@@ -35,6 +37,7 @@ doTryEval : Core ()
 doTryEval
     = do defs <- initDefs
          c <- newRef Ctxt defs
+         addPrimitives
          let plusdef = newDef EmptyFC (var "plus") RigW (Erased EmptyFC False)
                               Public
                               (Function (MkFnInfo False) plusC)
@@ -42,7 +45,14 @@ doTryEval
          let exp = apply EmptyFC (Ref EmptyFC Func (var "plus"))
                          [apply EmptyFC sCon [apply EmptyFC sCon [zCon]],
                           apply EmptyFC sCon [apply EmptyFC sCon [zCon]]]
-         val <- eval [] [] exp
+         coreLift $ putStrLn "Ready"
+         val <- nf [] exp
+         tm <- quoteNF [] val
+         coreLift $ printLn tm
+
+         val <- nf [] (apply EmptyFC (Ref EmptyFC Func (opName (Add IntegerType)))
+                             [PrimVal EmptyFC (BI 40),
+                              PrimVal EmptyFC (BI 54)])
          tm <- quoteNF [] val
          coreLift $ printLn tm
 

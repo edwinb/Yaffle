@@ -68,7 +68,6 @@ applyAll fc f (x :: xs)
     = do f' <- apply fc f x
          applyAll fc f' xs
 
-public export
 data LocalEnv : List Name -> List Name -> Type where
      Nil : LocalEnv [] vars
      (::) : Value vars -> LocalEnv free vars -> LocalEnv (x :: free) vars
@@ -300,3 +299,8 @@ parameters {auto c : Ref Ctxt Defs}
   eval locs env (Unmatched fc str) = pure $ VUnmatched fc str
   eval locs env (Impossible fc) = pure $ VImpossible fc
   eval locs env (TType fc n) = pure $ VType fc n
+
+  export
+  nf : {vars : _} ->
+       Env Term vars -> Term vars -> Core (Value vars)
+  nf = eval []
