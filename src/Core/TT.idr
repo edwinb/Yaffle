@@ -231,6 +231,71 @@ insertVarNames : SizeOf outer -> SizeOf ns ->
                  Var (outer ++ (ns ++ inner))
 insertVarNames p q (MkVar v) = let MkNVar v' = insertNVarNames p q (MkNVar v) in MkVar v'
 
+insertNamesAlt : SizeOf outer -> SizeOf ns ->
+                 CaseAlt (outer ++ inner) ->
+                 CaseAlt (outer ++ (ns ++ inner))
+
+export
+insertNames : SizeOf outer -> SizeOf ns ->
+              Term (outer ++ inner) ->
+              Term (outer ++ (ns ++ inner))
+insertNames out ns (Local fc r idx prf)
+   = let MkNVar prf' = insertNVarNames out ns (MkNVar prf) in
+         Local fc r _ prf'
+insertNames out ns (Ref fc nt name)
+    = Ref fc nt name
+insertNames out ns (Meta fc x y xs)
+    = Meta fc x y (map (insertNames out ns) xs)
+insertNames out ns (Bind fc x b scope)
+    = Bind fc x (map (insertNames out ns) b)
+           (insertNames (suc out) ns scope)
+insertNames out ns (App fc fn arg)
+    = App fc (insertNames out ns fn) (insertNames out ns arg)
+insertNames out sns (As fc x as pat)
+    = As fc x (insertAs as) (insertNames out sns pat)
+  where
+    insertAs : AsName (outer ++ inner) -> AsName (outer ++ (ns ++ inner))
+    insertAs (AsLoc fc idx prf)
+        = let MkNVar prf' = insertNVarNames out sns (MkNVar prf) in
+              AsLoc fc _ prf'
+    insertAs (AsRef fc n) = AsRef fc n
+insertNames out ns (Case fc sc scTy xs)
+    = Case fc (insertNames out ns sc) (insertNames out ns scTy)
+           (map (insertNamesAlt out ns) xs)
+insertNames out ns (TDelayed fc x y)
+    = TDelayed fc x (insertNames out ns y)
+insertNames out ns (TDelay fc x ty arg)
+    = TDelay fc x (insertNames out ns ty) (insertNames out ns arg)
+insertNames out ns (TForce fc x y)
+    = TForce fc x (insertNames out ns y)
+insertNames out ns (PrimVal fc c) = PrimVal fc c
+insertNames out ns (PrimOp fc x xs)
+    = PrimOp fc x (map (insertNames out ns) xs)
+insertNames out ns (Erased fc imp) = Erased fc imp
+insertNames out ns (Unmatched fc x) = Unmatched fc x
+insertNames out ns (Impossible fc) = Impossible fc
+insertNames out ns (TType fc u) = TType fc u
+
+-- Declared above, mutual with insertNames
+-- insertNamesAlt : SizeOf outer -> SizeOf ns ->
+--                  CaseAlt (outer ++ inner) ->
+--                  CaseAlt (outer ++ (ns ++ inner))
+insertNamesAlt out sns (ConCase n t scope)
+    = ConCase n t (insertScope out sns scope)
+  where
+    insertScope : forall outer . SizeOf outer -> SizeOf ns ->
+                  CaseScope (outer ++ inner) ->
+                  CaseScope (outer ++ (ns ++ inner))
+    insertScope out ns (RHS tm) = RHS (insertNames out ns tm)
+    insertScope out ns (Arg x sc)
+        = Arg x (insertScope (suc out) ns sc)
+insertNamesAlt out ns (DelayCase ty arg scope)
+    = DelayCase ty arg (insertNames (suc (suc out)) ns scope)
+insertNamesAlt out ns (ConstCase c scope)
+    = ConstCase c (insertNames out ns scope)
+insertNamesAlt out ns (DefaultCase scope)
+    = DefaultCase (insertNames out ns scope)
+
 public export
 data SubVars : List Name -> List Name -> Type where
      SubRefl  : SubVars xs xs
@@ -280,7 +345,7 @@ addVars p = insertNVarNames p . sizeOf
 
 export
 Weaken Term where
-  weakenNs = ?weakenNs_rhs
+  weakenNs p tm = insertNames zero p tm
 
 export
 apply : FC -> Term vars -> List (Term vars) -> Term vars
