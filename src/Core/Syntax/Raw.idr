@@ -12,7 +12,7 @@ public export
 data RawI : Type where
      RAnnot : FC -> RawC -> RawI -> RawI -- checkable with type annotation
      RVar : FC -> Name -> RawI
-     RLam : FC -> Name -> (scope : RawI) -> RawI
+     RApp : FC -> RawI -> RawC -> RawI
      RLet : FC -> Name -> (val : RawI) -> (scope : RawI) -> RawI
      RPi : FC -> Name -> (argty : RawI) -> (retty : RawI) -> RawI
      RPrimVal : FC -> Constant -> RawI
@@ -21,7 +21,7 @@ data RawI : Type where
 public export
 data RawC : Type where
      RInf : FC -> RawI -> RawC -- inferrable, so must be checkable
-     RApp : FC -> RawI -> RawC -> RawC
+     RLam : FC -> Name -> (scope : RawC) -> RawC
      RCase : FC -> (sc : RawI) -> List RawCaseAlt -> RawC
 
 public export
@@ -50,13 +50,13 @@ mutual -- grr
     show (RAnnot fc tm ty)
         = assert_total $ "(" ++ show tm ++ " : " ++ show ty ++ ")"
     show (RVar fc n) = show n
-    show (RLam fc n sc)
-        = assert_total $ "(lam " ++ show n ++ " " ++ show sc ++ ")"
+    show (RApp fc f a)
+        = assert_total $ "(" ++ show f ++ " " ++ show a ++ ")"
     show (RLet fc n val sc)
         = assert_total $ "(let (" ++ show n ++ " " ++ show val ++ ")"
                          ++ show sc ++ ")"
     show (RPi fc n argty retty)
-        = assert_total $ "(pi (" ++ show n ++ " " ++ show argty ++ ")"
+        = assert_total $ "(pi (" ++ show n ++ " " ++ show argty ++ ") "
                          ++ show retty ++ ")"
     show (RPrimVal fc c) = show c
     show (RType fc) = "Type"
@@ -64,7 +64,8 @@ mutual -- grr
   export
   Show RawC where
     show (RInf fc t) = show t
-    show (RApp fc f a) = "(" ++ show f ++ " " ++ show a ++ ")"
+    show (RLam fc n sc)
+        = assert_total $ "(lam " ++ show n ++ " " ++ show sc ++ ")"
     show (RCase fc sc alts)
         = assert_total $
           "(case " ++ show sc ++ " " ++

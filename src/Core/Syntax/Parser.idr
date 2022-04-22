@@ -29,6 +29,14 @@ symbol req
                  _ => Nothing
 
 export
+keyword : String -> Rule ()
+keyword req
+    = terminal ("Expected '" ++ req ++ "'") $
+               \case
+                 Keyword s => guard (s == req)
+                 _ => Nothing
+
+export
 namespacedIdent : Rule (Maybe Namespace, String)
 namespacedIdent
     = terminal "Expected namespaced name" $
@@ -66,19 +74,68 @@ bracketed r
 rawi : OriginDesc -> Rule RawI
 rawc : OriginDesc -> Rule RawC
 
+mkApp : FC -> RawI -> List RawC -> RawI
+mkApp fc f [] = f
+mkApp fc f (x :: xs) = mkApp fc (RApp fc f x) xs
+
+mkApp1 : FC -> RawI -> List1 RawC -> RawI
+mkApp1 fc f (arg ::: args) = mkApp fc (RApp fc f arg) args
+
+rawiBrack : OriginDesc -> Rule RawI
+rawiBrack fname
+    = do start <- location
+         val <- rawc fname
+         symbol ":"
+         ty <- rawi fname
+         end <- location
+         pure (RAnnot (MkFC fname start end) val ty)
+  <|> do start <- location
+         f <- rawi fname
+         args <- some (rawc fname)
+         end <- location
+         pure $ mkApp1 (MkFC fname start end) f args
+  <|> do start <- location
+         keyword "pi"
+         symbol "("
+         n <- name
+         arg <- rawi fname
+         symbol ")"
+         ret <- rawi fname
+         end <- location
+         pure (RPi (MkFC fname start end) n arg ret)
+  <|> do start <- location
+         keyword "let"
+         symbol "("
+         n <- name
+         val <- rawi fname
+         symbol ")"
+         sc <- rawi fname
+         end <- location
+         pure (RLet (MkFC fname start end) n val sc)
+
+rawcBrack : OriginDesc -> Rule RawC
+rawcBrack fname
+    = do start <- location
+         keyword "lam"
+         n <- name
+         sc <- rawc fname
+         end <- location
+         pure (RLam (MkFC fname start end) n sc)
+    -- TODO: case
+
 rawi fname
-    = bracketed (do start <- location
-                    val <- rawc fname
-                    symbol ":"
-                    ty <- rawi fname
-                    end <- location
-                    pure (RAnnot (MkFC fname start end) val ty))
+    = bracketed (rawiBrack fname)
   <|> do var <- bounds name
          pure (RVar (boundToFC fname var) var.val)
+  <|> do start <- location
+         keyword "Type"
+         end <- location
+         pure (RType (MkFC fname start end))
 
 rawc fname
     = do i <- bounds $ rawi fname
          pure (RInf (boundToFC fname i) i.val)
+  <|> bracketed (rawcBrack fname)
 
 rawDecl : OriginDesc -> Rule RawDecl
 
@@ -113,3 +170,6 @@ parse origin rule inp
 
 testf : OriginDesc
 testf = PhysicalIdrSrc (nsAsModuleIdent (unsafeFoldNamespace ["hi"]))
+
+testp : String -> Either Error RawI
+testp inp = parse testf (rawi testf) inp

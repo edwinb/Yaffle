@@ -23,6 +23,8 @@ modules
     Core.InitPrimitives,
     Core.Options,
     Core.Primitives,
+    Core.Syntax.Lexer,
+    Core.Syntax.Parser,
     Core.Syntax.Raw,
     Core.TT,
     Core.TT.Name,
