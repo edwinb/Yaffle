@@ -2,6 +2,7 @@ module Core.TT.Name
 
 import public Core.TT.Namespace
 
+import Data.Maybe
 import Data.String
 import Decidable.Equality
 
@@ -70,6 +71,25 @@ userNameRoot (NS _ n) = userNameRoot n
 userNameRoot (UN n) = Just n
 userNameRoot (DN _ n) = userNameRoot n
 userNameRoot _ = Nothing
+
+export
+isOpChar : Char -> Bool
+isOpChar c = c `elem` (unpack ":!#$%&*+./<=>?@\\^|-~")
+
+export
+||| Test whether a user name begins with an operator symbol.
+isOpUserName : UserName -> Bool
+isOpUserName (Basic n) = fromMaybe False $ do
+   c <- fst <$> strUncons n
+   guard (isOpChar c)
+   pure True
+isOpUserName (Field _) = False
+isOpUserName Underscore = False
+
+export
+||| Test whether a name begins with an operator symbol.
+isOpName : Name -> Bool
+isOpName = maybe False isOpUserName . userNameRoot
 
 export
 isUnderscoreName : Name -> Bool

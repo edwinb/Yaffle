@@ -13,7 +13,7 @@ mkFn : (i : Int) ->
        (todo : Nat) -> PrimFn (todo + done) ->
        Vect done (Var vars) -> Term vars
 mkFn i Z op args
-    = PrimOp EmptyFC op (map mkLoc args)
+    = PrimOp EmptyFC op (reverse (map mkLoc args))
   where
     mkLoc : Var vars -> Term vars
     mkLoc (MkVar p) = Local EmptyFC Nothing _ p

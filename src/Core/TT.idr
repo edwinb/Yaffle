@@ -4,6 +4,7 @@ import public Core.TT.TT
 
 import Data.List
 import Data.Nat
+import Data.Vect
 
 export
 dropLater : IsVar nm (S idx) (v :: vs) -> IsVar nm idx vs

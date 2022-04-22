@@ -26,9 +26,16 @@ data Error : Type where
      MaybeMisspelling : Error -> List1 String -> Error
      ModuleNotFound : FC -> ModuleIdent -> Error
      UserError : String -> Error
+     LexFail : FC -> String -> Error
+     ParseFail : List1 (FC, String) -> Error
      InternalError : String -> Error
      TTCErr : TTCError -> Error
      FileErr : TFileError -> Error
+
+export
+Show Error where
+  show (ParseFail _) = "PARSE FAIL"
+  show _ = ?todo
 
 public export
 Core : Type -> Type

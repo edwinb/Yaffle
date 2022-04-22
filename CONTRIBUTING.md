@@ -7,5 +7,11 @@ these are:
     - plus other support functions for TT to be ported from existing Idris 2
 * Tidy up Show instance for 'Term'
 * Pretty printing of Term and TTImp
+* Do the parser for Core Syntax properly.
+    - It is just a quick S-expression based hack to allow setting up testing,
+      experimentation, etc.
+    - Also, it would be nice to have a reasonably tidy parser for TTImp syntax,
+      when the time comes to write an elaborator.
+* Make sure the 'Libraries' modules are consistent with CONVENTIONS.md
 
 (Last updated 9th April 2022)

@@ -23,6 +23,7 @@ modules
     Core.InitPrimitives,
     Core.Options,
     Core.Primitives,
+    Core.Syntax.Raw,
     Core.TT,
     Core.TT.Name,
     Core.TT.Namespace,
@@ -31,6 +32,8 @@ modules
 
     -- The input language and elaborator
     TTImp.TTImp,
+
+    Protocol.Hex,
 
     -- Things we'd expect in a base library, but since this project is the
     -- core of everything, include them here for bootstrapping.
