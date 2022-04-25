@@ -6,6 +6,8 @@ Conventions
 * Indent so that alpha conversion always works with a simple search and
   replace. In general this would mean starting a new line when starting a
   new level of indentation.
+  + Indent by a consistent amount (eg 4 spaces), rather than trying to line up with the previous line.
+    This makes diffs smaller and makes it easier to type.
 * Use `parameters` blocks for avoiding boilerplate when passing state around.
   If this exposes any bugs with parameter blocks in Idris 2, we must fix the
   bug rather than working around it.
