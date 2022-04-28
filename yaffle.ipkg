@@ -15,6 +15,7 @@ modules
     Core.Error,
     Core.Evaluate.Builtins,
     Core.Evaluate.Compile,
+    Core.Evaluate.Convert,
     Core.Evaluate.Normalise,
     Core.Evaluate.Quote,
     Core.Evaluate.ToScheme,
@@ -31,6 +32,7 @@ modules
     Core.TT.Namespace,
     Core.TT.RigCount,
     Core.TT.TT,
+    Core.TT.Universes,
 
     -- The input language and elaborator
     TTImp.TTImp,

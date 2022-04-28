@@ -12,6 +12,7 @@ import Data.List
 import Data.SnocList
 import Data.Vect
 
+export
 apply : FC -> Value vars -> Value vars -> Core (Value vars)
 apply fc (VLam _ _ _ _ _ sc) arg = sc arg
 apply fc (VApp afc nt n spine go) arg

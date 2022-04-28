@@ -454,6 +454,7 @@ public export
 record Defs where
   constructor MkDefs
   gamma : Context
+  uconstraints : List UConstraint
   currentNS : Namespace -- namespace for current definitions
   nestedNS : List Namespace -- other nested namespaces we can look in
   options : Options
@@ -506,6 +507,7 @@ initDefs
          opts <- defaults
          pure $ MkDefs
            { gamma = gam
+           , uconstraints = []
            , currentNS = mainNS
            , nestedNS = []
            , options = opts

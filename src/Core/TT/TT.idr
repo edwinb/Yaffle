@@ -298,6 +298,49 @@ Show (PrimFn arity) where
   show BelieveMe = "believe_me"
   show Crash = "crash"
 
+export
+sameFn : PrimFn x -> PrimFn y -> Bool
+sameFn (Add _) (Add _) = True
+sameFn (Sub _) (Sub _) = True
+sameFn (Mul _) (Mul _)= True
+sameFn (Div _) (Div _) = True
+sameFn (Mod _) (Mod _) = True
+sameFn (Neg _) (Neg _) = True
+sameFn (ShiftL _) (ShiftL _) = True
+sameFn (ShiftR _) (ShiftR _) = True
+sameFn (BAnd _) (BAnd _) = True
+sameFn (BOr _) (BOr _) = True
+sameFn (BXOr _) (BXOr _) = True
+sameFn (LT _) (LT _) = True
+sameFn (LTE _) (LTE _) = True
+sameFn (EQ _) (EQ _) = True
+sameFn (GTE _) (GTE _) = True
+sameFn (GT _) (GT _) = True
+sameFn StrLength StrLength = True
+sameFn StrHead StrHead = True
+sameFn StrTail StrTail = True
+sameFn StrIndex StrIndex = True
+sameFn StrCons StrCons = True
+sameFn StrAppend StrAppend = True
+sameFn StrReverse StrReverse = True
+sameFn StrSubstr StrSubstr = True
+sameFn DoubleExp DoubleExp = True
+sameFn DoubleLog DoubleLog = True
+sameFn DoublePow DoublePow = True
+sameFn DoubleSin DoubleSin = True
+sameFn DoubleCos DoubleCos = True
+sameFn DoubleTan DoubleTan = True
+sameFn DoubleASin DoubleASin = True
+sameFn DoubleACos DoubleACos = True
+sameFn DoubleATan DoubleATan = True
+sameFn DoubleSqrt DoubleSqrt = True
+sameFn DoubleFloor DoubleFloor = True
+sameFn DoubleCeiling DoubleCeiling = True
+sameFn (Cast{}) (Cast{}) = True
+sameFn BelieveMe BelieveMe = True
+sameFn Crash Crash = True
+sameFn _ _ = False
+
 public export
 data PiInfo t = Implicit | Explicit | AutoImplicit | DefImplicit t
 
@@ -439,6 +482,12 @@ data Term : List Name -> Type where
      Impossible : FC -> Term vars --impossible case
      TType : FC -> Name -> -- universe variable
              Term vars
+
+-- Constraints between names representing universe levels
+public export
+data UConstraint : Type where
+     ULT : FC -> Name -> Name -> UConstraint
+     ULE : FC -> Name -> Name -> UConstraint
 
 -- Scope of a case expression - bind the arguments one by one, as this makes
 -- more sense during evaluation and is consistent with the way we bind
@@ -676,3 +725,9 @@ Show LazyReason where
     show LInf = "Inf"
     show LLazy = "Lazy"
     show LUnknown = "Unkown"
+
+export
+compatible : LazyReason -> LazyReason -> Bool
+compatible LUnknown _ = True
+compatible _ LUnknown = True
+compatible x y = x == y

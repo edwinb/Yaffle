@@ -1,9 +1,9 @@
 module Core.Context
 
 import Core.CompileExpr
-import Core.Error
-import Core.Options
-import Core.TT
+import public Core.Error
+import public Core.Options
+import public Core.TT
 import public Core.Context.Def
 import public Core.Context.Ctxt
 

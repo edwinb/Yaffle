@@ -2,7 +2,7 @@ module Core.Error
 
 import Core.Binary
 import public Core.Core
-import Core.TT
+import public Core.TT
 
 import Data.List1
 import System.File

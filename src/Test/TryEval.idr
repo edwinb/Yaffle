@@ -6,6 +6,7 @@ import Core.Env
 import Core.Error
 import Core.Evaluate.Normalise
 import Core.Evaluate.Quote
+import Core.Evaluate.Value
 import Core.InitPrimitives
 import Core.Primitives
 import Core.TT

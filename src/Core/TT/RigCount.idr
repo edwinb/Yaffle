@@ -10,6 +10,13 @@ Show RigCount where
   show RigW = ""
 
 export
+Eq RigCount where
+  Rig0 == Rig0 = True
+  Rig1 == Rig1 = True
+  RigW == RigW = True
+  _ == _ = False
+
+export
 erased : RigCount
 erased = Rig0
 
