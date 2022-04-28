@@ -483,11 +483,12 @@ data Term : List Name -> Type where
      TType : FC -> Name -> -- universe variable
              Term vars
 
--- Constraints between names representing universe levels
+-- Constraints between names representing universe levels. Record the
+-- origin of each name, for error message purposes
 public export
 data UConstraint : Type where
-     ULT : FC -> Name -> Name -> UConstraint
-     ULE : FC -> Name -> Name -> UConstraint
+     ULT : FC -> Name -> FC -> Name -> UConstraint
+     ULE : FC -> Name -> FC -> Name -> UConstraint
 
 -- Scope of a case expression - bind the arguments one by one, as this makes
 -- more sense during evaluation and is consistent with the way we bind

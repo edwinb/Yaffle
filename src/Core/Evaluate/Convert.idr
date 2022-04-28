@@ -189,7 +189,7 @@ parameters {auto c : Ref Ctxt Defs}
   convGen s env _ (VErased _ _) = pure True
   convGen s env (VImpossible _) (VImpossible _) = pure True
   convGen s env (VType fc n) (VType fc' n')
-      = do addConstraint (ULE fc n n')
+      = do addConstraint (ULE fc n fc' n')
            pure True
   convGen s env _ _ = pure False
 
