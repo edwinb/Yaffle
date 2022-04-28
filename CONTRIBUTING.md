@@ -25,8 +25,6 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
-* Finish conversion checking
-* Finish parser for raw terms
 * Set up a testing system as early as possible!
 * Write a typechecker for raw terms
 * Change index of Terms from List Name to SnocList Name

@@ -8,33 +8,13 @@ import Core.Error
 import Core.FC
 import Core.Syntax.Lexer
 import Core.Syntax.Raw
+import Core.Syntax.Support
 import Core.TT.Name
 
 import public Libraries.Text.Parser
 import Libraries.Data.String.Extra
 
-public export
-EmptyRule : Type -> Type
-EmptyRule = Grammar () Token False
-
-public export
-Rule : Type -> Type
-Rule = Grammar () Token True
-
-symbol : String -> Rule ()
-symbol req
-    = terminal ("Expected '" ++ req ++ "'") $
-               \case
-                 Symbol s => guard (s == req)
-                 _ => Nothing
-
-export
-keyword : String -> Rule ()
-keyword req
-    = terminal ("Expected '" ++ req ++ "'") $
-               \case
-                 Keyword s => guard (s == req)
-                 _ => Nothing
+import Data.String
 
 export
 namespacedIdent : Rule (Maybe Namespace, String)
@@ -113,6 +93,21 @@ rawiBrack fname
          end <- location
          pure (RLet (MkFC fname start end) n val sc)
 
+caseAlt : OriginDesc -> Rule RawCaseAlt
+caseAlt fname
+    = do symbol "_"
+         rhs <- rawc fname
+         pure (RDefaultCase rhs)
+  <|> do p <- constant
+         rhs <- rawc fname
+         pure (RConstCase p rhs)
+  <|> do symbol "("
+         n <- name
+         args <- many name
+         symbol ")"
+         rhs <- rawc fname
+         pure (RConCase n args rhs)
+
 rawcBrack : OriginDesc -> Rule RawC
 rawcBrack fname
     = do start <- location
@@ -121,7 +116,14 @@ rawcBrack fname
          sc <- rawc fname
          end <- location
          pure (RLam (MkFC fname start end) n sc)
-    -- TODO: case
+  <|> do start <- location
+         keyword "case"
+         ty <- rawi fname
+         symbol "["
+         alts <- many (bracketed (caseAlt fname))
+         symbol "]"
+         end <- location
+         pure (RCase (MkFC fname start end) ty alts)
 
 rawi fname
     = bracketed (rawiBrack fname)
@@ -131,13 +133,76 @@ rawi fname
          keyword "Type"
          end <- location
          pure (RType (MkFC fname start end))
+  <|> do start <- location
+         p <- constant
+         end <- location
+         pure (RPrimVal (MkFC fname start end) p)
 
 rawc fname
     = do i <- bounds $ rawi fname
          pure (RInf (boundToFC fname i) i.val)
   <|> bracketed (rawcBrack fname)
 
+tyDecl : OriginDesc -> Rule RawDecl
+tyDecl fname
+    = do start <- location
+         symbol "("
+         n <- name
+         symbol ":"
+         d <- rawi fname
+         symbol ")"
+         end <- location
+         pure (RDef (MkFC fname start end) n d)
+
+conDecl : OriginDesc -> Rule RawCon
+conDecl fname
+    = do symbol "("
+         n <- name
+         symbol ":"
+         d <- rawi fname
+         symbol ")"
+         pure (RConDecl n d)
+
+dataDef : OriginDesc -> Rule RawData
+dataDef fname
+    = do keyword "data"
+         n <- name
+         symbol ":"
+         ty <- rawi fname
+         symbol "["
+         cons <- many (conDecl fname)
+         symbol "]"
+         pure (RDataDecl n ty cons)
+
+dataDecl : OriginDesc -> Rule RawDecl
+dataDecl fname
+    = do start <- location
+         symbol "("
+         d <- dataDef fname
+         symbol ")"
+         end <- location
+         pure (RData (MkFC fname start end) d)
+
+fnDef : OriginDesc -> Rule RawDecl
+fnDef fname
+    = do start <- location
+         symbol "("
+         keyword "def"
+         n <- name
+         d <- rawi fname
+         end <- location
+         pure (RDef (MkFC fname start end) n d)
+
 rawDecl : OriginDesc -> Rule RawDecl
+rawDecl fname
+     = tyDecl fname
+   <|> dataDecl fname
+   <|> fnDef fname
+
+rawInput : OriginDesc -> Rule (List RawDecl)
+rawInput fname
+    = do xs <- some (rawDecl fname)
+         pure (toList xs)
 
 fromLexError : OriginDesc -> (StopReason, Int, Int, String) -> Error
 fromLexError origin (ComposeNotClosing begin end, _, _, _)

@@ -40,9 +40,9 @@ data RawData : Type where
 
 public export
 data RawDecl : Type where
-     RData   : RawData -> RawDecl
-     RTyDecl : Name -> RawI -> RawDecl
-     RDef    : Name -> RawI -> RawDecl
+     RData   : FC -> RawData -> RawDecl
+     RTyDecl : FC -> Name -> RawI -> RawDecl
+     RDef    : FC -> Name -> RawI -> RawDecl
 
 mutual -- grr
   export

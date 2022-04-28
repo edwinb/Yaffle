@@ -27,6 +27,7 @@ modules
     Core.Syntax.Lexer,
     Core.Syntax.Parser,
     Core.Syntax.Raw,
+    Core.Syntax.Support,
     Core.TT,
     Core.TT.Name,
     Core.TT.Namespace,

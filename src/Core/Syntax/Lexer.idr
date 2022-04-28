@@ -139,7 +139,7 @@ stringEnd hashtag = "\"" ++ replicate hashtag '#'
 
 public export
 keywords : List String
-keywords = ["data", "auto", "default", "implicit",
+keywords = ["data", "def", "auto", "default", "implicit",
             "lam", "let", "pi", "Type",
             "impossible", "case", "forall", "public", "export", "private",
             "total", "partial", "covering"]

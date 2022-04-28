@@ -54,6 +54,26 @@ data Constant =
     | WorldType
 
 export
+isConstantType : Name -> Maybe Constant
+isConstantType (UN (Basic n)) = case n of
+  "Int"     => Just IntType
+  "Int8"    => Just Int8Type
+  "Int16"   => Just Int16Type
+  "Int32"   => Just Int32Type
+  "Int64"   => Just Int64Type
+  "Integer" => Just IntegerType
+  "Bits8"   => Just Bits8Type
+  "Bits16"  => Just Bits16Type
+  "Bits32"  => Just Bits32Type
+  "Bits64"  => Just Bits64Type
+  "String"  => Just StringType
+  "Char"    => Just CharType
+  "Double"  => Just DoubleType
+  "%World"  => Just WorldType
+  _ => Nothing
+isConstantType _ = Nothing
+
+export
 Show Constant where
   show (I x) = show x
   show (I8 x) = show x
