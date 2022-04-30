@@ -11,7 +11,7 @@ modules
     Core.Binary,
     Core.Context,
     Core.Context.Ctxt,
-    Core.Context.Def,
+    Core.Context.Def, -- top level definition forms live here
     Core.Error,
     Core.Evaluate.Builtins,
     Core.Evaluate.Compile,
@@ -26,13 +26,13 @@ modules
     Core.Primitives,
     Core.Syntax.Lexer,
     Core.Syntax.Parser,
-    Core.Syntax.Raw,
+    Core.Syntax.Raw, -- raw unchecked syntax lives here
     Core.Syntax.Support,
     Core.TT,
     Core.TT.Name,
     Core.TT.Namespace,
     Core.TT.RigCount,
-    Core.TT.TT,
+    Core.TT.TT, -- typechecked core language lives here
     Core.TT.Universes,
 
     -- The input language and elaborator

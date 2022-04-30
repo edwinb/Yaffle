@@ -63,7 +63,7 @@ Show Token where
   show Comment = "comment"
   -- Special
   show EndInput = "end of input"
-  show (Keyword x) = x
+  show (Keyword x) = "keyword " ++ x
   show (Unrecognised x) = "Unrecognised " ++ x
 
 mutual
@@ -139,16 +139,17 @@ stringEnd hashtag = "\"" ++ replicate hashtag '#'
 
 public export
 keywords : List String
-keywords = ["data", "def", "auto", "default", "implicit",
-            "lam", "let", "pi", "Type",
-            "impossible", "case", "forall", "public", "export", "private",
+keywords = ["data", "where", "auto", "default", "implicit",
+            "lam", "let", "in", "pi", "Type",
+            "impossible", "case", "of",
+            "forall", "public", "export", "private",
             "total", "partial", "covering"]
 
 validSymbol : Lexer
 validSymbol = some (pred isOpChar)
 
 reservedSymbol : Lexer
-reservedSymbol = pred (`elem` ['(', ')', ':'])
+reservedSymbol = pred (`elem` ['{', '}', ';', '|', '(', ')', ':', '.'])
 
 fromBinLit : String -> Integer
 fromBinLit str

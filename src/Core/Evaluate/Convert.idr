@@ -129,7 +129,7 @@ parameters {auto c : Ref Ctxt Defs}
                  (args' : List Name) ->
                  VCaseScope args' vars ->
                  Core Bool
-     convScope [] sc [] sc' = convGen s env !sc !sc'
+     convScope [] sc [] sc' = convGen BlockApp env !sc !sc'
      convScope (x :: xs) sc (y :: ys) sc'
          = do xn <- genVar fc "arg"
               convScope xs (sc xn) ys (sc' xn)
@@ -146,9 +146,9 @@ parameters {auto c : Ref Ctxt Defs}
               convGen s env !(sc tn an) !(sc' tn an)
      convAlt (VConstCase c x) (VConstCase c' y)
          = if c == c'
-              then convGen s env x y
+              then convGen BlockApp env x y
               else pure False
-     convAlt (VDefaultCase x) (VDefaultCase y) = convGen s env x y
+     convAlt (VDefaultCase x) (VDefaultCase y) = convGen BlockApp env x y
      convAlt _ _ = pure False
 
      convAlts : List (VCaseAlt vars) -> List (VCaseAlt vars) -> Core Bool
@@ -189,7 +189,7 @@ parameters {auto c : Ref Ctxt Defs}
   convGen s env _ (VErased _ _) = pure True
   convGen s env (VImpossible _) (VImpossible _) = pure True
   convGen s env (VType fc n) (VType fc' n')
-      = do addConstraint (ULE fc n fc' n')
+      = do addConstraint (ULT fc n fc' n')
            pure True
   convGen s env _ _ = pure False
 

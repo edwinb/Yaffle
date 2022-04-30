@@ -1,0 +1,15 @@
+data Bool : Type where {
+    False : Bool 
+  | True : Bool
+}
+
+data Nat : Type where {
+   Z : Nat
+ | S : pi k : Nat . Nat
+}
+
+plus : pi x : Nat . pi y : Nat . Nat;
+plus = lam x. lam y . 
+           case x of
+              Z => y
+            | S k => S (plus k y);

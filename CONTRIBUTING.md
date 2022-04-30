@@ -14,11 +14,12 @@ TODOs throughout for which I would welcome some help. Currently these are:
       the queue of constraints is implemented differently!
     - For the moment it always succeeds. I am adding constraints as I work
       through unification/type checking.
+* Implement an alternative conversion checker which is type-directed
 * Tidy up Show instance for 'Term'
-* Pretty printing of Term and TTImp
+* Pretty printing of Term, TTImp and Raw syntax
 * Do the parser for Core Syntax properly.
-    - It is just a quick S-expression based hack to allow setting up testing,
-      experimentation, etc.
+    - It is just a quick hack to allow setting up testing, experimentation, etc.
+    - It would be still be nice if it got past the totality checker
     - Also, it would be nice to have a reasonably tidy parser for TTImp syntax,
       when the time comes to write an elaborator.
 * Make sure the 'Libraries' modules are consistent with CONVENTIONS.md

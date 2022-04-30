@@ -34,8 +34,21 @@ data Error : Type where
 
 export
 Show Error where
-  show (ParseFail _) = "PARSE FAIL"
-  show _ = ?todo
+  show (UndefinedName fc n) = show fc ++ ":Undefined name " ++ show n
+  show (MaybeMisspelling err ns)
+     = show err ++ "\nDid you mean" ++ case ns of
+         (n ::: []) => ": " ++ n ++ "?"
+         _ => " any of: " ++ showSep ", " (map show (forget ns)) ++ "?"
+  show (ModuleNotFound fc ns)
+      = show fc ++ ":" ++ show ns ++ " not found"
+  show (UserError str) = "Error: " ++ str
+
+  show (LexFail fc err) = show fc ++ ":Lexer error (" ++ show err ++ ")"
+  show (ParseFail errs) = "Parse errors (" ++ show errs ++ ")"
+  show (InternalError str) = "INTERNAL ERROR: " ++ str
+
+  show (TTCErr err) = "TTC error: " ++ show err
+  show (FileErr err) = "File error: " ++ show err
 
 public export
 Core : Type -> Type

@@ -33,6 +33,14 @@ keyword req
                  _ => Nothing
 
 export
+eoi : EmptyRule ()
+eoi = ignore $ nextIs "Expected end of input" isEOI
+  where
+    isEOI : Token -> Bool
+    isEOI EndInput = True
+    isEOI _ = False
+
+export
 hex : Char -> Maybe Int
 hex '0' = Just 0
 hex '1' = Just 1

@@ -32,19 +32,27 @@ data RawCaseAlt : Type where
 
 public export
 data RawCon : Type where
-     RConDecl : Name -> RawI -> RawCon
+     RConDecl : Name -> RawC -> RawCon
 
 public export
 data RawData : Type where
-     RDataDecl : Name -> RawI -> List RawCon -> RawData
+     RDataDecl : Name -> RawC -> List RawCon -> RawData
 
 public export
 data RawDecl : Type where
      RData   : FC -> RawData -> RawDecl
-     RTyDecl : FC -> Name -> RawI -> RawDecl
-     RDef    : FC -> Name -> RawI -> RawDecl
+     RTyDecl : FC -> Name -> RawC -> RawDecl
+     RDef    : FC -> Name -> RawC -> RawDecl
+
+-- Top level commands at the TT shell
+public export
+data Command : Type where
+     Decl : RawDecl -> Command
+     Eval : RawI -> Command
 
 mutual -- grr
+  -- I just threw these together. It'd be nice if the results paid
+  -- attention to bracketing, being parsable, etc.
   export
   Show RawI where
     show (RAnnot fc tm ty)
@@ -53,11 +61,11 @@ mutual -- grr
     show (RApp fc f a)
         = assert_total $ "(" ++ show f ++ " " ++ show a ++ ")"
     show (RLet fc n val sc)
-        = assert_total $ "(let (" ++ show n ++ " " ++ show val ++ ")"
-                         ++ show sc ++ ")"
+        = assert_total $ "let " ++ show n ++ " = " ++ show val ++ " in"
+                         ++ show sc
     show (RPi fc n argty retty)
-        = assert_total $ "(pi (" ++ show n ++ " " ++ show argty ++ ") "
-                         ++ show retty ++ ")"
+        = assert_total $ "pi " ++ show n ++ " : " ++ show argty ++ " . "
+                         ++ show retty
     show (RPrimVal fc c) = show c
     show (RType fc) = "Type"
 
@@ -65,21 +73,41 @@ mutual -- grr
   Show RawC where
     show (RInf fc t) = show t
     show (RLam fc n sc)
-        = assert_total $ "(lam " ++ show n ++ " " ++ show sc ++ ")"
+        = assert_total $ "lam " ++ show n ++ " . " ++ show sc
     show (RCase fc sc alts)
         = assert_total $
-          "(case " ++ show sc ++ " " ++
-              "[" ++ showSep " " (map show alts) ++ "])"
+          "(case " ++ show sc ++ " of " ++
+              showSep " | " (map show alts) ++ ")"
 
   export
   Show RawCaseAlt where
     show (RConCase n args sc)
         = assert_total $
-          "((" ++ show n ++ " "
-              ++ showSep " " (map show args) ++ ") "
-              ++ show sc ++ ")"
+          show n ++ " "
+              ++ showSep " " (map show args) ++ " => "
+              ++ show sc
     show (RConstCase c sc)
-        = "(" ++ show c ++ " "
-              ++ show sc ++ ")"
+        = show c ++ " => " ++ show sc
     show (RDefaultCase sc)
-        = "(_ " ++ show sc ++ ")"
+        = "_ => " ++ show sc
+
+export
+Show RawCon where
+  show (RConDecl n d) = show n ++ " : " ++ show d
+
+export
+Show RawData where
+  show (RDataDecl n ty cons)
+      = "data " ++ show n ++ " : " ++ show ty ++ " where { "
+            ++ showSep " | " (map show cons) ++ " }"
+
+export
+Show RawDecl where
+  show (RData _ d) = show d
+  show (RTyDecl _ n d) = show n ++ " : " ++ show d ++ ";"
+  show (RDef _ n d) = show n ++ " = " ++ show d ++ ";"
+
+export
+Show Command where
+  show (Decl d) = show d
+  show (Eval e) = show e

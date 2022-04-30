@@ -8,7 +8,7 @@ import Core.Error
 import Core.FC
 import Core.Syntax.Lexer
 import Core.Syntax.Raw
-import Core.Syntax.Support
+import public Core.Syntax.Support
 import Core.TT.Name
 
 import public Libraries.Text.Parser
@@ -61,73 +61,24 @@ mkApp fc f (x :: xs) = mkApp fc (RApp fc f x) xs
 mkApp1 : FC -> RawI -> List1 RawC -> RawI
 mkApp1 fc f (arg ::: args) = mkApp fc (RApp fc f arg) args
 
-rawiBrack : OriginDesc -> Rule RawI
-rawiBrack fname
-    = do start <- location
-         val <- rawc fname
-         symbol ":"
-         ty <- rawi fname
-         end <- location
-         pure (RAnnot (MkFC fname start end) val ty)
-  <|> do start <- location
-         f <- rawi fname
-         args <- some (rawc fname)
-         end <- location
-         pure $ mkApp1 (MkFC fname start end) f args
-  <|> do start <- location
-         keyword "pi"
-         symbol "("
-         n <- name
-         arg <- rawi fname
-         symbol ")"
-         ret <- rawi fname
-         end <- location
-         pure (RPi (MkFC fname start end) n arg ret)
-  <|> do start <- location
-         keyword "let"
-         symbol "("
-         n <- name
-         val <- rawi fname
-         symbol ")"
-         sc <- rawi fname
-         end <- location
-         pure (RLet (MkFC fname start end) n val sc)
-
 caseAlt : OriginDesc -> Rule RawCaseAlt
 caseAlt fname
     = do symbol "_"
+         symbol "=>"
          rhs <- rawc fname
          pure (RDefaultCase rhs)
   <|> do p <- constant
+         symbol "=>"
          rhs <- rawc fname
          pure (RConstCase p rhs)
-  <|> do symbol "("
-         n <- name
+  <|> do n <- name
          args <- many name
-         symbol ")"
+         symbol "=>"
          rhs <- rawc fname
          pure (RConCase n args rhs)
 
-rawcBrack : OriginDesc -> Rule RawC
-rawcBrack fname
-    = do start <- location
-         keyword "lam"
-         n <- name
-         sc <- rawc fname
-         end <- location
-         pure (RLam (MkFC fname start end) n sc)
-  <|> do start <- location
-         keyword "case"
-         ty <- rawi fname
-         symbol "["
-         alts <- many (bracketed (caseAlt fname))
-         symbol "]"
-         end <- location
-         pure (RCase (MkFC fname start end) ty alts)
-
-rawi fname
-    = bracketed (rawiBrack fname)
-  <|> do var <- bounds name
+simpleRawi fname
+    = do var <- bounds name
          pure (RVar (boundToFC fname var) var.val)
   <|> do start <- location
          keyword "Type"
@@ -137,30 +88,84 @@ rawi fname
          p <- constant
          end <- location
          pure (RPrimVal (MkFC fname start end) p)
+  <|> do start <- location
+         symbol "("
+         val <- rawc fname
+         symbol ":"
+         ty <- rawi fname
+         symbol ")"
+         end <- location
+         pure (RAnnot (MkFC fname start end) val ty)
+  <|> do start <- location
+         keyword "pi"
+         n <- name
+         symbol ":"
+         arg <- rawi fname
+         symbol "."
+         ret <- rawi fname
+         end <- location
+         pure (RPi (MkFC fname start end) n arg ret)
+  <|> do start <- location
+         keyword "let"
+         n <- name
+         symbol "="
+         val <- rawi fname
+         symbol "in"
+         sc <- rawi fname
+         end <- location
+         pure (RLet (MkFC fname start end) n val sc)
+  <|> do symbol "("
+         tm <- rawi fname
+         symbol ")"
+         pure tm
+
+rawi fname
+    = do start <- location
+         f <- simpleRawi fname
+         args <- many (rawc fname)
+         end <- location
+         pure $ mkApp (MkFC fname start end) f args
 
 rawc fname
-    = do i <- bounds $ rawi fname
-         pure (RInf (boundToFC fname i) i.val)
-  <|> bracketed (rawcBrack fname)
+    = do start <- location
+         keyword "case"
+         scr <- rawi fname
+         keyword "of"
+         alts <- sepBy (symbol "|") (caseAlt fname)
+         end <- location
+         pure (RCase (MkFC fname start end) scr alts)
+  <|> do start <- location
+         keyword "lam"
+         n <- name
+         symbol "."
+         sc <- rawc fname
+         end <- location
+         pure (RLam (MkFC fname start end) n sc)
+  <|> do symbol "("
+         tm <- rawc fname
+         symbol ")"
+         pure tm
+  <|> do start <- location
+         i <- rawi fname -- This breaks the totality checking of the parser!
+                         -- I haven't worked out why...
+         end <- location
+         pure (RInf (MkFC fname start end) i)
 
 tyDecl : OriginDesc -> Rule RawDecl
 tyDecl fname
     = do start <- location
-         symbol "("
          n <- name
          symbol ":"
-         d <- rawi fname
-         symbol ")"
+         d <- rawc fname
+         symbol ";"
          end <- location
-         pure (RDef (MkFC fname start end) n d)
+         pure (RTyDecl (MkFC fname start end) n d)
 
 conDecl : OriginDesc -> Rule RawCon
 conDecl fname
-    = do symbol "("
-         n <- name
+    = do n <- name
          symbol ":"
-         d <- rawi fname
-         symbol ")"
+         d <- rawc fname
          pure (RConDecl n d)
 
 dataDef : OriginDesc -> Rule RawData
@@ -168,29 +173,28 @@ dataDef fname
     = do keyword "data"
          n <- name
          symbol ":"
-         ty <- rawi fname
-         symbol "["
-         cons <- many (conDecl fname)
-         symbol "]"
+         ty <- rawc fname
+         keyword "where"
+         symbol "{"
+         cons <- sepBy (symbol "|") (conDecl fname)
+         symbol "}"
          pure (RDataDecl n ty cons)
 
 dataDecl : OriginDesc -> Rule RawDecl
 dataDecl fname
     = do start <- location
-         symbol "("
          d <- dataDef fname
-         symbol ")"
          end <- location
          pure (RData (MkFC fname start end) d)
 
 fnDef : OriginDesc -> Rule RawDecl
 fnDef fname
     = do start <- location
-         symbol "("
-         keyword "def"
          n <- name
-         d <- rawi fname
+         symbol "="
+         d <- rawc fname
          end <- location
+         symbol ";"
          pure (RDef (MkFC fname start end) n d)
 
 rawDecl : OriginDesc -> Rule RawDecl
@@ -199,9 +203,20 @@ rawDecl fname
    <|> dataDecl fname
    <|> fnDef fname
 
-rawInput : OriginDesc -> Rule (List RawDecl)
+export
+command : OriginDesc -> Rule Command
+command fname
+    = do decl <- rawDecl fname
+         pure (Decl decl)
+  <|> do tm <- rawi fname
+         symbol ";"
+         pure (Eval tm)
+
+export
+rawInput : OriginDesc -> Rule (List Command)
 rawInput fname
-    = do xs <- some (rawDecl fname)
+    = do xs <- some (command fname)
+         eoi
          pure (toList xs)
 
 fromLexError : OriginDesc -> (StopReason, Int, Int, String) -> Error
@@ -225,6 +240,7 @@ fromParsingErrors origin = ParseFail . (map fromError)
                       else MkFC origin start end
             in (fc, msg +> '.')
 
+export
 parse : OriginDesc -> Rule a -> String ->
         Either Error a
 parse origin rule inp
