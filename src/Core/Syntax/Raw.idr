@@ -109,5 +109,5 @@ Show RawDecl where
 
 export
 Show Command where
-  show (Decl d) = show d
-  show (Eval e) = show e
+  show (Decl d) = "Decl " ++ show d
+  show (Eval e) = "Eval " ++ show e
