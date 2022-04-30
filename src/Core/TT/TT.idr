@@ -105,35 +105,10 @@ Show Constant where
   show WorldType = "%World"
 
 export
-Pretty Constant where
-  pretty (I x) = pretty x
-  pretty (I8 x) = pretty x
-  pretty (I16 x) = pretty x
-  pretty (I32 x) = pretty x
-  pretty (I64 x) = pretty x
-  pretty (BI x) = pretty x
-  pretty (B8 x) = pretty x
-  pretty (B16 x) = pretty x
-  pretty (B32 x) = pretty x
-  pretty (B64 x) = pretty x
-  pretty (Str x) = dquotes (pretty x)
-  pretty (Ch x) = squotes (pretty x)
-  pretty (Db x) = pretty x
-  pretty WorldVal = pretty "%MkWorld"
-  pretty IntType = pretty "Int"
-  pretty Int8Type = pretty "Int8"
-  pretty Int16Type = pretty "Int16"
-  pretty Int32Type = pretty "Int32"
-  pretty Int64Type = pretty "Int64"
-  pretty IntegerType = pretty "Integer"
-  pretty Bits8Type = pretty "Bits8"
-  pretty Bits16Type = pretty "Bits16"
-  pretty Bits32Type = pretty "Bits32"
-  pretty Bits64Type = pretty "Bits64"
-  pretty StringType = pretty "String"
-  pretty CharType = pretty "Char"
-  pretty DoubleType = pretty "Double"
-  pretty WorldType = pretty "%World"
+Pretty ann Constant where
+  pretty (Str x) = dquotes (pretty0 x)
+  pretty (Ch x) = squotes (pretty0 x)  
+  pretty x = pretty0 $ show x
 
 export
 Eq Constant where
@@ -542,10 +517,10 @@ Show Visibility where
   show Public = "public export"
 
 export
-Pretty Visibility where
-  pretty Private = pretty "private"
-  pretty Export = pretty "export"
-  pretty Public = pretty "public" <+> pretty "export"
+Pretty ann Visibility where
+  pretty Private = pretty0 "private"
+  pretty Export = pretty0 "export"
+  pretty Public = pretty0 "public" <+> pretty0 "export"
 
 export
 Eq Visibility where
@@ -611,14 +586,14 @@ Show PartialReason where
       = "possibly not terminating due to recursive path " ++ showSep " -> " (map show ns)
 
 export
-Pretty PartialReason where
+Pretty ann PartialReason where
   pretty NotStrictlyPositive = reflow "not strictly positive"
   pretty (BadCall [n])
     = reflow "possibly not terminating due to call to" <++> pretty n
   pretty (BadCall ns)
     = reflow "possibly not terminating due to calls to" <++> concatWith (surround (comma <+> space)) (pretty <$> ns)
   pretty (RecPath ns)
-    = reflow "possibly not terminating due to recursive path" <++> concatWith (surround (pretty " -> ")) (pretty <$> ns)
+    = reflow "possibly not terminating due to recursive path" <++> concatWith (surround (pretty0 " -> ")) (pretty <$> ns)
 
 public export
 data Terminating
@@ -633,9 +608,9 @@ Show Terminating where
   show (NotTerminating p) = show p
 
 export
-Pretty Terminating where
+Pretty ann Terminating where
   pretty Unchecked = reflow "not yet checked"
-  pretty IsTerminating = pretty "terminating"
+  pretty IsTerminating = pretty0 "terminating"
   pretty (NotTerminating p) = pretty p
 
 public export
@@ -654,8 +629,8 @@ Show Covering where
      = "not covering due to calls to functions " ++ showSep ", " (map show cs)
 
 export
-Pretty Covering where
-  pretty IsCovering = pretty "covering"
+Pretty ann Covering where
+  pretty IsCovering = pretty0 "covering"
   pretty (MissingCases c) = reflow "not covering all cases"
   pretty (NonCoveringCall [f])
      = reflow "not covering due to call to function" <++> pretty f
@@ -684,8 +659,8 @@ Show Totality where
       showTot t c = show c ++ "; " ++ show t
 
 export
-Pretty Totality where
-  pretty (MkTotality IsTerminating IsCovering) = pretty "total"
+Pretty ann Totality where
+  pretty (MkTotality IsTerminating IsCovering) = pretty0 "total"
   pretty (MkTotality IsTerminating c) = pretty c
   pretty (MkTotality t IsCovering) = pretty t
   pretty (MkTotality t c) = pretty c <+> semi <++> pretty t
