@@ -1,5 +1,7 @@
 module Libraries.Utils.Path
 
+import Idris.Env
+
 import Data.List
 import Data.List1
 import Data.Maybe
@@ -12,7 +14,6 @@ import Libraries.Text.Lexer
 import Libraries.Text.Parser
 import Libraries.Text.Quantity
 
-import System
 import System.Info
 import System.File
 
@@ -357,6 +358,19 @@ splitFileName name =
     (revExt, (dot :: revStem)) =>
       ((pack $ reverse revStem), (pack $ reverse revExt))
 
+||| Split a file name into a basename and a list of extensions.
+||| A leading dot is considered to be part of the basename.
+||| ```
+||| splitExtensions "Path.idr"           = ("Path", ["idr"])
+||| splitExtensions "file.latex.lidr"    = ("file", ["latex", "lidr"])
+||| splitExtensions ".hidden.latex.lidr" = (".hidden", ["latex", "lidr"])
+||| ```
+export
+splitExtensions : String -> (String, List String)
+splitExtensions name = case map pack $ split (== '.') (unpack name) of
+  ("" ::: base :: exts) => ("." ++ base, exts)
+  (base ::: exts) => (base, exts)
+
 --------------------------------------------------------------------------------
 -- Methods
 --------------------------------------------------------------------------------
@@ -538,6 +552,17 @@ extension path = fileName path >>=
   filter f Nothing = Nothing
   filter f (Just x) = toMaybe (f x) x
 
+||| Extracts the list of extensions of the file name in the path.
+||| The returned value is:
+|||
+||| - Nothing, if there is no file name;
+||| - Just [], if there is no embedded ".";
+||| - Just [], if the filename begins with a "." and has no other ".";
+||| - Just es, the portions between the "."s (excluding a potential leading one).
+export
+extensions : String -> Maybe (List String)
+extensions path = snd . splitExtensions <$> fileName path
+
 ||| Updates the file name in the path.
 |||
 ||| If there is no file name, it appends the name to the path;
@@ -579,7 +604,7 @@ dropExtension path = path <.> ""
 export
 pathLookup : List String -> IO (Maybe String)
 pathLookup candidates
-    = do path <- getEnv "PATH"
+    = do path <- idrisGetEnv "PATH"
          let extensions = if isWindows then [".exe", ".cmd", ".bat", ""] else [""]
          let pathList = forget $ String.split (== pathSeparator) $ fromMaybe "/usr/bin:/usr/local/bin" path
          let candidates = [p ++ "/" ++ x ++ y | p <- pathList,
