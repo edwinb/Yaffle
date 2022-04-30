@@ -29,6 +29,7 @@ idris2docs_venv
 /bootstrap-build
 
 /src/IdrisPaths.idr
+/src/build
 
 /custom.mk
 

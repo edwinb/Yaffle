@@ -107,3 +107,6 @@ modules
     Libraries.Utils.Shunting,
     Libraries.Utils.String,
     Libraries.Utils.Term
+
+main = TTMain.Main
+executable = tt
