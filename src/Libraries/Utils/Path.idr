@@ -1,7 +1,5 @@
 module Libraries.Utils.Path
 
-import Idris.Env
-
 import Data.List
 import Data.List1
 import Data.Maybe
@@ -14,6 +12,7 @@ import Libraries.Text.Lexer
 import Libraries.Text.Parser
 import Libraries.Text.Quantity
 
+import System
 import System.Info
 import System.File
 
@@ -604,7 +603,7 @@ dropExtension path = path <.> ""
 export
 pathLookup : List String -> IO (Maybe String)
 pathLookup candidates
-    = do path <- idrisGetEnv "PATH"
+    = do path <- getEnv "PATH"
          let extensions = if isWindows then [".exe", ".cmd", ".bat", ""] else [""]
          let pathList = forget $ String.split (== pathSeparator) $ fromMaybe "/usr/bin:/usr/local/bin" path
          let candidates = [p ++ "/" ++ x ++ y | p <- pathList,
