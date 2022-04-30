@@ -16,6 +16,7 @@ parameters {auto c : Ref Ctxt Defs}
       = do (tm, ty) <- infer [] rawtm
            tmnf <- normalise [] tm
            tynf <- normalise [] ty
+
            coreLift $ putStrLn $ show tmnf ++ " : " ++ show tynf
 
   export

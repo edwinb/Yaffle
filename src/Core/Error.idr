@@ -2,6 +2,8 @@ module Core.Error
 
 import Core.Binary
 import public Core.Core
+import public Core.Env
+import public Core.Context.CtxtData
 import public Core.TT
 
 import Data.List1
@@ -23,6 +25,10 @@ Show TFileError where
 public export
 data Error : Type where
      UndefinedName : FC -> Name -> Error
+     CantConvert : {vars : _} ->
+                   FC -> Defs -> Env Term vars ->
+                   Term vars -> Term vars -> Error
+
      MaybeMisspelling : Error -> List1 String -> Error
      ModuleNotFound : FC -> ModuleIdent -> Error
      UserError : String -> Error
@@ -35,6 +41,7 @@ data Error : Type where
 export
 Show Error where
   show (UndefinedName fc n) = show fc ++ ":Undefined name " ++ show n
+  show (CantConvert fc defs env x y) = ?halp
   show (MaybeMisspelling err ns)
      = show err ++ "\nDid you mean" ++ case ns of
          (n ::: []) => ": " ++ n ++ "?"

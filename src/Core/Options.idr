@@ -1,6 +1,6 @@
 module Core.Options
 
-import Core.Error
+import Core.Core
 import Core.TT.Name
 import public Core.Options.Log
 import Core.TT
@@ -240,7 +240,7 @@ defaultElab = MkElabDirectives True True CoveringOnly 3 50 25 True
 -- probably need another way (perhaps our own internal hash function, although
 -- that's not going to be as good as sha256).
 export
-defaultHashFn : Core (Maybe String)
+defaultHashFn : CoreE err (Maybe String)
 defaultHashFn
     = do Nothing <- coreLift $ pathLookup ["sha256sum", "gsha256sum"]
            | Just p => pure $ Just $ p ++ " --tag"
@@ -251,7 +251,7 @@ defaultHashFn
          pure Nothing
 
 export
-defaults : Core Options
+defaults : CoreE err Options
 defaults
     = do -- hashFn <- defaultHashFn
          -- Temporarily disabling the hash function until we have a more
