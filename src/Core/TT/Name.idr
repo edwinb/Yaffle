@@ -219,21 +219,21 @@ Show Name where
   show (Resolved x) = "$resolved" ++ show x
 
 export
-Pretty UserName where
-  pretty (Basic n) = pretty n
-  pretty (Field n) = "." <+> pretty n
+Pretty ann UserName where
+  pretty (Basic n) = pretty0 n
+  pretty (Field n) = "." <+> pretty0 n
   pretty Underscore = "_"
 
 export
-Pretty Name where
+Pretty ann Name where
   pretty (NS ns n@(UN (Field _))) = pretty ns <+> dot <+> parens (pretty n)
   pretty (NS ns n) = pretty ns <+> dot <+> pretty n
   pretty (UN x) = pretty x
-  pretty (MN x y) = braces (pretty x <+> colon <+> pretty y)
-  pretty (PV n d) = braces (pretty 'P' <+> colon <+> pretty n <+> colon <+> pretty d)
-  pretty (DN str _) = pretty str
-  pretty (WithBlock outer _) = reflow "with block in" <++> pretty outer
-  pretty (Resolved x) = pretty "$resolved" <+> pretty x
+  pretty (MN x y) = braces (pretty0 x <+> colon <+> pretty0 (show y))
+  pretty (PV n d) = braces (pretty0 'P' <+> colon <+> pretty n <+> colon <+> pretty0 (show d))
+  pretty (DN str _) = pretty0 str
+  pretty (WithBlock outer _) = reflow "with block in" <++> pretty0 outer
+  pretty (Resolved x) = pretty0 "$resolved" <+> pretty0 (show x)
 
 export
 Eq UserName where

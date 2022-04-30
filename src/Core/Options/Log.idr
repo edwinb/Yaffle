@@ -177,7 +177,7 @@ helpTopics = show $ vcat $ map helpTopic knownTopics
 
   helpTopic : (String, Maybe String) -> Doc ()
   helpTopic (str, mblurb)
-    = let title = "+" <++> pretty str
+    = let title = "+" <++> pretty0 str
           blurb = maybe [] ((::[]) . indent 2 . reflow) mblurb
       in vcat (title :: blurb)
 
@@ -250,9 +250,9 @@ Show LogLevel where
     _  => fastConcat (intersperse "." ps) ++ ":" ++ show n
 
 export
-Pretty LogLevel where
+Pretty ann LogLevel where
 
-  pretty = pretty . show
+  pretty = pretty0 . show
 
 export
 parseLogLevel : String -> Maybe LogLevel
