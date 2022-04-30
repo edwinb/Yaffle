@@ -1,6 +1,6 @@
 module Libraries.Data.NameMap
 
-import Core.Name
+import Core.TT.Name
 
 -- Hand specialised map, for efficiency...
 

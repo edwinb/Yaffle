@@ -1,7 +1,7 @@
 -- like name map, but able to return ambiguous names
 module Libraries.Data.ANameMap
 
-import Core.Name
+import Core.TT.Name
 
 import Data.List
 import Libraries.Data.NameMap

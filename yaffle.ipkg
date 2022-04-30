@@ -1,18 +1,50 @@
-package ttimp
+package yaffle
 
 version = 0.6.0
 sourcedir = "src"
 
 modules
-  = Core.Core,
-    Core.FC,
+  = -- The Core 'Monad', a specialised IO+errors
+    Core.Core,
 
+    -- The core type theory and support
+    Core.Binary,
+    Core.Context,
+    Core.Context.Ctxt,
+    Core.Context.Def,
+    Core.Error,
+    Core.Evaluate.Builtins,
+    Core.Evaluate.Compile,
+    Core.Evaluate.Convert,
+    Core.Evaluate.Normalise,
+    Core.Evaluate.Quote,
+    Core.Evaluate.ToScheme,
+    Core.Evaluate.Value,
+    Core.FC,
+    Core.InitPrimitives,
+    Core.Options,
+    Core.Primitives,
+    Core.Syntax.Lexer,
+    Core.Syntax.Parser,
+    Core.Syntax.Raw,
+    Core.Syntax.Support,
     Core.TT,
     Core.TT.Name,
     Core.TT.Namespace,
     Core.TT.RigCount,
     Core.TT.TT,
+    Core.TT.Universes,
 
+    -- The input language and elaborator
+    TTImp.TTImp,
+
+    Protocol.Hex,
+
+    -- Things we'd expect in a base library, but since this project is the
+    -- core of everything, include them here for bootstrapping.
+
+    -- These are just copied from Idris 2. It will turn out that we don't
+    -- need all of them, so (TODO) prune later.
     Libraries.Control.ANSI,
     Libraries.Control.ANSI.CSI,
     Libraries.Control.ANSI.SGR,

@@ -7,7 +7,7 @@ import public Data.IORef
 
 import System.File
 
--- Core is a wrapper around IO that is specialised for efficiency.
+-- CoreE is a wrapper around IO that is specialised for efficiency.
 export
 record CoreE err t where
   constructor MkCore
@@ -35,13 +35,10 @@ coreLift op = MkCore (do op' <- op
                          pure (Right op'))
 
 {- Monad, Applicative, Traversable are specialised by hand for Core.
-In theory, this shouldn't be necessary, but it turns out that Idris 1 doesn't
-specialise interfaces under 'case' expressions, and this has a significant
-impact on both compile time and run time.
 
-Of course it would be a good idea to fix this in Idris, but it's not an urgent
-thing on the road to self hosting, and we can make sure this isn't a problem
-in the next version (i.e., in this project...)! -}
+Ideally we won't need this forever, but until we can guarantee that this
+implementation dictionaries are specialised away in Idris 2, we'll keep this.
+-}
 
 -- Functor (specialised)
 export %inline
@@ -147,6 +144,14 @@ Catchable (CoreE err) err where
                          Right val => pure (Right val))
   breakpoint (MkCore prog) = MkCore (pure <$> prog)
   throw = coreFail
+
+export
+wrap : (e -> e') -> CoreE e a -> CoreE e' a
+wrap f (MkCore prog)
+    = MkCore (do p' <- prog
+                 case p' of
+                      Left e => pure (Left (f e))
+                      Right val => pure (Right val))
 
 -- Prelude.Monad.foldlM hand specialised for Core
 export
@@ -295,3 +300,23 @@ condC : List (CoreE err Bool, CoreE err a) -> CoreE err a -> CoreE err a
 condC [] def = def
 condC ((x, y) :: xs) def
     = if !x then y else condC xs def
+
+namespace Functor
+
+  export
+  [CORE] Functor (CoreE err) where
+    map = Core.map
+
+namespace Applicative
+
+  export
+  [CORE] Applicative (CoreE err) using Functor.CORE where
+    pure = Core.pure
+    (<*>) = Core.(<*>)
+
+namespace Monad
+
+  export
+  [CORE] Monad (CoreE err) using Applicative.CORE where
+    (>>=) = Core.(>>=)
+    join mma = Core.(>>=) mma id

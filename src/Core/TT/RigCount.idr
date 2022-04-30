@@ -4,6 +4,19 @@ public export
 data RigCount = Rig0 | Rig1 | RigW
 
 export
+Show RigCount where
+  show Rig0 = "0"
+  show Rig1 = "1"
+  show RigW = ""
+
+export
+Eq RigCount where
+  Rig0 == Rig0 = True
+  Rig1 == Rig1 = True
+  RigW == RigW = True
+  _ == _ = False
+
+export
 erased : RigCount
 erased = Rig0
 

@@ -2,7 +2,7 @@ module Libraries.Data.UserNameMap
 
 -- Hand specialised map, for efficiency...
 
-import Core.Name
+import Core.TT.Name
 
 %default total
 
