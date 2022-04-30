@@ -13,6 +13,7 @@ modules
     Core.Context.Ctxt,
     Core.Context.Def, -- top level definition forms live here
     Core.Error,
+    Core.Evaluate,
     Core.Evaluate.Builtins,
     Core.Evaluate.Compile,
     Core.Evaluate.Convert,
@@ -34,6 +35,8 @@ modules
     Core.TT.RigCount,
     Core.TT.TT, -- typechecked core language lives here
     Core.TT.Universes,
+
+    Core.Typecheck.Check,
 
     -- The input language and elaborator
     TTImp.TTImp,

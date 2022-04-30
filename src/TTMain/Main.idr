@@ -2,9 +2,13 @@
 -- plus
 module TTMain.Main
 
+import Core.Context
 import Core.Error
+import Core.InitPrimitives
 import Core.Syntax.Parser
 import Core.Syntax.Raw
+
+import TTMain.ProcessTT
 
 import System
 import System.File
@@ -16,7 +20,12 @@ ttMain fname
          let origin = PhysicalIdrSrc $ nsAsModuleIdent (unsafeFoldNamespace ["Main"])
          let Right cmds = parse origin (rawInput origin) inp
              | Left err => throw err
-         coreLift $ putStrLn (showSep "\n" (map show cmds))
+         -- Initialise context with primitive ops
+         defs <- initDefs
+         c <- newRef Ctxt defs
+         addPrimitives
+         -- And we're off
+         traverse_ processCommand cmds
 
 usage : String
 usage = "Usage: tt <input file>"
