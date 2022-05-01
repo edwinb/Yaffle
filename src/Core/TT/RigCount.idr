@@ -4,6 +4,20 @@ public export
 data RigCount = Rig0 | Rig1 | RigW
 
 export
+rigPlus : RigCount -> RigCount -> RigCount
+rigPlus Rig0 a = a
+rigPlus a Rig0 = a
+rigPlus _ _ = RigW
+
+export
+rigMult : RigCount -> RigCount -> RigCount
+rigMult Rig0 _ = Rig0
+rigMult _ Rig0 = Rig0
+rigMult Rig1 a = a
+rigMult a Rig1 = a
+rigMult _ _ = RigW
+
+export
 Show RigCount where
   show Rig0 = "0"
   show Rig1 = "1"
@@ -15,6 +29,15 @@ Eq RigCount where
   Rig1 == Rig1 = True
   RigW == RigW = True
   _ == _ = False
+
+export
+Ord RigCount where
+  compare x y = compare (tag x) (tag y)
+    where
+      tag : RigCount -> Int
+      tag Rig0 = 0
+      tag Rig1 = 1
+      tag RigW = 2
 
 export
 erased : RigCount
@@ -42,6 +65,13 @@ export
 isRigOther : RigCount -> Bool
 isRigOther RigW = True
 isRigOther _ = False
+
+||| A semiring eliminator
+public export
+elimSemi : (zero : b) -> (one : b) -> (RigCount -> b) -> RigCount -> b
+elimSemi zero one other Rig0 = zero
+elimSemi zero one other Rig1 = one
+elimSemi zero one other RigW = other RigW
 
 export
 branchZero : Lazy b -> Lazy b -> RigCount -> b

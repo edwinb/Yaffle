@@ -25,9 +25,16 @@ Show TFileError where
 public export
 data Error : Type where
      UndefinedName : FC -> Name -> Error
+     NoDeclaration : FC -> Name -> Error
+     AmbiguousName : FC -> List Name -> Error
+
      CantConvert : {vars : _} ->
                    FC -> Defs -> Env Term vars ->
                    Term vars -> Term vars -> Error
+     NotFunctionType : {vars : _} ->
+                   FC -> Defs -> Env Term vars ->
+                   Term vars -> Error
+     LinearMisuse : FC -> Name -> RigCount -> RigCount -> Error
 
      MaybeMisspelling : Error -> List1 String -> Error
      ModuleNotFound : FC -> ModuleIdent -> Error
@@ -41,7 +48,29 @@ data Error : Type where
 export
 Show Error where
   show (UndefinedName fc n) = show fc ++ ":Undefined name " ++ show n
-  show (CantConvert fc defs env x y) = ?halp
+  show (NoDeclaration fc x) = show fc ++ ":No type declaration for " ++ show x
+  show (AmbiguousName fc ns) = show fc ++ ":Ambiguous name " ++ show ns
+
+  show (CantConvert fc defs env x y)
+      = show fc ++ ":Can't convert " ++ show x ++ " with " ++ show y
+  show (NotFunctionType fc defs env t)
+      = show fc ++ ":" ++ show t ++ " is not a function type"
+  show (LinearMisuse fc n exp ctx)
+      = show fc ++ ":Trying to use " ++ showRig exp ++ " name " ++ show n ++
+                   " in " ++ showRel ctx ++ " context"
+     where
+       showRig : RigCount -> String
+       showRig = elimSemi
+         "linear"
+         "irrelevant"
+         (const "unrestricted")
+
+       showRel : RigCount -> String
+       showRel = elimSemi
+         "relevant"
+         "irrelevant"
+         (const "non-linear")
+
   show (MaybeMisspelling err ns)
      = show err ++ "\nDid you mean" ++ case ns of
          (n ::: []) => ": " ++ n ++ "?"

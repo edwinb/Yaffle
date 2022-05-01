@@ -112,4 +112,4 @@ modules
     Libraries.Utils.Term
 
 main = TTMain.Main
-executable = tt
+executable = yaffle

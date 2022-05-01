@@ -97,6 +97,7 @@ record Defs where
   constructor MkDefs
   gamma : Context
   uconstraints : List UConstraint
+  nextUVar : Int
   currentNS : Namespace -- namespace for current definitions
   nestedNS : List Namespace -- other nested namespaces we can look in
   options : Options

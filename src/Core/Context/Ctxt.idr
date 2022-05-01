@@ -386,6 +386,7 @@ initDefs
          pure $ MkDefs
            { gamma = gam
            , uconstraints = []
+           , nextUVar = 0
            , currentNS = mainNS
            , nestedNS = []
            , options = opts
@@ -479,3 +480,18 @@ parameters {auto c : Ref Ctxt Defs}
                | _ => pure () -- Don't add the alias if the name exists already
            gam' <- newAlias alias full (gamma defs)
            put Ctxt ({ gamma := gam' } defs)
+
+export
+defNameType : Def -> Maybe NameType
+defNameType None = Nothing
+defNameType (Function {}) = Just Func
+defNameType (ExternDef {}) = Just Func
+defNameType (ForeignDef {}) = Just Func
+defNameType (DCon _ tag ar) = Just (DataCon tag ar)
+defNameType (TCon _ ar) = Just (TyCon ar)
+defNameType (Hole {}) = Just Func
+defNameType (BySearch {}) = Nothing
+defNameType (Guess {}) = Nothing
+defNameType ImpBind = Just Bound
+defNameType (UniverseLevel {}) = Nothing
+defNameType Delayed = Nothing

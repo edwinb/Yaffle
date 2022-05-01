@@ -168,6 +168,19 @@ parameters {auto c : Ref Ctxt Defs}
   undefinedName : FC -> Name -> Core a
   undefinedName loc nm = maybeMisspelling (UndefinedName loc nm) nm
 
+  -- Throw a NoDeclaration exception. But try to find similar names first.
+  export
+  noDeclaration : FC -> Name -> Core a
+  noDeclaration loc nm = maybeMisspelling (NoDeclaration loc nm) nm
+
+  export
+  ambiguousName : FC -> Name -> List Name -> Core a
+  ambiguousName fc n ns = do
+    ns <- filterM (\x => pure $ !(getVisibility fc x) /= Private) ns
+    case ns of
+      [] =>         undefinedName fc n
+      ns => throw $ AmbiguousName fc ns
+
   export
   aliasName : Name -> Core Name
   aliasName fulln

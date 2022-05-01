@@ -53,6 +53,8 @@ bracketed r
 
 rawi : OriginDesc -> Rule RawI
 rawc : OriginDesc -> Rule RawC
+simpleRawi : OriginDesc -> Rule RawI
+simpleRawc : OriginDesc -> Rule RawC
 
 mkApp : FC -> RawI -> List RawC -> RawI
 mkApp fc f [] = f
@@ -100,20 +102,22 @@ simpleRawi fname
          keyword "pi"
          n <- name
          symbol ":"
-         arg <- rawi fname
+         arg <- rawc fname
          symbol "."
-         ret <- rawi fname
+         ret <- rawc fname
          end <- location
-         pure (RPi (MkFC fname start end) n arg ret)
+         pure (RPi (MkFC fname start end) RigW n arg ret)
   <|> do start <- location
          keyword "let"
          n <- name
+         symbol ":"
+         ty <- rawc fname
          symbol "="
-         val <- rawi fname
-         symbol "in"
+         val <- rawc fname
+         keyword "in"
          sc <- rawi fname
          end <- location
-         pure (RLet (MkFC fname start end) n val sc)
+         pure (RLet (MkFC fname start end) RigW n val ty sc)
   <|> do symbol "("
          tm <- rawi fname
          symbol ")"
@@ -122,9 +126,20 @@ simpleRawi fname
 rawi fname
     = do start <- location
          f <- simpleRawi fname
-         args <- many (rawc fname)
+         args <- many (simpleRawc fname)
          end <- location
          pure $ mkApp (MkFC fname start end) f args
+
+simpleRawc fname
+    = do symbol "("
+         tm <- rawc fname
+         symbol ")"
+         pure tm
+  <|> do start <- location
+         i <- simpleRawi fname -- This breaks the totality checking of the parser!
+                         -- I haven't worked out why...
+         end <- location
+         pure (RInf (MkFC fname start end) i)
 
 rawc fname
     = do start <- location
@@ -141,15 +156,12 @@ rawc fname
          sc <- rawc fname
          end <- location
          pure (RLam (MkFC fname start end) n sc)
-  <|> do symbol "("
-         tm <- rawc fname
-         symbol ")"
-         pure tm
   <|> do start <- location
          i <- rawi fname -- This breaks the totality checking of the parser!
                          -- I haven't worked out why...
          end <- location
          pure (RInf (MkFC fname start end) i)
+  <|> simpleRawc fname
 
 tyDecl : OriginDesc -> Rule RawDecl
 tyDecl fname

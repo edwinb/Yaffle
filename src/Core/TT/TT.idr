@@ -107,7 +107,7 @@ Show Constant where
 export
 Pretty ann Constant where
   pretty (Str x) = dquotes (pretty0 x)
-  pretty (Ch x) = squotes (pretty0 x)  
+  pretty (Ch x) = squotes (pretty0 x)
   pretty x = pretty0 $ show x
 
 export
@@ -388,6 +388,60 @@ data Binder : Type -> Type where
      PLet : FC -> RigCount -> (val : type) -> (ty : type) -> Binder type
      -- the type of pattern bound variables
      PVTy : FC -> RigCount -> (ty : type) -> Binder type
+
+export
+isLet : Binder t -> Bool
+isLet (Let _ _ _ _) = True
+isLet _ = False
+
+export
+binderLoc : Binder tm -> FC
+binderLoc (Lam fc _ x ty) = fc
+binderLoc (Let fc _ val ty) = fc
+binderLoc (Pi fc _ x ty) = fc
+binderLoc (PVar fc _ p ty) = fc
+binderLoc (PLet fc _ val ty) = fc
+binderLoc (PVTy fc _ ty) = fc
+
+export
+binderType : Binder tm -> tm
+binderType (Lam _ _ x ty) = ty
+binderType (Let _ _ val ty) = ty
+binderType (Pi _ _ x ty) = ty
+binderType (PVar _ _ _ ty) = ty
+binderType (PLet _ _ val ty) = ty
+binderType (PVTy _ _ ty) = ty
+
+export
+multiplicity : Binder tm -> RigCount
+multiplicity (Lam _ c x ty) = c
+multiplicity (Let _ c val ty) = c
+multiplicity (Pi _ c x ty) = c
+multiplicity (PVar _ c p ty) = c
+multiplicity (PLet _ c val ty) = c
+multiplicity (PVTy _ c ty) = c
+
+export
+piInfo : Binder tm -> PiInfo tm
+piInfo (Lam _ c x ty) = x
+piInfo (Let _ c val ty) = Explicit
+piInfo (Pi _ c x ty) = x
+piInfo (PVar _ c p ty) = p
+piInfo (PLet _ c val ty) = Explicit
+piInfo (PVTy _ c ty) = Explicit
+
+export
+isImplicit : Binder tm -> Bool
+isImplicit = PiInfo.isImplicit . piInfo
+
+export
+setMultiplicity : Binder tm -> RigCount -> Binder tm
+setMultiplicity (Lam fc _ x ty) c = Lam fc c x ty
+setMultiplicity (Let fc _ val ty) c = Let fc c val ty
+setMultiplicity (Pi fc _ x ty) c = Pi fc c x ty
+setMultiplicity (PVar fc _ p ty) c = PVar fc c p ty
+setMultiplicity (PLet fc _ val ty) c = PLet fc c val ty
+setMultiplicity (PVTy fc _ ty) c = PVTy fc c ty
 
 export
 Functor PiInfo where

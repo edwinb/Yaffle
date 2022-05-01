@@ -402,6 +402,10 @@ embed : Term vars -> Term (vars ++ more)
 embed tm = believe_me tm
 
 export
+renameTop : (m : Name) -> Term (n :: vars) -> Term (m :: vars)
+renameTop m tm = believe_me tm
+
+export
 nameAt : {vars : _} -> {idx : Nat} -> (0 p : IsVar n idx vars) -> Name
 nameAt {vars = n :: ns} First     = n
 nameAt {vars = n :: ns} (Later p) = nameAt p

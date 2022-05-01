@@ -13,8 +13,8 @@ data RawI : Type where
      RAnnot : FC -> RawC -> RawI -> RawI -- checkable with type annotation
      RVar : FC -> Name -> RawI
      RApp : FC -> RawI -> RawC -> RawI
-     RLet : FC -> Name -> (val : RawI) -> (scope : RawI) -> RawI
-     RPi : FC -> Name -> (argty : RawI) -> (retty : RawI) -> RawI
+     RLet : FC -> RigCount -> Name -> (val : RawC) -> (ty : RawC) -> (scope : RawI) -> RawI
+     RPi : FC -> RigCount -> Name -> (argty : RawC) -> (retty : RawC) -> RawI
      RPrimVal : FC -> Constant -> RawI
      RType : FC -> RawI
 
@@ -60,10 +60,11 @@ mutual -- grr
     show (RVar fc n) = show n
     show (RApp fc f a)
         = assert_total $ "(" ++ show f ++ " " ++ show a ++ ")"
-    show (RLet fc n val sc)
-        = assert_total $ "let " ++ show n ++ " = " ++ show val ++ " in"
+    show (RLet fc c n ty val sc)
+        = assert_total $ "let " ++ show n ++ " : " ++ show ty ++
+                         " = " ++ show val ++ " in "
                          ++ show sc
-    show (RPi fc n argty retty)
+    show (RPi fc c n argty retty)
         = assert_total $ "pi " ++ show n ++ " : " ++ show argty ++ " . "
                          ++ show retty
     show (RPrimVal fc c) = show c

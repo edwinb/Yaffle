@@ -13,7 +13,8 @@ parameters {auto c : Ref Ctxt Defs}
 
   processEval : RawI -> Core ()
   processEval rawtm
-      = do (tm, ty) <- infer [] rawtm
+      = do coreLift $ putStrLn $ "Input " ++ show rawtm
+           (tm, ty) <- infer top [] rawtm
            tmnf <- normalise [] tm
            tynf <- normalise [] ty
 

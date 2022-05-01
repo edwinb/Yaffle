@@ -201,4 +201,3 @@ constant
                              \case WorldType => Nothing
                                    c         => Just $ c
         _            => Nothing
-

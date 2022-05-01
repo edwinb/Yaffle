@@ -197,15 +197,31 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteGen s bounds env (VTCon fc n a sp)
       = do sp' <- quoteSpine s bounds env sp
            pure $ applySpine (Ref fc (TyCon a) n) sp'
-  quoteGen s bounds env (VAs fc use as pat) = ?quoteAs
+  quoteGen s bounds env (VAs fc use as pat)
+      = do pat' <- quoteGen s bounds env pat
+           as' <- quoteGen s bounds env as
+           case as' of
+                Local lfc _ idx p =>
+                    pure (As fc use (AsLoc lfc idx p) pat')
+                Ref rfc Bound n =>
+                    pure (As fc use (AsRef rfc n) pat')
+                _ => pure pat'
   quoteGen s bounds env (VCase fc sc scTy alts)
       = do sc' <- quoteGen s bounds env sc
            scTy' <- quoteGen s bounds env scTy
            alts' <- traverse (quoteAlt fc s bounds env) alts
            pure $ Case fc sc' scTy' alts'
-  quoteGen s bounds env (VDelayed fc r ty) = ?quoteDelayed
-  quoteGen s bounds env (VDelay fc r ty arg) = ?quoteDelay
-  quoteGen s bounds env (VForce fc r val sp) = ?quoteForce
+  quoteGen s bounds env (VDelayed fc r ty)
+      = do ty' <- quoteGen s bounds env ty
+           pure (TDelayed fc r ty')
+  quoteGen s bounds env (VDelay fc r ty arg)
+      = do ty' <- quoteGen BlockApp bounds env ty
+           arg' <- quoteGen BlockApp bounds env arg
+           pure (TDelay fc r ty' arg')
+  quoteGen s bounds env (VForce fc r val sp)
+      = do sp' <- quoteSpine s bounds env sp
+           val' <- quoteGen s bounds env val
+           pure $ applySpine (TForce fc r val') sp'
   quoteGen s bounds env (VPrimVal fc c) = pure $ PrimVal fc c
   quoteGen {vars} {bound} s bounds env (VPrimOp fc fn args)
       = do args' <- quoteArgs args

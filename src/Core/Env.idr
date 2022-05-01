@@ -45,3 +45,19 @@ getBinder : Weaken tm =>
             {vars : _} -> {idx : Nat} ->
             (0 p : IsVar x idx vars) -> Env tm vars -> Binder (tm vars)
 getBinder el env = getBinderUnder [] el env
+
+public export
+data IsDefined : Name -> List Name -> Type where
+  MkIsDefined : {idx : Nat} -> RigCount -> (0 p : IsVar n idx vars) ->
+                IsDefined n vars
+
+export
+defined : {vars : _} ->
+          (n : Name) -> Env Term vars ->
+          Maybe (IsDefined n vars)
+defined n [] = Nothing
+defined {vars = x :: xs} n (b :: env)
+    = case nameEq n x of
+           Nothing => do MkIsDefined rig prf <- defined n env
+                         pure (MkIsDefined rig (Later prf))
+           Just Refl => Just (MkIsDefined (multiplicity b) First)

@@ -1,0 +1,12 @@
+-- Some small things to evaluate to test raw type checking
+
+-- just a constant
+94;
+
+-- A monomorphic identity function
+let id : pi x : Integer . Integer = lam x . x in id 94;
+
+-- A polymorphic identity function
+let id : pi A : Type . pi a : A . A
+       = lam A . lam a. a in 
+    id Integer (prim__add_Integer 93 1);

@@ -4,6 +4,7 @@ import Core.Context
 import Core.Core
 import Core.Env
 import Core.Error
+import Core.Evaluate.Quote
 import Core.TT
 import Core.TT.Universes
 
@@ -189,7 +190,7 @@ parameters {auto c : Ref Ctxt Defs}
   convGen s env _ (VErased _ _) = pure True
   convGen s env (VImpossible _) (VImpossible _) = pure True
   convGen s env (VType fc n) (VType fc' n')
-      = do addConstraint (ULT fc n fc' n')
+      = do addConstraint (ULE fc n fc' n')
            pure True
   convGen s env _ _ = pure False
 
@@ -201,6 +202,16 @@ parameters {auto c : Ref Ctxt Defs}
         = do q <- newRef QVar 0
              convGen Reduce env x y
 
+    export
+    chkConvert : {vars : _} ->
+                 FC -> Env Term vars -> Value vars -> Value vars -> Core ()
+    chkConvert fc env x y
+        = do True <- convert env x y
+                 | False => throw (CantConvert fc !(get Ctxt) env
+                                               !(quote env x)
+                                               !(quote env y))
+             pure ()
+
   namespace Term
     export
     convert : {vars : _} ->
@@ -209,3 +220,11 @@ parameters {auto c : Ref Ctxt Defs}
         = do x' <- nf env x
              y' <- nf env y
              convert env x' y'
+
+    export
+    chkConvert : {vars : _} ->
+                 FC -> Env Term vars -> Term vars -> Term vars -> Core ()
+    chkConvert fc env x y
+        = do True <- convert env x y
+                 | False => throw (CantConvert fc !(get Ctxt) env x y)
+             pure ()
