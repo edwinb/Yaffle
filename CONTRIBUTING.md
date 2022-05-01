@@ -32,6 +32,7 @@ edwinb's next steps:
 * Write a linearity checker for typechecked terms
   - find out where we need to cache quantities in applications
 * Implement unification
+* Add holes to Raw TT (to try unification in the simplest possible setting)
 * ???
 * PROFIT
 

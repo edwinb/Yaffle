@@ -1,5 +1,7 @@
 module Core.Core
 
+import Core.TT
+
 import Data.List1
 import Data.Vect
 
@@ -186,6 +188,11 @@ traverseVect : (a -> CoreE err b) -> Vect n a -> CoreE err (Vect n b)
 traverseVect f [] = pure []
 traverseVect f (x :: xs) = [| f x :: traverseVect f xs |]
 
+export
+traverseSnocList : (a -> CoreE err b) -> SnocList a -> CoreE err (SnocList b)
+traverseSnocList f [<] = pure [<]
+traverseSnocList f (xs :< x) = [| traverseSnocList f xs :< f x |]
+
 %inline
 export
 traverseOpt : (a -> CoreE err b) -> Maybe a -> CoreE err (Maybe b)
@@ -224,6 +231,24 @@ traverseList1_ f xxs
          let xs = tail xxs
          ignore (f x)
          traverse_ f xs
+
+namespace PiInfo
+  export
+  traverse : (a -> CoreE err b) -> PiInfo a -> CoreE err (PiInfo b)
+  traverse f Explicit = pure Explicit
+  traverse f Implicit = pure Implicit
+  traverse f AutoImplicit = pure AutoImplicit
+  traverse f (DefImplicit t) = pure (DefImplicit !(f t))
+
+namespace Binder
+  export
+  traverse : (a -> CoreE err b) -> Binder a -> CoreE err (Binder b)
+  traverse f (Lam fc c p ty) = pure $ Lam fc c !(traverse f p) !(f ty)
+  traverse f (Let fc c val ty) = pure $ Let fc c !(f val) !(f ty)
+  traverse f (Pi fc c p ty) = pure $ Pi fc c !(traverse f p) !(f ty)
+  traverse f (PVar fc c p ty) = pure $ PVar fc c !(traverse f p) !(f ty)
+  traverse f (PLet fc c val ty) = pure $ PLet fc c !(f val) !(f ty)
+  traverse f (PVTy fc c ty) = pure $ PVTy fc c !(f ty)
 
 export
 anyM : (a -> CoreE err Bool) -> List a -> CoreE err Bool

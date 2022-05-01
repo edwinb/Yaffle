@@ -100,6 +100,16 @@ parameters {auto c : Ref Ctxt Defs}
            addConstraint (ULT fc u fc t)
            pure (TType fc u, TType fc t)
 
+  -- Check a case alternative.
+  -- We need to replace any occurrence of 'scr' in 'rhsTy' with whatever
+  -- the typechecked lhs turns out to be before checking the rhs.
+  checkAlt : {vars : _} ->
+             RigCount -> Env Term vars ->
+             (scr : Term vars) ->
+             (scrTy : Term vars) ->
+             (rhsTy : Term vars) ->
+             RawCaseAlt -> Core (CaseAlt vars)
+
   -- Declared above as
   -- check : {vars : _} ->
   --         RigCount -> Env Term vars -> RawC -> Term vars -> Core (Term vars)
@@ -116,4 +126,7 @@ parameters {auto c : Ref Ctxt Defs}
       getPiInfo : PiInfo (Value vars) -> Core (PiInfo (Term vars))
   check rig env (RLam fc n scope) t
       = throw (NotFunctionType fc !(get Ctxt) env t)
-  check rig env (RCase fc sc alts) exp = ?todoCase
+  check rig env (RCase fc sc alts) exp
+      = do (sc', scTy') <- infer rig env sc
+           alts <- traverse (checkAlt rig env sc' scTy' exp) alts
+           pure (Case fc sc' scTy' alts)

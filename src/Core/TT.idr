@@ -343,6 +343,92 @@ addVars : SizeOf outer -> Bounds bound ->
           NVar name (outer ++ (bound ++ vars))
 addVars p = insertNVarNames p . sizeOf
 
+resolveRef : SizeOf outer -> SizeOf done -> Bounds bound -> FC -> Name ->
+             Maybe (Term (outer ++ (done ++ bound ++ vars)))
+resolveRef p q None fc n = Nothing
+resolveRef {outer} {done} p q (Add {xs} new old bs) fc n
+    = if n == old
+         then rewrite appendAssociative outer done (new :: xs ++ vars) in
+              let MkNVar p = weakenNVar (p + q) (MkNVar First) in
+                     Just (Local fc Nothing _ p)
+         else rewrite appendAssociative done [new] (xs ++ vars)
+                in resolveRef p (sucR q) bs fc n
+
+mkLocalsAs : SizeOf outer -> Bounds bound ->
+             AsName (outer ++ vars) -> AsName (outer ++ (bound ++ vars))
+mkLocalsAs outer bs (AsLoc fc idx p)
+    = let MkNVar p' = addVars outer bs (MkNVar p) in AsLoc fc _ p'
+mkLocalsAs outer bs (AsRef fc n)
+    = case resolveRef outer zero bs fc n of
+           Just (Local fc _ _ p) => AsLoc fc _ p
+           _ => AsRef fc n
+
+mkLocalsAlt : SizeOf outer -> Bounds bound ->
+              CaseAlt (outer ++ vars) -> CaseAlt (outer ++ (bound ++ vars))
+
+mkLocals : SizeOf outer -> Bounds bound ->
+           Term (outer ++ vars) -> Term (outer ++ (bound ++ vars))
+mkLocals outer bs (Local fc r idx p)
+    = let MkNVar p' = addVars outer bs (MkNVar p) in Local fc r _ p'
+mkLocals outer bs (Ref fc Bound name)
+    = maybe (Ref fc Bound name) id (resolveRef outer zero bs fc name)
+mkLocals outer bs (Ref fc nt name)
+    = Ref fc nt name
+mkLocals outer bs (Meta fc name y xs)
+    = maybe (Meta fc name y (map (mkLocals outer bs) xs))
+            id (resolveRef outer zero bs fc name)
+mkLocals outer bs (Bind fc x b scope)
+    = Bind fc x (map (mkLocals outer bs) b)
+           (mkLocals (suc outer) bs scope)
+mkLocals outer bs (App fc fn arg)
+    = App fc (mkLocals outer bs fn) (mkLocals outer bs arg)
+mkLocals outer bs (As fc s as tm)
+    = As fc s (mkLocalsAs outer bs as) (mkLocals outer bs tm)
+mkLocals outer bs (Case fc sc scTy alts)
+    = Case fc (mkLocals outer bs sc) (mkLocals outer bs scTy)
+           (map (mkLocalsAlt outer bs) alts)
+mkLocals outer bs (TDelayed fc x y)
+    = TDelayed fc x (mkLocals outer bs y)
+mkLocals outer bs (TDelay fc x t y)
+    = TDelay fc x (mkLocals outer bs t) (mkLocals outer bs y)
+mkLocals outer bs (TForce fc r x)
+    = TForce fc r (mkLocals outer bs x)
+mkLocals outer bs (PrimVal fc c) = PrimVal fc c
+mkLocals outer bs (PrimOp fc fn args)
+    = PrimOp fc fn (map (mkLocals outer bs) args)
+mkLocals outer bs (Erased fc i) = Erased fc i
+mkLocals outer bs (Unmatched fc s) = Unmatched fc s
+mkLocals outer bs (Impossible fc) = Impossible fc
+mkLocals outer bs (TType fc u) = TType fc u
+
+mkLocalsCaseScope
+    : SizeOf outer -> Bounds bound ->
+      CaseScope (outer ++ vars) -> CaseScope (outer ++ (bound ++ vars))
+mkLocalsCaseScope outer bs (RHS tm) = RHS (mkLocals outer bs tm)
+mkLocalsCaseScope outer bs (Arg x scope)
+    = Arg x (mkLocalsCaseScope (suc outer) bs scope)
+
+mkLocalsAlt outer bs (ConCase n t scope)
+    = ConCase n t (mkLocalsCaseScope outer bs scope)
+mkLocalsAlt outer bs (DelayCase ty arg rhs)
+    = DelayCase ty arg (mkLocals (suc (suc outer)) bs rhs)
+mkLocalsAlt outer bs (ConstCase c rhs) = ConstCase c (mkLocals outer bs rhs)
+mkLocalsAlt outer bs (DefaultCase rhs) = DefaultCase (mkLocals outer bs rhs)
+
+export
+refsToLocals : Bounds bound -> Term vars -> Term (bound ++ vars)
+refsToLocals None y = y
+refsToLocals bs y = mkLocals zero  bs y
+
+export
+refsToLocalsCaseScope : Bounds bound -> CaseScope vars -> CaseScope (bound ++ vars)
+refsToLocalsCaseScope bs sc = mkLocalsCaseScope zero bs sc
+
+-- Replace any reference to 'x' with a locally bound name 'new'
+export
+refToLocal : (x : Name) -> (new : Name) -> Term vars -> Term (new :: vars)
+refToLocal x new tm = refsToLocals (Add new x None) tm
+
 export
 Weaken Term where
   weakenNs p tm = insertNames zero p tm
