@@ -2,6 +2,8 @@ Thanks for your interest! There is still significant work to be done on the
 core before accepting contributions generally, but there are a number of
 TODOs throughout for which I would welcome some help. Currently these are:
 
+* Please review the rules implement in Core/Typecheck/Check.idr
+    - Especially regarding quantities and universe levels
 * Any missing support functions for TT to be ported from existing Idris 2
     - I will add these as they are needed, but it's even better if they're
       already done :). Mostly they'll be the same, with the addition of
@@ -23,11 +25,18 @@ TODOs throughout for which I would welcome some help. Currently these are:
     - Also, it would be nice to have a reasonably tidy parser for TTImp syntax,
       when the time comes to write an elaborator.
 * Make sure the 'Libraries' modules are consistent with CONVENTIONS.md
+* (Complicated!): Add a feature to Idris 2 which dumps raw TT in a form readable
+  by Yaffle's raw type checker.
+    - Useful for testing Yaffle's evaluator and performance, also as a check
+      that the typechecker works.
+    - I will leave the design up to whoever has a go at this.
 
 edwinb's next steps:
 
+* Finish the typechecker for raw terms
+  - Missing constructor case
 * Set up a testing system as early as possible!
-* Write a typechecker for raw terms
+  - We have a couple of small tt files now
 * Change index of Terms from List Name to SnocList Name
 * Write a linearity checker for typechecked terms
   - find out where we need to cache quantities in applications

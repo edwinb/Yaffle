@@ -38,6 +38,7 @@ data Error : Type where
 
      MaybeMisspelling : Error -> List1 String -> Error
      ModuleNotFound : FC -> ModuleIdent -> Error
+     GenericMsg : FC -> String -> Error
      UserError : String -> Error
      LexFail : FC -> String -> Error
      ParseFail : List1 (FC, String) -> Error
@@ -77,6 +78,7 @@ Show Error where
          _ => " any of: " ++ showSep ", " (map show (forget ns)) ++ "?"
   show (ModuleNotFound fc ns)
       = show fc ++ ":" ++ show ns ++ " not found"
+  show (GenericMsg fc str) = show fc ++ ":" ++ str
   show (UserError str) = "Error: " ++ str
 
   show (LexFail fc err) = show fc ++ ":Lexer error (" ++ show err ++ ")"

@@ -45,7 +45,8 @@ parameters {auto c : Ref Ctxt Defs}
           RigCount -> Env Term vars -> RawI -> Core (Term vars, Term vars)
   infer rig env (RAnnot fc tm ty)
       = do (ty', tyty) <- infer erased env ty
-           chkConvert fc env tyty (TType fc (MN "top" 1))
+           lvl <- uniVar fc
+           chkConvert fc env tyty (TType fc lvl)
            tm' <- check rig env tm ty'
            pure (tm', ty')
   infer rigc env (RVar fc n)
@@ -100,15 +101,77 @@ parameters {auto c : Ref Ctxt Defs}
            addConstraint (ULT fc u fc t)
            pure (TType fc u, TType fc t)
 
+  checkCon : {bound, vars : _} ->
+             Int ->
+             Bounds bound ->
+             FC -> RigCount ->
+             Env Term vars ->
+             Env Term (bound ++ vars) ->
+             Name -> List Name ->
+             (conApp : Term (bound ++ vars)) ->
+             (conTy : Value vars) ->
+             (rhs : RawC) ->
+             (scr : Term (bound ++ vars)) ->
+             (scrTy : Term (bound ++ vars)) ->
+             (rhsTy : Term (bound ++ vars)) ->
+             Core (CaseScope (bound ++ vars))
+  checkCon i bs fc rig valenv env cname [] app ty rhs scr scrTy rhsTy
+      = do rhsExp <- replace env !(nf env scr) app
+                                 !(nf env rhsTy)
+           rhs' <- check rig env rhs rhsExp
+           pure (RHS rhs')
+
+  checkCon i bs fc rig valenv env cname (arg :: args) app (VBind _ x (Pi _ rigp p aty) sc) rhs scr scrTy rhsTy
+      = do -- Extend the environment with the constructor argument name
+           argty <- quote valenv aty
+           let varty = refsToLocals bs argty
+           let env' = PVar fc rig Explicit varty :: env
+           -- Check the rest of the scope; apply the current constructor
+           -- application to the new variable, and substitute the variable into
+           -- the constructor type
+           let argn = MN "carg" i
+           casesc <- checkCon (i + 1) (Add arg argn bs) fc rig
+                              valenv env' cname args
+                              (App fc (weaken app) (Local fc (Just False) _ First))
+                              !(sc (VApp fc Bound argn [<] (pure Nothing)))
+                              rhs (weaken scr) (weaken scrTy) (weaken rhsTy)
+           pure (Arg arg casesc)
+  -- I wouldn't expect to see this happen since we've done an arity check, but
+  -- here for completeness
+  checkCon _ bs fc _ _ _ cname _ _ _ _ _ _ _
+      = throw (GenericMsg fc ("Can't match on " ++ show cname))
+
   -- Check a case alternative.
   -- We need to replace any occurrence of 'scr' in 'rhsTy' with whatever
   -- the typechecked lhs turns out to be before checking the rhs.
   checkAlt : {vars : _} ->
-             RigCount -> Env Term vars ->
+             FC -> RigCount -> Env Term vars ->
              (scr : Term vars) ->
              (scrTy : Term vars) ->
              (rhsTy : Term vars) ->
              RawCaseAlt -> Core (CaseAlt vars)
+  checkAlt fc rig env scr scrTy rhsTy (RConCase n args rhs)
+      = do defs <- get Ctxt
+           [(cname, i, def)] <- lookupCtxtName n (gamma defs)
+                | ns => ambiguousName fc n (map fst ns)
+           let DCon _ tag arity = definition def
+                | _ => throw (GenericMsg fc ("Can't match on " ++ show cname))
+           let True = arity == length args
+                | _ => throw (GenericMsg fc (show cname ++ " has arity " ++ show arity))
+           let conty = embed (type def)
+           concase <- checkCon 0 None fc rig env env cname args
+                               (Ref fc (DataCon tag arity) cname)
+                               !(nf env conty)
+                               rhs scr scrTy rhsTy
+           pure (ConCase n tag concase)
+  checkAlt fc rig env scr scrTy rhsTy (RConstCase c rhs)
+      = do c' <- check rig env (RInf fc (RPrimVal fc c)) scrTy
+           rhsExp <- replace env !(nf env scr) c' !(nf env rhsTy)
+           rhs' <- check rig env rhs rhsExp
+           pure (ConstCase c rhs')
+  checkAlt fc rig env scr scrTy rhsTy (RDefaultCase rhs)
+      = do rhs' <- check rig env rhs rhsTy
+           pure (DefaultCase rhs')
 
   -- Declared above as
   -- check : {vars : _} ->
@@ -117,16 +180,16 @@ parameters {auto c : Ref Ctxt Defs}
       = do (tm', ty') <- infer rig env tm
            chkConvert fc env ty' exp
            pure tm'
-  check {vars} rig env (RLam fc n scope) (Bind _ x (Pi _ rigp p aty) rty)
-      = do let env' = Lam fc rigp p aty :: env
-           sc' <- check rig env' scope rty
-           pure (Bind fc n (Lam fc rigp p aty)
-                      (renameTop n sc'))
-    where
-      getPiInfo : PiInfo (Value vars) -> Core (PiInfo (Term vars))
-  check rig env (RLam fc n scope) t
-      = throw (NotFunctionType fc !(get Ctxt) env t)
+  check {vars} rig env (RLam fc n scope) ty
+      = do tnf <- nf env ty
+           case !(quote env tnf) of
+                Bind _ x (Pi _ rigp p aty) rty =>
+                    do let env' = Lam fc rigp p aty :: env
+                       sc' <- check rig env' scope rty
+                       pure (Bind fc n (Lam fc rigp p aty)
+                                  (renameTop n sc'))
+                _ => throw (NotFunctionType fc !(get Ctxt) env ty)
   check rig env (RCase fc sc alts) exp
       = do (sc', scTy') <- infer rig env sc
-           alts <- traverse (checkAlt rig env sc' scTy' exp) alts
+           alts <- traverse (checkAlt fc rig env sc' scTy' exp) alts
            pure (Case fc sc' scTy' alts)
