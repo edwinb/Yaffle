@@ -149,7 +149,7 @@ validSymbol : Lexer
 validSymbol = some (pred isOpChar)
 
 reservedSymbol : Lexer
-reservedSymbol = pred (`elem` ['{', '}', ';', '|', '(', ')', ':', '.'])
+reservedSymbol = pred (`elem` ['{', '}', ';', '|', '(', ')', ':', '.', '_'])
 
 fromBinLit : String -> Integer
 fromBinLit str
@@ -186,6 +186,7 @@ mutual
   rawTokens =
           match comment (const Comment)
       <|> match blockComment (const Comment)
+      <|> match reservedSymbol Symbol
       <|> match holeIdent (\x => HoleIdent (assert_total (strTail x)))
       <|> match doubleLit (DoubleLit . cast)
       <|> match binUnderscoredLit (IntegerLit . fromBinLit . removeUnderscores)
@@ -198,7 +199,6 @@ mutual
       <|> match identNormal parseIdent
       <|> match space (const Space)
       <|> match validSymbol Symbol
-      <|> match reservedSymbol Symbol
       <|> match symbol Unrecognised
     where
       parseIdent : String -> Token

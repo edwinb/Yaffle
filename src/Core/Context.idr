@@ -199,6 +199,14 @@ parameters {auto c : Ref Ctxt Defs}
                else findAlias ps
       findAlias (_ :: ps) = findAlias ps
 
+  export
+  checkUndefined : FC -> Name -> Core ()
+  checkUndefined fc n
+      = do defs <- get Ctxt
+           Nothing <- lookupCtxtExact n (gamma defs)
+               | _ => throw (AlreadyDefined fc n)
+           pure ()
+
 -- Dealing with various options
 
   export

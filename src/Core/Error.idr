@@ -26,11 +26,15 @@ public export
 data Error : Type where
      UndefinedName : FC -> Name -> Error
      NoDeclaration : FC -> Name -> Error
+     BadTypeConType : FC -> Name -> Error
+     BadDataConType : FC -> Name -> Name -> Error
+
      AmbiguousName : FC -> List Name -> Error
 
      CantConvert : {vars : _} ->
                    FC -> Defs -> Env Term vars ->
                    Term vars -> Term vars -> Error
+     AlreadyDefined : FC -> Name -> Error
      NotFunctionType : {vars : _} ->
                    FC -> Defs -> Env Term vars ->
                    Term vars -> Error
@@ -50,10 +54,16 @@ export
 Show Error where
   show (UndefinedName fc n) = show fc ++ ":Undefined name " ++ show n
   show (NoDeclaration fc x) = show fc ++ ":No type declaration for " ++ show x
+  show (BadTypeConType fc n)
+       = show fc ++ ":Return type of " ++ show n ++ " must be Type"
+  show (BadDataConType fc n fam)
+       = show fc ++ ":Return type of " ++ show n ++ " must be in " ++ show fam
+
   show (AmbiguousName fc ns) = show fc ++ ":Ambiguous name " ++ show ns
 
   show (CantConvert fc defs env x y)
       = show fc ++ ":Can't convert " ++ show x ++ " with " ++ show y
+  show (AlreadyDefined fc n) = show fc ++ ":" ++ show n ++ " is already defined"
   show (NotFunctionType fc defs env t)
       = show fc ++ ":" ++ show t ++ " is not a function type"
   show (LinearMisuse fc n exp ctx)

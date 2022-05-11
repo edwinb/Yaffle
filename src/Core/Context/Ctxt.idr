@@ -463,6 +463,17 @@ parameters {auto c : Ref Ctxt Defs}
            pure idx
 
   export
+  updateDef : Name -> (Def -> Maybe Def) -> Core ()
+  updateDef n fdef
+      = do defs <- get Ctxt
+           Just gdef <- lookupCtxtExact n (gamma defs)
+               | Nothing => pure ()
+           case fdef (definition gdef) of
+                Nothing => pure ()
+                Just def' => ignore $ addDef n ({ definition := def',
+                                                  evaldef := Nothing } gdef)
+
+  export
   addContextEntry : Ref STable (IntMap String) =>
                     Name -> Binary -> CoreE err Int
   addContextEntry n def

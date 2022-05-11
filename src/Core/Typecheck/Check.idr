@@ -1,6 +1,8 @@
 module Core.Typecheck.Check
 
 -- Typechecker for raw TT terms
+-- (Minimal elaboration happens here: this is primarily for being able to
+-- write TT directly to help with debugging and other experiments)
 
 import Core.Context
 import Core.Env
@@ -12,6 +14,7 @@ import Core.TT
 import Core.TT.Universes
 
 parameters {auto c : Ref Ctxt Defs}
+  export
   topType : FC -> Term vars
   topType fc = TType fc (MN "top" 0)
 
@@ -62,7 +65,8 @@ parameters {auto c : Ref Ctxt Defs}
                         | ns => ambiguousName fc n (map fst ns)
                    rigSafe (multiplicity def) rigc
                    let nt = fromMaybe Func (defNameType $ definition def)
-                   pure (Ref fc nt (Resolved i), embed (type def))
+                   -- FIXME: pname should be Resolved i
+                   pure (Ref fc nt pname, embed (type def))
     where
       rigSafe : RigCount -> RigCount -> Core ()
       rigSafe lhs rhs = when (lhs < rhs)

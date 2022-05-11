@@ -8,20 +8,38 @@ data Nat : Type where {
  | S : pi k : Nat . Nat
 }
 
+not : pi x : Bool . Bool;
+not = lam x . case x of
+                 False => True
+               | True => False;
+
+not True;
+not False;
+
 plus : pi x : Nat . pi y : Nat . Nat;
 plus = lam x. lam y . 
            case x of
               Z => y
             | S k => S (plus k y);
 
+plus (S (S Z)) (S (S (S Z)));
+
+(lam x . plus (S (S x)) (S (S Z))  : pi x : Nat . Nat);
+
 intToNat : pi x : Integer . Nat;
 intToNat = lam x . case x of
                         0 => Z
                       | _ => S (intToNat (prim__sub_Integer x 1));
+
+prim__sub_Integer 5 1;
+intToNat 5;
 
 natToInt : pi x : Nat . Integer;
 natToInt = lam x . case x of
                       Z => 0
                     | S k => prim__add_Integer (natToInt k) 1;
 
-natToInt (plus (intToNat 4) (intToNat 5));
+natToInt (S (S Z));
+prim__add_Integer 1 (prim__add_Integer (prim__add_Integer 1 1) 2);
+
+natToInt (plus (intToNat 400) (intToNat 500));

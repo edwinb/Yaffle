@@ -25,6 +25,7 @@ modules
     Core.InitPrimitives,
     Core.Options,
     Core.Primitives,
+    Core.Syntax.Decls, -- adding raw declarations to the context
     Core.Syntax.Lexer,
     Core.Syntax.Parser,
     Core.Syntax.Raw, -- raw unchecked syntax lives here

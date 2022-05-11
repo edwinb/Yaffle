@@ -171,15 +171,23 @@ parameters {auto c : Ref Ctxt Defs}
   tryAlts locs env sc (a :: as) stuck = tryAlts locs env sc as stuck
   tryAlts locs env sc [] stuck = stuck
 
+  getVal : Value vars -> Core (Value vars)
+  getVal b@(VApp _ _ _ _ val)
+      = do Just nf <- val
+                | _ => pure b
+           getVal nf
+  getVal b = pure b
+
   evalCase : {vars : _} ->
              FC -> LocalEnv free vars -> Env Term vars ->
              (sc : Value vars) -> (scTy : Term (free ++ vars)) ->
              List (CaseAlt (free ++ vars)) ->
              Core (Value vars)
-  evalCase fc locs env sc ty alts
-      = if isCanonical sc
-           then tryAlts locs env sc alts (blockedCase fc locs env sc ty alts)
-           else blockedCase fc locs env sc ty alts
+  evalCase fc locs env sc_in ty alts
+      = do sc <- getVal sc_in
+           if isCanonical sc
+              then tryAlts locs env sc alts (blockedCase fc locs env sc ty alts)
+              else blockedCase fc locs env sc ty alts
     where
       isCanonical : Value vars -> Bool
       isCanonical (VLam{}) = True
@@ -294,7 +302,7 @@ parameters {auto c : Ref Ctxt Defs}
       -- No traverse for Vect in Core...
       evalArgs : Vect n (Term (free ++ vars)) -> Core (Vect n (Value vars))
       evalArgs [] = pure []
-      evalArgs (a :: as) = pure $ !(eval locs env a) :: !(evalArgs as)
+      evalArgs (a :: as) = pure $ !(getVal !(eval locs env a)) :: !(evalArgs as)
 
   eval locs env (Erased fc i) = pure $ VErased fc i
   eval locs env (Unmatched fc str) = pure $ VUnmatched fc str

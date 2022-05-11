@@ -20,6 +20,16 @@ parameters {auto c : Ref Ctxt Defs}
       = do val <- nf env tm
            quoteNF env val
 
+  export
+  getArityVal : Value vars -> Core Nat
+  getArityVal (VBind fc _ (Pi _ _ _ _) sc)
+      = pure $ 1 + !(getArityVal !(sc (VErased fc False)))
+  getArityVal _ = pure 0
+
+  export
+  getArity : {vars : _} -> Env Term vars -> Term vars -> Core Nat
+  getArity env tm = getArityVal !(nf env tm)
+
   replace'
       : {vars : _} ->
         Int -> Env Term vars ->

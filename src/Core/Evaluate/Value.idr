@@ -78,3 +78,18 @@ data VCaseAlt : List Name -> Type where
      VConstCase : Constant -> Value vars -> VCaseAlt vars
      ||| Catch-all case
      VDefaultCase : Value vars -> VCaseAlt vars
+
+-- Show what form a value has, for debugging
+export
+qshow : Value vars -> String
+qshow (VLam{}) = "Lam"
+qshow (VBind{}) = "Bind"
+qshow (VApp _ _ n _ _) = "App " ++ show n
+qshow (VLocal{}) = "Local"
+qshow (VMeta _ n _ _ _ _) = "Meta " ++ show n
+qshow (VDCon _ n _ _ _) = "DCon " ++ show n
+qshow (VTCon _ n _ _) = "TCon " ++ show n
+qshow (VCase{}) = "Case"
+qshow (VPrimVal _ c) = "Constant " ++ show c
+qshow (VPrimOp _ f args) = "PrimOp " ++ show f ++ " " ++ show (length args)
+qshow _ = "???"

@@ -507,45 +507,58 @@ withPiInfo (DefImplicit t) tm = "{default " ++ show t ++ " " ++ tm ++ "}"
   show (AsLoc _ _ p) = show (nameAt p)
   show (AsRef _ n) = show n
 
-export
-{vars : _} -> Show (Term vars) where
-  show tm = let (fn, args) = getFnArgs tm in assert_total (showApp fn args)
-    where
-      -- TODO: There's missing cases here, and the assert_total above
-      -- shouldn't be necessary, so fix that!
-      showApp : {vars : _} -> Term vars -> List (Term vars) -> String
-      showApp (Local _ c idx p) []
-         = show (nameAt p) ++ "[" ++ show idx ++ "]"
-      showApp (Ref _ _ n) [] = show n
-      showApp (Meta _ n _ args) []
-          = "?" ++ show n ++ "_" ++ show args
-      showApp (Bind _ x (Lam _ c info ty) sc) []
-          = "\\" ++ withPiInfo info (show c ++ show x ++ " : " ++ show ty) ++
-            " => " ++ show sc
-      showApp (Bind _ x (Let _ c val ty) sc) []
-          = "let " ++ show c ++ show x ++ " : " ++ show ty ++
-            " = " ++ show val ++ " in " ++ show sc
-      showApp (Bind _ x (Pi _ c info ty) sc) []
-          = withPiInfo info (show c ++ show x ++ " : " ++ show ty) ++
-            " -> " ++ show sc ++ ")"
-      showApp (Bind _ x (PVar _ c info ty) sc) []
-          = withPiInfo info ("pat " ++ show c ++ show x ++ " : " ++ show ty) ++
-            " => " ++ show sc
-      showApp (Bind _ x (PLet _ c val ty) sc) []
-          = "plet " ++ show c ++ show x ++ " : " ++ show ty ++
-            " = " ++ show val ++ " in " ++ show sc
-      showApp (Bind _ x (PVTy _ c ty) sc) []
-          = "pty " ++ show c ++ show x ++ " : " ++ show ty ++
-            " => " ++ show sc
-      showApp (App _ _ _) [] = "[can't happen]"
-      showApp (As _ _ n tm) [] = show n ++ "@" ++ show tm
-      showApp (TDelayed _ _ tm) [] = "%Delayed " ++ show tm
-      showApp (TDelay _ _ _ tm) [] = "%Delay " ++ show tm
-      showApp (TForce _ _ tm) [] = "%Force " ++ show tm
-      showApp (PrimVal _ c) [] = show c
-      showApp (Erased _ _) [] = "[__]"
-      showApp (TType _ u) [] = "Type"
-      showApp _ [] = "???"
-      showApp f args = "(" ++ assert_total (show f) ++ " " ++
-                        assert_total (showSep " " (map show args))
-                     ++ ")"
+mutual
+  export
+  {vars : _} -> Show (Term vars) where
+    show tm = let (fn, args) = getFnArgs tm in assert_total (showApp fn args)
+      where
+        -- TODO: There's missing cases here, and the assert_total above
+        -- shouldn't be necessary, so fix that!
+        showApp : {vars : _} -> Term vars -> List (Term vars) -> String
+        showApp (Local _ c idx p) []
+           = show (nameAt p) ++ "[" ++ show idx ++ "]"
+        showApp (Ref _ _ n) [] = show n
+        showApp (Meta _ n _ args) []
+            = "?" ++ show n ++ "_" ++ show args
+        showApp (Bind _ x (Lam _ c info ty) sc) []
+            = "\\" ++ withPiInfo info (show c ++ show x ++ " : " ++ show ty) ++
+              " => " ++ show sc
+        showApp (Bind _ x (Let _ c val ty) sc) []
+            = "let " ++ show c ++ show x ++ " : " ++ show ty ++
+              " = " ++ show val ++ " in " ++ show sc
+        showApp (Bind _ x (Pi _ c info ty) sc) []
+            = withPiInfo info (show c ++ show x ++ " : " ++ show ty) ++
+              " -> " ++ show sc ++ ")"
+        showApp (Bind _ x (PVar _ c info ty) sc) []
+            = withPiInfo info ("pat " ++ show c ++ show x ++ " : " ++ show ty) ++
+              " => " ++ show sc
+        showApp (Bind _ x (PLet _ c val ty) sc) []
+            = "plet " ++ show c ++ show x ++ " : " ++ show ty ++
+              " = " ++ show val ++ " in " ++ show sc
+        showApp (Bind _ x (PVTy _ c ty) sc) []
+            = "pty " ++ show c ++ show x ++ " : " ++ show ty ++
+              " => " ++ show sc
+        showApp (App _ _ _) [] = "[can't happen]"
+        showApp (As _ _ n tm) [] = show n ++ "@" ++ show tm
+        showApp (Case _ sc _ alts) []
+            = "case " ++ show sc ++ " of " ++ show alts
+        showApp (TDelayed _ _ tm) [] = "%Delayed " ++ show tm
+        showApp (TDelay _ _ _ tm) [] = "%Delay " ++ show tm
+        showApp (TForce _ _ tm) [] = "%Force " ++ show tm
+        showApp (PrimVal _ c) [] = show c
+        showApp (PrimOp _ op args) [] = show op ++ show args
+        showApp (Erased _ _) [] = "[__]"
+        showApp (Unmatched _ str) [] = "Unmatched: " ++ show str
+        showApp (Impossible _) [] = "impossible"
+        showApp (TType _ u) [] = "Type"
+        showApp _ [] = "???"
+        showApp f args = "(" ++ assert_total (show f) ++ " " ++
+                          assert_total (showSep " " (map show args))
+                       ++ ")"
+
+  export
+  {vars : _} -> Show (CaseAlt vars) where
+     show (ConCase n t sc) = "???"
+     show (DelayCase ty arg sc) = "???"
+     show (ConstCase c sc) = show c ++ " => " ++ show sc
+     show (DefaultCase sc) = "_ => " ++ show sc
