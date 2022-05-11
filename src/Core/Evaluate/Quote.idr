@@ -20,6 +20,7 @@ genName n
 
 data Strategy
   = NF -- full normal form
+  | HNF -- head normal form (block under constructors)
   | BlockApp -- block all applications
 
 {-
@@ -162,12 +163,12 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteGen BlockApp bounds env (VApp fc nt n sp val)
       = do sp' <- quoteSpine BlockApp bounds env sp
            pure $ applySpine (Ref fc nt n) sp'
-  quoteGen NF bounds env (VApp fc nt n sp val)
+  quoteGen s bounds env (VApp fc nt n sp val)
       = do Just v <- val
               | Nothing =>
-                  do sp' <- quoteSpine NF bounds env sp
+                  do sp' <- quoteSpine s bounds env sp
                      pure $ applySpine (Ref fc nt n) sp'
-           quoteGen NF bounds env v
+           quoteGen s bounds env v
   quoteGen {bound} s bounds env (VLocal fc mlet idx p sp)
       = do sp' <- quoteSpine s bounds env sp
            let MkVar p' = addLater bound p
@@ -192,10 +193,16 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
                      pure $ applySpine (Meta fc n i args') sp'
            quoteGen s bounds env v
   quoteGen s bounds env (VDCon fc n t a sp)
-      = do sp' <- quoteSpine s bounds env sp
+      = do let s' = case s of
+                         HNF => BlockApp
+                         _ => s
+           sp' <- quoteSpine s' bounds env sp
            pure $ applySpine (Ref fc (DataCon t a) n) sp'
   quoteGen s bounds env (VTCon fc n a sp)
-      = do sp' <- quoteSpine s bounds env sp
+      = do let s' = case s of
+                         HNF => BlockApp
+                         _ => s
+           sp' <- quoteSpine s' bounds env sp
            pure $ applySpine (Ref fc (TyCon a) n) sp'
   quoteGen s bounds env (VAs fc use as pat)
       = do pat' <- quoteGen s bounds env pat
@@ -237,18 +244,24 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteGen s bounds env (VImpossible fc) = pure $ Impossible fc
   quoteGen s bounds env (VType fc n) = pure $ TType fc n
 
-export
-quoteNF : {vars : _} ->
-          Ref Ctxt Defs =>
-          Env Term vars -> Value vars -> Core (Term vars)
-quoteNF env val
-    = do q <- newRef QVar 0
-         quoteGen NF None env val
+parameters {auto c : Ref Ctxt Defs}
+  quoteStrategy : {vars : _} ->
+            Strategy -> Env Term vars -> Value vars -> Core (Term vars)
+  quoteStrategy s env val
+      = do q <- newRef QVar 0
+           quoteGen s None env val
 
-export
-quote : {vars : _} ->
-        Ref Ctxt Defs =>
-        Env Term vars -> Value vars -> Core (Term vars)
-quote env val
-    = do q <- newRef QVar 0
-         quoteGen BlockApp None env val
+  export
+  quoteNF : {vars : _} ->
+            Env Term vars -> Value vars -> Core (Term vars)
+  quoteNF = quoteStrategy NF
+
+  export
+  quoteHNF : {vars : _} ->
+          Env Term vars -> Value vars -> Core (Term vars)
+  quoteHNF = quoteStrategy HNF
+
+  export
+  quote : {vars : _} ->
+          Env Term vars -> Value vars -> Core (Term vars)
+  quote = quoteStrategy BlockApp

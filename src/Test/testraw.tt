@@ -42,4 +42,4 @@ natToInt = lam x . case x of
 natToInt (S (S Z));
 prim__add_Integer 1 (prim__add_Integer (prim__add_Integer 1 1) 2);
 
-natToInt (plus (intToNat 400) (intToNat 500));
+natToInt (plus (intToNat 50000) (intToNat 40000));

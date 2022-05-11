@@ -114,3 +114,5 @@ modules
 
 main = TTMain.Main
 executable = yaffle
+
+-- opts = "--profile"

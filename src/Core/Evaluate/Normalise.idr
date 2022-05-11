@@ -19,14 +19,16 @@ apply fc (VApp afc nt n spine go) arg
     = pure $ VApp afc nt n (spine :< (fc, arg)) $
            do Just go' <- go
                    | Nothing => pure Nothing
-              Just <$> apply fc go' arg
+              res <- apply fc go' arg
+              pure (Just res)
 apply fc (VLocal lfc l idx p spine) arg
     = pure $ VLocal lfc l idx p (spine :< (fc, arg))
 apply fc (VMeta mfc n i sc spine go) arg
     = pure $ VMeta mfc n i sc (spine :< (fc, arg)) $
            do Just go' <- go
                    | Nothing => pure Nothing
-              Just <$> apply fc go' arg
+              res <- apply fc go' arg
+              pure (Just res)
 apply fc (VDCon dfc n t a spine) arg
     = pure $ VDCon dfc n t a (spine :< (fc, arg))
 apply fc (VTCon tfc n a spine) arg
@@ -77,6 +79,14 @@ extend : LocalEnv ns vars -> LocalEnv ms vars -> LocalEnv (ns ++ ms) vars
 extend [] env = env
 extend (x :: vars) env = x :: extend vars env
 
+updateEnv : {idx : _} ->
+            LocalEnv free vars ->
+            (0 _ : IsVar name idx (free ++ vars)) -> Value vars ->
+            LocalEnv free vars
+updateEnv (b :: env) First new = new :: env
+updateEnv (b :: env) (Later p) new = b :: updateEnv env p new
+updateEnv env _ _ = env
+
 data ExtendLocs : List Name -> List Name -> Type where
      Lin : ExtendLocs vars []
      (:<) : ExtendLocs vars xs -> Value vars -> ExtendLocs vars (xs ++ [x])
@@ -92,11 +102,13 @@ mkEnv {vars} ext = rewrite sym (appendNilRightNeutral ns) in go ext []
                   go ext (val :: locs)
 
 runOp : {vars : _} ->
-        FC -> PrimFn ar -> Vect ar (Value vars) -> Value vars
+        FC -> PrimFn ar -> Vect ar (Value vars) -> Core (Value vars)
 runOp fc op args
-    = case getOp op args of
-           Just res => res
-           Nothing => VPrimOp fc op args
+    = do args' <- traverseVect getVal args
+         -- If it gets stuck, return the glued args, not the values
+         case getOp op args' of
+           Just res => pure res
+           Nothing => pure $ VPrimOp fc op args
 
 parameters {auto c : Ref Ctxt Defs}
 
@@ -171,13 +183,6 @@ parameters {auto c : Ref Ctxt Defs}
   tryAlts locs env sc (a :: as) stuck = tryAlts locs env sc as stuck
   tryAlts locs env sc [] stuck = stuck
 
-  getVal : Value vars -> Core (Value vars)
-  getVal b@(VApp _ _ _ _ val)
-      = do Just nf <- val
-                | _ => pure b
-           getVal nf
-  getVal b = pure b
-
   evalCase : {vars : _} ->
              FC -> LocalEnv free vars -> Env Term vars ->
              (sc : Value vars) -> (scTy : Term (free ++ vars)) ->
@@ -187,7 +192,7 @@ parameters {auto c : Ref Ctxt Defs}
       = do sc <- getVal sc_in
            if isCanonical sc
               then tryAlts locs env sc alts (blockedCase fc locs env sc ty alts)
-              else blockedCase fc locs env sc ty alts
+              else blockedCase fc locs env sc_in ty alts
     where
       isCanonical : Value vars -> Bool
       isCanonical (VLam{}) = True
@@ -253,22 +258,25 @@ parameters {auto c : Ref Ctxt Defs}
   eval locs env (Ref fc (TyCon a) n)
       = pure $ VTCon fc n a [<]
   eval locs env tm@(Ref fc nt n)
-      = pure $ VApp fc nt n [<] $
-             do defs <- get Ctxt
-                Just def <- lookupCtxtExact n (gamma defs)
-                    | Nothing => pure Nothing
-                let Function _ fn = definition def
-                    | _ => pure Nothing
-                Just <$> eval locs env (embed fn)
+      = do defs <- get Ctxt
+           Just def <- lookupCtxtExact n (gamma defs)
+                | Nothing => pure (VApp fc nt n [<] (pure Nothing))
+           let Function _ fn = definition def
+                | _ => pure (VApp fc nt n [<] (pure Nothing))
+           pure $ VApp fc nt n [<] $
+                    do res <- eval locs env (embed fn)
+                       pure (Just res)
   eval locs env (Meta fc n i scope)
        = do scope' <- traverse (eval locs env) scope
+            defs <- get Ctxt
+            Just def <- lookupCtxtExact n (gamma defs)
+                 | Nothing => pure (VMeta fc n i scope' [<] (pure Nothing))
+            let Function _ fn = definition def
+                 | _ => pure (VMeta fc n i scope' [<] (pure Nothing))
             pure $ VMeta fc n i scope' [<] $
-                 do defs <- get Ctxt
-                    Just def <- lookupCtxtExact n (gamma defs)
-                        | Nothing => pure Nothing
-                    let Function _ fn = definition def
-                        | _ => pure Nothing
-                    Just <$> applyAll fc !(eval locs env (embed fn)) scope'
+                     do evalfn <- eval locs env (embed fn)
+                        res <- applyAll fc evalfn scope'
+                        pure (Just res)
   eval locs env (Bind fc x (Lam bfc r p ty) sc)
       = pure $ VLam fc x r !(evalPiInfo locs env p) !(eval locs env ty)
                     (\arg => eval (arg :: locs) env sc)
@@ -286,7 +294,11 @@ parameters {auto c : Ref Ctxt Defs}
   eval locs env (As fc use _ pat)
       = eval locs env pat
   eval locs env (Case fc sc ty alts)
-      = evalCase fc locs env !(eval locs env sc) ty alts
+      = do sc' <- eval locs env sc
+           locs' <- case sc of
+                         Local _ _ _ p => pure $ updateEnv locs p !(getVal sc')
+                         _ => pure locs
+           evalCase fc locs' env sc' ty alts
   eval locs env (TDelayed fc r tm)
       = pure $ VDelayed fc r !(eval locs env tm)
   eval locs env (TDelay fc r ty arg)
@@ -297,12 +309,12 @@ parameters {auto c : Ref Ctxt Defs}
            pure arg
   eval locs env (PrimVal fc c) = pure $ VPrimVal fc c
   eval {free} {vars} locs env (PrimOp fc op args)
-      = pure $ runOp fc op !(evalArgs args)
+      = runOp fc op !(evalArgs args)
     where
       -- No traverse for Vect in Core...
       evalArgs : Vect n (Term (free ++ vars)) -> Core (Vect n (Value vars))
       evalArgs [] = pure []
-      evalArgs (a :: as) = pure $ !(getVal !(eval locs env a)) :: !(evalArgs as)
+      evalArgs (a :: as) = pure $ !(eval locs env a) :: !(evalArgs as)
 
   eval locs env (Erased fc i) = pure $ VErased fc i
   eval locs env (Unmatched fc str) = pure $ VUnmatched fc str

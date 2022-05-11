@@ -79,6 +79,15 @@ data VCaseAlt : List Name -> Type where
      ||| Catch-all case
      VDefaultCase : Value vars -> VCaseAlt vars
 
+-- Get the NF out of a value, if it's a VApp
+export
+getVal : Value vars -> Core (Value vars)
+getVal b@(VApp _ _ _ _ val)
+    = do Just nf <- val
+              | _ => pure b
+         getVal nf
+getVal b = pure b
+
 -- Show what form a value has, for debugging
 export
 qshow : Value vars -> String

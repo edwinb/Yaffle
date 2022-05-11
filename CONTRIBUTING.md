@@ -33,8 +33,9 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
-* Finish the typechecker for raw terms
-  - Missing constructor case
+* Do some tweaking to evaluation
+  - Deal with blocked 'case' better where it arises from a definition
+* Implement HasNames so we can do resolved names
 * Set up a testing system as early as possible!
   - We have a couple of small tt files now
 * Change index of Terms from List Name to SnocList Name
