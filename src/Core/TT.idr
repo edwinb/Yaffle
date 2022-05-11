@@ -527,7 +527,7 @@ mutual
             = "let " ++ show c ++ show x ++ " : " ++ show ty ++
               " = " ++ show val ++ " in " ++ show sc
         showApp (Bind _ x (Pi _ c info ty) sc) []
-            = withPiInfo info (show c ++ show x ++ " : " ++ show ty) ++
+            = "(" ++ withPiInfo info (show c ++ show x ++ " : " ++ show ty) ++
               " -> " ++ show sc ++ ")"
         showApp (Bind _ x (PVar _ c info ty) sc) []
             = withPiInfo info ("pat " ++ show c ++ show x ++ " : " ++ show ty) ++

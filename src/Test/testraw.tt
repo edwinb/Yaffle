@@ -24,15 +24,17 @@ plus = lam x. lam y .
 
 plus (S (S Z)) (S (S (S Z)));
 
-(lam x . plus (S (S x)) (S (S Z))  : pi x : Nat . Nat);
+(lam x . plus (S (S x)) (S (S x))  : pi x : Nat . Nat);
 
 intToNat : pi x : Integer . Nat;
 intToNat = lam x . case x of
                         0 => Z
                       | _ => S (intToNat (prim__sub_Integer x 1));
 
+
 prim__sub_Integer 5 1;
 intToNat 5;
+intToNat;
 
 natToInt : pi x : Nat . Integer;
 natToInt = lam x . case x of

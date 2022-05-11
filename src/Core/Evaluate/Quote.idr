@@ -168,7 +168,19 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
               | Nothing =>
                   do sp' <- quoteSpine s bounds env sp
                      pure $ applySpine (Ref fc nt n) sp'
-           quoteGen s bounds env v
+           -- If the result is blocked by a then just give back the application,
+           -- for readability. Otherwise, keep quoting
+           if !(blockedApp v)
+              then
+                  do sp' <- quoteSpine s bounds env sp
+                     pure $ applySpine (Ref fc nt n) sp'
+              else quoteGen s bounds env v
+    where
+      blockedApp : Value vars -> Core Bool
+      blockedApp (VLam fc _ _ _ _ sc)
+          = blockedApp !(sc (VErased fc False))
+      blockedApp (VCase{}) = pure True
+      blockedApp _ = pure False
   quoteGen {bound} s bounds env (VLocal fc mlet idx p sp)
       = do sp' <- quoteSpine s bounds env sp
            let MkVar p' = addLater bound p
