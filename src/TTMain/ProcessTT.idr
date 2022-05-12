@@ -11,15 +11,19 @@ import Core.Typecheck.Check
 parameters {auto c : Ref Ctxt Defs}
   processEval : RawI -> Core ()
   processEval rawtm
-      = do coreLift $ putStrLn $ "Input " ++ show rawtm
-           (tm, ty) <- infer top [] rawtm
-           tmval <- nf [] tm
-           tmnf <- quoteNF [] tmval
-           tynf <- normalise [] ty
+      = do (tm, ty) <- infer top [] rawtm
+           tmnf <- normalise [] tm
+           coreLift $ putStrLn $ show tmnf ++ " : " ++ show ty
 
-           coreLift $ putStrLn $ show tmnf ++ " : " ++ show tynf
+  processHNF : RawI -> Core ()
+  processHNF rawtm
+      = do (tm, ty) <- infer top [] rawtm
+           tmnf <- normaliseHNF [] tm
+           coreLift $ putStrLn $ show tmnf ++ " : " ++ show ty
 
   export
   processCommand : Command -> Core ()
   processCommand (Decl d) = processDecl d
   processCommand (Eval tm) = processEval tm
+  processCommand (HNF tm) = processHNF tm
+  processCommand Quit = pure ()

@@ -110,7 +110,10 @@ modules
     Libraries.Utils.Scheme,
     Libraries.Utils.Shunting,
     Libraries.Utils.String,
-    Libraries.Utils.Term
+    Libraries.Utils.Term,
+
+    TTMain.ProcessTT,
+    TTMain.REPL
 
 main = TTMain.Main
 executable = yaffle

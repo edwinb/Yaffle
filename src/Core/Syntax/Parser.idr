@@ -223,6 +223,15 @@ command fname
   <|> do tm <- rawi fname
          symbol ";"
          pure (Eval tm)
+  <|> do symbol ":"
+         exactIdent "hnf"
+         tm <- rawi fname
+         symbol ";"
+         pure (HNF tm)
+  <|> do symbol ":"
+         exactIdent "q"
+         symbol ";"
+         pure Quit
 
 export
 rawInput : OriginDesc -> Rule (List Command)

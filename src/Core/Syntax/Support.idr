@@ -33,6 +33,14 @@ keyword req
                  _ => Nothing
 
 export
+exactIdent : String -> Rule ()
+exactIdent req
+    = terminal ("Expected " ++ req) $
+               \case
+                 Ident s => guard (s == req)
+                 _ => Nothing
+
+export
 eoi : EmptyRule ()
 eoi = ignore $ nextIs "Expected end of input" isEOI
   where

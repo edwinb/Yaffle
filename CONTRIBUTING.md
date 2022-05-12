@@ -33,12 +33,13 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
-* Do some tweaking to evaluation
-  - Deal with blocked 'case' better where it arises from a definition
-* Implement HasNames so we can do resolved names
-* Set up a testing system as early as possible!
-  - We have a couple of small tt files now
+* Add universe constraints when adding data definitions
+  - Find parameters + other properties we need to know elsewhere
+* A basic REPL
+* Add test framework with existing small tt files
 * Change index of Terms from List Name to SnocList Name
+* Universe level solver
+* Implement HasNames so we can do resolved names
 * Write a linearity checker for typechecked terms
   - find out where we need to cache quantities in applications
 * Implement unification

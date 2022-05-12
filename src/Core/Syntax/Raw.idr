@@ -49,6 +49,8 @@ public export
 data Command : Type where
      Decl : RawDecl -> Command
      Eval : RawI -> Command
+     HNF : RawI -> Command
+     Quit : Command
 
 mutual -- grr
   -- I just threw these together. It'd be nice if the results paid
@@ -112,3 +114,5 @@ export
 Show Command where
   show (Decl d) = "Decl " ++ show d
   show (Eval e) = "Eval " ++ show e
+  show (HNF e) = "hnf " ++ show e
+  show Quit = "quit"

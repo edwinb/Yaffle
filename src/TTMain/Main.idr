@@ -9,6 +9,7 @@ import Core.Syntax.Parser
 import Core.Syntax.Raw
 
 import TTMain.ProcessTT
+import TTMain.REPL
 
 import System
 import System.File
@@ -24,8 +25,10 @@ ttMain fname
          defs <- initDefs
          c <- newRef Ctxt defs
          addPrimitives
-         -- And we're off
+         -- And we're off. Process the commands from the input file...
          traverse_ processCommand cmds
+         -- ...and start the REPL
+         repl
 
 usage : String
 usage = "Usage: tt <input file>"
