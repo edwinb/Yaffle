@@ -131,9 +131,8 @@ parameters {auto c : Ref Ctxt Defs}
            --   rhs type
            rhsExp <- replace env !(nf env scr) app
                                  !(nf env rhsTy)
-           -- TODO: finish second part of above
            let matches = matchVars conTy scrTy
-
+           rhsExp <- replaceMatches fc env matches rhsExp
            rhs' <- check rig env rhs rhsExp
            pure (RHS rhs')
 

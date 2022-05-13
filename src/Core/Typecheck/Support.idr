@@ -1,5 +1,7 @@
 module Core.Typecheck.Support
 
+import Core.Context
+import Core.Evaluate
 import Core.TT
 
 -- Match the first term against the second, returning all the expressions
@@ -20,8 +22,6 @@ matchVars = go []
         = do v' <- removeVar zero v
              tm' <- shrinkTerm tm (DropCons SubRefl)
              pure (v', tm')
-
-
 
     go : forall vars .
          List (Var vars, Term vars) -> Term vars -> Term vars ->
@@ -53,3 +53,13 @@ matchVars = go []
     -- While we won't use the Raw typechecker in actual elaboration, it will
     -- still be useful for debugging/rechecking so this needs to be complete.
     go acc tmx tmy = []
+
+export
+replaceMatches : Ref Ctxt Defs =>
+                 {vars : _} ->
+                 FC -> Env Term vars -> List (Var vars, Term vars) ->
+                 Term vars -> Core (Term vars)
+replaceMatches fc env [] tm = pure tm
+replaceMatches fc env ((MkVar p, orig) :: ms) tm
+    = do tm' <- replaceMatches fc env ms tm
+         replace env !(nf env orig) (Local fc Nothing _ p) !(nf env tm')

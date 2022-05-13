@@ -1,3 +1,23 @@
+data T : Type where {
+     MkT : pi x : Integer . pi y : Integer . pi z : Integer . T
+}
+
+proj1 : pi x : T . Integer;
+proj1 = lam x . case x of
+                  MkT i j k => i;
+
+proj2 : pi x : T . Integer;
+proj2 = lam x . case x of
+                  MkT i j k => j;
+
+proj3 : pi x : T . Integer;
+proj3 = lam x . case x of
+                  MkT i j k => k;
+
+proj1 (MkT 1 2 3);
+proj2 (MkT 1 2 3);
+proj3 (MkT 1 2 3);
+
 data Pair : pi a : Type . pi b : Type . Type where {
      MkPair : pi a : Type . pi b : Type .
               pi x : a .    pi y : b . Pair a b
@@ -8,4 +28,9 @@ fst = lam a . lam b . lam p .
          case p of
               MkPair a' b' x y => x;
 
-fst Integer Integer (MkPair Integer Integer 42 94);
+data Bool : Type where {
+    False : Bool
+  | True : Bool
+}
+
+fst Bool Integer (MkPair Bool Integer False 94);

@@ -34,12 +34,12 @@ parameters {auto c : Ref Ctxt Defs}
            -- check the data constructors
            arity <- getArity [] ty
            let tinf = MkTyConInfo [] [] [] [] Nothing
-           ignore $ addDef n (newDef fc n erased ty Public (TCon tinf arity))
+           ignore $ addDef n (newDef fc n top ty Public (TCon tinf arity))
            cnames <- traverse (processDataCon fc n) (mkTags 0 cons)
            -- TODO: Deal with parameters and universe constraints
            let tinf = MkTyConInfo [] [] [] cnames Nothing
            -- Re-add with the full information
-           ignore $ addDef n (newDef fc n erased ty Public (TCon tinf arity))
+           ignore $ addDef n (newDef fc n top ty Public (TCon tinf arity))
     where
       -- I wanted to zip a Stream with a List...
       mkTags : Int -> List a -> List (Int, a)

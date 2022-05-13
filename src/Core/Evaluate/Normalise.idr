@@ -162,19 +162,21 @@ parameters {auto c : Ref Ctxt Defs}
             Core (Value vars) -> -- what to do if stuck
             Core (Value vars)
   tryAlts {vars} locs env sc@(VDCon _ _ t a sp) (ConCase _ t' cscope :: as) stuck
-      = if t == t' then evalCaseScope locs sp cscope
+      = if t == t' then evalCaseScope locs (cast sp) cscope
            else tryAlts locs env sc as stuck
     where
+      -- We've turned the spine into a list so that the argument positions
+      -- correspond when going through the CaseScope
       evalCaseScope : forall free . LocalEnv free vars ->
-                      Spine vars -> CaseScope (free ++ vars) ->
+                      List (FC, Value vars) -> CaseScope (free ++ vars) ->
                       Core (Value vars)
-      evalCaseScope locs [<] (RHS tm) = eval locs env tm
-      evalCaseScope locs (sp :< v) (Arg x sc)
+      evalCaseScope locs [] (RHS tm) = eval locs env tm
+      evalCaseScope locs (v :: sp) (Arg x sc)
           = evalCaseScope (snd v :: locs) sp sc
       evalCaseScope _ _ _ = stuck
 
   tryAlts locs env sc@(VDelay _ _ ty arg) (DelayCase ty' arg' rhs :: as) stuck
-      = eval (ty :: arg :: locs) env rhs
+      = eval (arg :: ty :: locs) env rhs
   tryAlts locs env sc@(VPrimVal _ c) (ConstCase c' rhs :: as) stuck
       = if c == c'
            then eval locs env rhs
