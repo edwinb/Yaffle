@@ -12,6 +12,7 @@ import Core.Evaluate.Convert
 import Core.Syntax.Raw
 import Core.TT
 import Core.TT.Universes
+import Core.Typecheck.Support
 
 parameters {auto c : Ref Ctxt Defs}
   export
@@ -170,6 +171,8 @@ parameters {auto c : Ref Ctxt Defs}
            pure (ConCase n tag concase)
   checkAlt fc rig env scr scrTy rhsTy (RConstCase c rhs)
       = do c' <- check rig env (RInf fc (RPrimVal fc c)) scrTy
+           -- Substitute the scrutinee into the expected type, to get the
+           -- expected type of the right hand side
            rhsExp <- replace env !(nf env scr) c' !(nf env rhsTy)
            rhs' <- check rig env rhs rhsExp
            pure (ConstCase c rhs')

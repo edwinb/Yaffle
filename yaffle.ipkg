@@ -38,6 +38,7 @@ modules
     Core.TT.Universes,
 
     Core.Typecheck.Check,
+    Core.Typecheck.Support,
 
     -- The input language and elaborator
     TTImp.TTImp,
