@@ -9,6 +9,11 @@ TODOs throughout for which I would welcome some help. Currently these are:
       already done :). Mostly they'll be the same, with the addition of
       case alternatives. Experience so far is that case alternatives in the
       new representation are easier to process...
+* Finish 'matchVars' in Core.Typecheck.Support.
+    - This is for finding the variables to substitute in types when checking
+      simple case blocks. Current state is fine for the basic test cases,
+      and we won't typically use this typechecker in elaboration, but we will
+      need it for debugging/rechecking results of elaboration.
 * Implement 'checkConstraints' in Core.TT.Universes. This should check
   whether the `uconstraints` are consistent and instantiate the names standing
   for universe levels as a `UniverseLevel` definition.
@@ -49,4 +54,4 @@ edwinb's next steps:
 * ???
 * PROFIT
 
-(Last updated 22nd April 2022)
+(Last updated 13th May 2022)

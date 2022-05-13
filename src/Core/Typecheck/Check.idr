@@ -121,8 +121,19 @@ parameters {auto c : Ref Ctxt Defs}
              (rhsTy : Term (bound ++ vars)) ->
              Core (CaseScope (bound ++ vars))
   checkCon i bs fc rig valenv env cname [] app ty rhs scr scrTy rhsTy
-      = do rhsExp <- replace env !(nf env scr) app
+      = do let conTy = refsToLocals bs !(quote valenv ty)
+           -- Now the tricky step! To make this a dependent case, we need to
+           -- * Substitute the application for the scrutinee in the expected
+           --   rhs type
+           -- * Match the built constructor type (conTy) against the
+           --   scrutinee type. Where a constructor arg matches an expression
+           --   substitute that expression for the bound argument in the
+           --   rhs type
+           rhsExp <- replace env !(nf env scr) app
                                  !(nf env rhsTy)
+           -- TODO: finish second part of above
+           let matches = matchVars conTy scrTy
+
            rhs' <- check rig env rhs rhsExp
            pure (RHS rhs')
 

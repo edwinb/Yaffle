@@ -1,0 +1,11 @@
+data Pair : pi a : Type . pi b : Type . Type where {
+     MkPair : pi a : Type . pi b : Type .
+              pi x : a .    pi y : b . Pair a b
+}
+
+fst : pi a : Type . pi b : Type . pi p : Pair a b . a;
+fst = lam a . lam b . lam p .
+         case p of
+              MkPair a' b' x y => x;
+
+fst Integer Integer (MkPair Integer Integer 42 94);

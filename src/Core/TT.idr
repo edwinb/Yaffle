@@ -326,76 +326,76 @@ subInclude ns SubRefl = SubRefl
 subInclude ns (DropCons p) = DropCons (subInclude ns p)
 subInclude ns (KeepCons p) = KeepCons (subInclude ns p)
 
-mutual
-  export
-  shrinkPi : PiInfo (Term vars) -> SubVars newvars vars ->
-             Maybe (PiInfo (Term newvars))
-  shrinkPi Explicit prf = pure Explicit
-  shrinkPi Implicit prf = pure Implicit
-  shrinkPi AutoImplicit prf = pure AutoImplicit
-  shrinkPi (DefImplicit t) prf = pure (DefImplicit !(shrinkTerm t prf))
+export
+shrinkTerm : Term vars -> SubVars newvars vars -> Maybe (Term newvars)
+export
+shrinkPi : PiInfo (Term vars) -> SubVars newvars vars ->
+           Maybe (PiInfo (Term newvars))
+export
+shrinkBinder : Binder (Term vars) -> SubVars newvars vars ->
+               Maybe (Binder (Term newvars))
+shrinkAs : AsName vars -> SubVars newvars vars -> Maybe (AsName newvars)
+shrinkScope : CaseScope vars -> SubVars newvars vars -> Maybe (CaseScope newvars)
+shrinkAlt : CaseAlt vars -> SubVars newvars vars -> Maybe (CaseAlt newvars)
 
-  export
-  shrinkBinder : Binder (Term vars) -> SubVars newvars vars ->
-                 Maybe (Binder (Term newvars))
-  shrinkBinder (Lam fc c p ty) prf
-      = Just (Lam fc c !(shrinkPi p prf) !(shrinkTerm ty prf))
-  shrinkBinder (Let fc c val ty) prf
-      = Just (Let fc c !(shrinkTerm val prf) !(shrinkTerm ty prf))
-  shrinkBinder (Pi fc c p ty) prf
-      = Just (Pi fc c !(shrinkPi p prf) !(shrinkTerm ty prf))
-  shrinkBinder (PVar fc c p ty) prf
-      = Just (PVar fc c !(shrinkPi p prf) !(shrinkTerm ty prf))
-  shrinkBinder (PLet fc c val ty) prf
-      = Just (PLet fc c !(shrinkTerm val prf) !(shrinkTerm ty prf))
-  shrinkBinder (PVTy fc c ty) prf
-      = Just (PVTy fc c !(shrinkTerm ty prf))
+shrinkPi Explicit prf = pure Explicit
+shrinkPi Implicit prf = pure Implicit
+shrinkPi AutoImplicit prf = pure AutoImplicit
+shrinkPi (DefImplicit t) prf = pure (DefImplicit !(shrinkTerm t prf))
 
-  shrinkAs : AsName vars -> SubVars newvars vars -> Maybe (AsName newvars)
-  shrinkAs (AsLoc fc idx loc) prf = (\(MkVar loc') => AsLoc fc _ loc') <$> subElem loc prf
-  shrinkAs (AsRef fc n) prf = Just (AsRef fc n)
+shrinkBinder (Lam fc c p ty) prf
+    = Just (Lam fc c !(shrinkPi p prf) !(shrinkTerm ty prf))
+shrinkBinder (Let fc c val ty) prf
+    = Just (Let fc c !(shrinkTerm val prf) !(shrinkTerm ty prf))
+shrinkBinder (Pi fc c p ty) prf
+    = Just (Pi fc c !(shrinkPi p prf) !(shrinkTerm ty prf))
+shrinkBinder (PVar fc c p ty) prf
+    = Just (PVar fc c !(shrinkPi p prf) !(shrinkTerm ty prf))
+shrinkBinder (PLet fc c val ty) prf
+    = Just (PLet fc c !(shrinkTerm val prf) !(shrinkTerm ty prf))
+shrinkBinder (PVTy fc c ty) prf
+    = Just (PVTy fc c !(shrinkTerm ty prf))
 
-  shrinkScope : CaseScope vars -> SubVars newvars vars -> Maybe (CaseScope newvars)
-  shrinkScope (RHS tm) prf = Just (RHS !(shrinkTerm tm prf))
-  shrinkScope (Arg x sc) prf = Just (Arg x !(shrinkScope sc (KeepCons prf)))
+shrinkAs (AsLoc fc idx loc) prf = (\(MkVar loc') => AsLoc fc _ loc') <$> subElem loc prf
+shrinkAs (AsRef fc n) prf = Just (AsRef fc n)
 
-  shrinkAlt : CaseAlt vars -> SubVars newvars vars -> Maybe (CaseAlt newvars)
-  shrinkAlt (ConCase x tag sc) prf
-      = Just (ConCase x tag !(shrinkScope sc prf))
-  shrinkAlt (DelayCase ty arg sc) prf
-      = Just (DelayCase ty arg !(shrinkTerm sc (KeepCons (KeepCons prf))))
-  shrinkAlt (ConstCase c sc) prf = Just (ConstCase c !(shrinkTerm sc prf))
-  shrinkAlt (DefaultCase sc) prf = Just (DefaultCase !(shrinkTerm sc prf))
+shrinkScope (RHS tm) prf = Just (RHS !(shrinkTerm tm prf))
+shrinkScope (Arg x sc) prf = Just (Arg x !(shrinkScope sc (KeepCons prf)))
 
-  export
-  shrinkTerm : Term vars -> SubVars newvars vars -> Maybe (Term newvars)
-  shrinkTerm (Local fc r idx loc) prf = (\(MkVar loc') => Local fc r _ loc') <$> subElem loc prf
-  shrinkTerm (Ref fc x name) prf = Just (Ref fc x name)
-  shrinkTerm (Meta fc x y xs) prf
-     = do xs' <- traverse (\x => shrinkTerm x prf) xs
-          Just (Meta fc x y xs')
-  shrinkTerm (Bind fc x b scope) prf
-     = Just (Bind fc x !(shrinkBinder b prf) !(shrinkTerm scope (KeepCons prf)))
-  shrinkTerm (App fc fn arg) prf
-     = Just (App fc !(shrinkTerm fn prf) !(shrinkTerm arg prf))
-  shrinkTerm (As fc s as tm) prf
-     = Just (As fc s !(shrinkAs as prf) !(shrinkTerm tm prf))
-  shrinkTerm (Case fc sc scTy alts) prf
-     = Just (Case fc !(shrinkTerm sc prf) !(shrinkTerm scTy prf)
-                  !(traverse (\alt => shrinkAlt alt prf) alts))
-  shrinkTerm (TDelayed fc x y) prf
-     = Just (TDelayed fc x !(shrinkTerm y prf))
-  shrinkTerm (TDelay fc x t y) prf
-     = Just (TDelay fc x !(shrinkTerm t prf) !(shrinkTerm y prf))
-  shrinkTerm (TForce fc r x) prf
-     = Just (TForce fc r !(shrinkTerm x prf))
-  shrinkTerm (PrimVal fc c) prf = Just (PrimVal fc c)
-  shrinkTerm (PrimOp fc fn args) prf
-     = Just (PrimOp fc fn !(traverse (\arg => shrinkTerm arg prf) args))
-  shrinkTerm (Erased fc i) prf = Just (Erased fc i)
-  shrinkTerm (Unmatched fc s) prf = Just (Unmatched fc s)
-  shrinkTerm (Impossible fc) prf = Just (Impossible fc)
-  shrinkTerm (TType fc u) prf = Just (TType fc u)
+shrinkAlt (ConCase x tag sc) prf
+    = Just (ConCase x tag !(shrinkScope sc prf))
+shrinkAlt (DelayCase ty arg sc) prf
+    = Just (DelayCase ty arg !(shrinkTerm sc (KeepCons (KeepCons prf))))
+shrinkAlt (ConstCase c sc) prf = Just (ConstCase c !(shrinkTerm sc prf))
+shrinkAlt (DefaultCase sc) prf = Just (DefaultCase !(shrinkTerm sc prf))
+
+shrinkTerm (Local fc r idx loc) prf = (\(MkVar loc') => Local fc r _ loc') <$> subElem loc prf
+shrinkTerm (Ref fc x name) prf = Just (Ref fc x name)
+shrinkTerm (Meta fc x y xs) prf
+   = do xs' <- traverse (\x => shrinkTerm x prf) xs
+        Just (Meta fc x y xs')
+shrinkTerm (Bind fc x b scope) prf
+   = Just (Bind fc x !(shrinkBinder b prf) !(shrinkTerm scope (KeepCons prf)))
+shrinkTerm (App fc fn arg) prf
+   = Just (App fc !(shrinkTerm fn prf) !(shrinkTerm arg prf))
+shrinkTerm (As fc s as tm) prf
+   = Just (As fc s !(shrinkAs as prf) !(shrinkTerm tm prf))
+shrinkTerm (Case fc sc scTy alts) prf
+   = Just (Case fc !(shrinkTerm sc prf) !(shrinkTerm scTy prf)
+                !(traverse (\alt => shrinkAlt alt prf) alts))
+shrinkTerm (TDelayed fc x y) prf
+   = Just (TDelayed fc x !(shrinkTerm y prf))
+shrinkTerm (TDelay fc x t y) prf
+   = Just (TDelay fc x !(shrinkTerm t prf) !(shrinkTerm y prf))
+shrinkTerm (TForce fc r x) prf
+   = Just (TForce fc r !(shrinkTerm x prf))
+shrinkTerm (PrimVal fc c) prf = Just (PrimVal fc c)
+shrinkTerm (PrimOp fc fn args) prf
+   = Just (PrimOp fc fn !(traverse (\arg => shrinkTerm arg prf) args))
+shrinkTerm (Erased fc i) prf = Just (Erased fc i)
+shrinkTerm (Unmatched fc s) prf = Just (Unmatched fc s)
+shrinkTerm (Impossible fc) prf = Just (Impossible fc)
+shrinkTerm (TType fc u) prf = Just (TType fc u)
 
 namespace Bounds
   public export

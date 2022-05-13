@@ -1,6 +1,7 @@
 module TTMain.REPL
 
 import Core.Context
+import Core.Context.Log
 import Core.Error
 import Core.Syntax.Parser
 import Core.Syntax.Raw
@@ -11,7 +12,8 @@ import System.File
 
 parameters {auto c: Ref Ctxt Defs}
 
-  -- All the REPL does is
+  -- All the REPL does is read and process commands as defined in Decls,
+  -- same as the commands in input files
   export
   repl : Core ()
   repl
@@ -28,7 +30,5 @@ parameters {auto c: Ref Ctxt Defs}
                                       repl
                      case cmd of
                           Quit => coreLift_ $ putStrLn "Bye for now!"
-                          _ => do processCommand cmd
+                          _ => do logTimeWhen True "" $ processCommand cmd
                                   repl
-
-
