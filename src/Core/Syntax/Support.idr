@@ -33,6 +33,14 @@ keyword req
                  _ => Nothing
 
 export
+basicIdent : Rule String
+basicIdent
+    = terminal ("Expected identifier") $
+               \case
+                 Ident s => pure s
+                 _ => Nothing
+
+export
 exactIdent : String -> Rule ()
 exactIdent req
     = terminal ("Expected " ++ req) $

@@ -10,6 +10,17 @@ data Env : (tm : List Name -> Type) -> List Name -> Type where
 
 %name Env env
 
+export
+length : Env tm xs -> Nat
+length [] = 0
+length (_ :: xs) = S (length xs)
+
+export
+lengthNoLet : Env tm xs -> Nat
+lengthNoLet [] = 0
+lengthNoLet (Let _ _ _ _ :: xs) = lengthNoLet xs
+lengthNoLet (_ :: xs) = S (lengthNoLet xs)
+
 revOnto : (xs, vs : _) -> reverseOnto xs vs = reverse vs ++ xs
 revOnto xs [] = Refl
 revOnto xs (v :: vs)
@@ -61,3 +72,40 @@ defined {vars = x :: xs} n (b :: env)
            Nothing => do MkIsDefined rig prf <- defined n env
                          pure (MkIsDefined rig (Later prf))
            Just Refl => Just (MkIsDefined (multiplicity b) First)
+
+-- Make a type which abstracts over an environment
+-- Don't include 'let' bindings, since they have a concrete value and
+-- shouldn't be generalised
+export
+abstractEnvType : {vars : _} ->
+                  FC -> Env Term vars -> (tm : Term vars) -> Term []
+abstractEnvType fc [] tm = tm
+abstractEnvType fc (Let fc' c val ty :: env) tm
+    = abstractEnvType fc env (Bind fc _ (Let fc' c val ty) tm)
+abstractEnvType fc (Pi fc' c e ty :: env) tm
+    = abstractEnvType fc env (Bind fc _ (Pi fc' c e ty) tm)
+abstractEnvType fc (b :: env) tm
+    = let bnd = Pi (binderLoc b) (multiplicity b) Explicit (binderType b)
+       in abstractEnvType fc env (Bind fc _ bnd tm)
+
+-- As above, for the corresponding term
+export
+abstractEnv : {vars : _} ->
+              FC -> Env Term vars -> (tm : Term vars) -> Term []
+abstractEnv fc [] tm = tm
+abstractEnv fc (Let fc' c val ty :: env) tm
+    = abstractEnv fc env (Bind fc _ (Let fc' c val ty) tm)
+abstractEnv fc (b :: env) tm
+    = let bnd = Lam (binderLoc b) (multiplicity b) Explicit (binderType b)
+      in abstractEnv fc env (Bind fc _ bnd tm)
+
+-- As above, but abstract over all binders including lets
+export
+abstractFullEnvType : {vars : _} ->
+                      FC -> Env Term vars -> (tm : Term vars) -> Term []
+abstractFullEnvType fc [] tm = tm
+abstractFullEnvType fc (Pi fc' c e ty :: env) tm
+    = abstractFullEnvType fc env (Bind fc _ (Pi fc' c e ty) tm)
+abstractFullEnvType fc (b :: env) tm
+    = let bnd = Pi fc (multiplicity b) Explicit (binderType b)
+      in abstractFullEnvType fc env (Bind fc _ bnd tm)

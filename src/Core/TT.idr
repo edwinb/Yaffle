@@ -328,10 +328,8 @@ subInclude ns (KeepCons p) = KeepCons (subInclude ns p)
 
 export
 shrinkTerm : Term vars -> SubVars newvars vars -> Maybe (Term newvars)
-export
 shrinkPi : PiInfo (Term vars) -> SubVars newvars vars ->
            Maybe (PiInfo (Term newvars))
-export
 shrinkBinder : Binder (Term vars) -> SubVars newvars vars ->
                Maybe (Binder (Term newvars))
 shrinkAs : AsName vars -> SubVars newvars vars -> Maybe (AsName newvars)

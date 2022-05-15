@@ -40,9 +40,6 @@ edwinb's next steps:
 
 * Add universe constraints when adding data definitions
   - Find parameters + other properties we need to know elsewhere
-* Add metavariables to RawTT
-  - Needed for unification, and also because they are one of the most
-    interesting things we need to deal with in linearity checking.
 * Write a linearity checker for typechecked terms
   - find out where we need to cache quantities in applications
 * Add test framework with existing small tt files
@@ -50,7 +47,7 @@ edwinb's next steps:
 * Universe level solver
 * Implement HasNames so we can do resolved names
 * Implement unification
-* Add holes to Raw TT (to try unification in the simplest possible setting)
+* Check TTCs work
 * ???
 * PROFIT
 

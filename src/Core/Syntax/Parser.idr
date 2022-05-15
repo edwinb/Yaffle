@@ -136,6 +136,11 @@ simpleRawc fname
          symbol ")"
          pure tm
   <|> do start <- location
+         symbol "?"
+         n <- basicIdent
+         end <- location
+         pure (RMeta (MkFC fname start end) n)
+  <|> do start <- location
          i <- simpleRawi fname -- This breaks the totality checking of the parser!
                          -- I haven't worked out why...
          end <- location

@@ -149,7 +149,7 @@ validSymbol : Lexer
 validSymbol = some (pred isOpChar)
 
 reservedSymbol : Lexer
-reservedSymbol = pred (`elem` ['{', '}', ';', '|', '(', ')', ':', '.', '_'])
+reservedSymbol = pred (`elem` ['{', '}', ';', '|', '(', ')', ':', '.', '_', '?'])
 
 fromBinLit : String -> Integer
 fromBinLit str

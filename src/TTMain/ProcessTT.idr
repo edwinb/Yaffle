@@ -7,8 +7,9 @@ import Core.Evaluate
 import Core.Syntax.Decls
 import Core.Syntax.Raw
 import Core.Typecheck.Check
+import Core.Unify.State
 
-parameters {auto c : Ref Ctxt Defs}
+parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   processEval : RawI -> Core ()
   processEval rawtm
       = do (tm, ty) <- infer top [] rawtm

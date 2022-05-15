@@ -7,6 +7,7 @@ import Core.Error
 import Core.InitPrimitives
 import Core.Syntax.Parser
 import Core.Syntax.Raw
+import Core.Unify.State
 
 import TTMain.ProcessTT
 import TTMain.REPL
@@ -24,6 +25,7 @@ ttMain fname
          -- Initialise context with primitive ops
          defs <- initDefs
          c <- newRef Ctxt defs
+         u <- newRef UST initUState
          addPrimitives
          -- And we're off. Process the commands from the input file...
          traverse_ processCommand cmds
@@ -31,7 +33,7 @@ ttMain fname
          repl
 
 usage : String
-usage = "Usage: tt <input file>"
+usage = "Usage: yaffle <input file>"
 
 main : IO ()
 main

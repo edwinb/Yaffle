@@ -5,12 +5,13 @@ import Core.Context.Log
 import Core.Error
 import Core.Syntax.Parser
 import Core.Syntax.Raw
+import Core.Unify.State
 
 import TTMain.ProcessTT
 
 import System.File
 
-parameters {auto c: Ref Ctxt Defs}
+parameters {auto c: Ref Ctxt Defs} {auto u : Ref UST UState}
 
   -- All the REPL does is read and process commands as defined in Decls,
   -- same as the commands in input files

@@ -13,8 +13,9 @@ import Core.Syntax.Raw
 import Core.TT
 import Core.TT.Universes
 import Core.Typecheck.Support
+import Core.Unify.State -- just for adding metavariables
 
-parameters {auto c : Ref Ctxt Defs}
+parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   export
   topType : FC -> Term vars
   topType fc = TType fc (MN "top" 0)
@@ -210,3 +211,7 @@ parameters {auto c : Ref Ctxt Defs}
       = do (sc', scTy') <- infer rig env sc
            alts <- traverse (checkAlt fc rig env sc' scTy' exp) alts
            pure (Case fc sc' scTy' alts)
+  check rig env (RMeta fc str) exp
+      = do let n = UN (mkUserName str)
+           (idx, meta) <- newMeta fc rig env n exp (Hole (length env))
+           pure meta

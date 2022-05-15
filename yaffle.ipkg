@@ -40,6 +40,8 @@ modules
     Core.Typecheck.Check,
     Core.Typecheck.Support,
 
+    Core.Unify.State,
+
     -- The input language and elaborator
     TTImp.TTImp,
 

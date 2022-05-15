@@ -23,6 +23,7 @@ data RawC : Type where
      RInf : FC -> RawI -> RawC -- inferrable, so must be checkable
      RLam : FC -> Name -> (scope : RawC) -> RawC
      RCase : FC -> (sc : RawI) -> List RawCaseAlt -> RawC
+     RMeta : FC -> String -> RawC
 
 public export
 data RawCaseAlt : Type where
@@ -81,6 +82,7 @@ mutual -- grr
         = assert_total $
           "(case " ++ show sc ++ " of " ++
               showSep " | " (map show alts) ++ ")"
+    show (RMeta fc str) = "?" ++ str
 
   export
   Show RawCaseAlt where

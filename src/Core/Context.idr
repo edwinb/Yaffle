@@ -4,8 +4,8 @@ import Core.CompileExpr
 import public Core.Error
 import public Core.Options
 import public Core.TT
-import public Core.Context.Def
 import public Core.Context.Ctxt
+import public Core.Context.Def
 
 import Data.Either
 import Data.List
