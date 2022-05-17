@@ -331,7 +331,7 @@ mutual
   forgetConAlt : Names vars -> CConAlt vars -> NamedConAlt
   forgetConAlt locs (MkConAlt n ci t args exp)
       = let args' = addLocs args locs in
-            MkNConAlt n ci t ?fdasklhj ?asdfklhj -- (conArgs args args') (forgetExp args' exp)
+            MkNConAlt n ci t (conArgs args args') (forgetExp args' exp)
 
   forgetConstAlt : Names vars -> CConstAlt vars -> NamedConstAlt
   forgetConstAlt locs (MkConstAlt c exp)
