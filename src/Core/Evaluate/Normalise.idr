@@ -42,13 +42,13 @@ apply fc (VCase cfc sc ty alts) arg
   where
     applyConCase : Value vars ->
                    Name -> Int ->
-                   (args : List Name) ->
+                   (args : SnocList Name) ->
                    VCaseScope args vars ->
                    VCaseScope args vars
-    applyConCase arg n t [] rhs
+    applyConCase arg n t [<] rhs
         = do rhs' <- rhs
              apply fc rhs' arg
-    applyConCase arg n t (a :: args) sc
+    applyConCase arg n t (args :< a) sc
         = \a' => applyConCase arg n t args (sc a')
 
     -- Need to apply the argument to the rhs of every case branch
@@ -71,35 +71,37 @@ applyAll fc f (x :: xs)
     = do f' <- apply fc f x
          applyAll fc f' xs
 
-data LocalEnv : List Name -> List Name -> Type where
-     Nil : LocalEnv [] vars
-     (::) : Value vars -> LocalEnv free vars -> LocalEnv (x :: free) vars
+data LocalEnv : SnocList Name -> SnocList Name -> Type where
+     Lin : LocalEnv [<] vars
+     (:<) : LocalEnv free vars -> Value vars -> LocalEnv (free :< x) vars
 
-extend : LocalEnv ns vars -> LocalEnv ms vars -> LocalEnv (ns ++ ms) vars
-extend [] env = env
-extend (x :: vars) env = x :: extend vars env
+extend : LocalEnv ns vars -> LocalEnv ms vars -> LocalEnv (ms ++ ns) vars
+extend [<] env = env
+extend (vars :< x) env = extend vars env :< x
 
 updateEnv : {idx : _} ->
             LocalEnv free vars ->
-            (0 _ : IsVar name idx (free ++ vars)) -> Value vars ->
+            (0 _ : IsVar name idx (vars ++ free)) -> Value vars ->
             LocalEnv free vars
-updateEnv (b :: env) First new = new :: env
-updateEnv (b :: env) (Later p) new = b :: updateEnv env p new
+updateEnv (env :< b) First new = env :< new
+updateEnv (env :< b) (Later p) new = updateEnv env p new :< b
 updateEnv env _ _ = env
 
-data ExtendLocs : List Name -> List Name -> Type where
-     Lin : ExtendLocs vars []
-     (:<) : ExtendLocs vars xs -> Value vars -> ExtendLocs vars (xs ++ [x])
+namespace ExtendLocs
+  public export
+  data ExtendLocs : SnocList Name -> SnocList Name -> Type where
+       Lin : ExtendLocs vars [<]
+       (:<) : ExtendLocs vars xs -> Value vars -> ExtendLocs vars (cons x xs)
 
 mkEnv : ExtendLocs vars ns -> LocalEnv ns vars
-mkEnv {vars} ext = rewrite sym (appendNilRightNeutral ns) in go ext []
+mkEnv {vars} ext = rewrite sym (appendLinLeftNeutral ns) in go ext [<]
   where
     go : ExtendLocs vars ns' -> LocalEnv rest vars ->
-         LocalEnv (ns' ++ rest) vars
+         LocalEnv (rest ++ ns') vars
     go [<] locs = locs
-    go {ns' = xs ++ [x]} {rest} (ext :< val) locs
-        = rewrite sym (appendAssociative xs [x] rest) in
-                  go ext (val :: locs)
+    go {ns' = cons x xs} {rest} (ext :< val) locs
+        = rewrite appendAssociative rest [<x] xs in
+                  go ext (locs :< val)
 
 runOp : {vars : _} ->
         FC -> PrimFn ar -> Vect ar (Value vars) -> Core (Value vars)
@@ -117,28 +119,28 @@ parameters {auto c : Ref Ctxt Defs}
   eval : {vars : _} ->
          LocalEnv free vars ->
          Env Term vars ->
-         Term (free ++ vars) -> Core (Value vars)
+         Term (vars ++ free) -> Core (Value vars)
 
   evalCaseAlt : {vars : _} ->
                 LocalEnv free vars -> Env Term vars ->
-                CaseAlt (free ++ vars) ->
+                CaseAlt (vars ++ free) ->
                 Core (VCaseAlt vars)
   evalCaseAlt {vars} {free} locs env (ConCase n tag scope)
       = pure $ VConCase n tag _ (getScope locs scope)
     where
-      CaseArgs : CaseScope vs -> List Name
-      CaseArgs (RHS tm) = []
-      CaseArgs (Arg x sc) = x :: CaseArgs sc
+      CaseArgs : CaseScope vs -> SnocList Name
+      CaseArgs (RHS tm) = [<]
+      CaseArgs (Arg x sc) = CaseArgs sc :< x
 
       getScope : forall free .
                  LocalEnv free vars ->
-                 (sc : CaseScope (free ++ vars)) ->
+                 (sc : CaseScope (vars ++ free)) ->
                  VCaseScope (CaseArgs sc) vars
       getScope locs (RHS tm) = eval locs env tm
-      getScope locs (Arg x sc) = \v => getScope (v :: locs) sc
+      getScope locs (Arg x sc) = \v => getScope (locs :< v) sc
 
   evalCaseAlt locs env (DelayCase t a tm)
-      = pure $ VDelayCase t a (\t', a' => eval (t' :: a' :: locs) env tm)
+      = pure $ VDelayCase t a (\t', a' => eval (locs :< a' :< t') env tm)
   evalCaseAlt locs env (ConstCase c tm)
       = pure $ VConstCase c !(eval locs env tm)
   evalCaseAlt locs env (DefaultCase tm)
@@ -146,8 +148,8 @@ parameters {auto c : Ref Ctxt Defs}
 
   blockedCase : {vars : _} ->
                 FC -> LocalEnv free vars -> Env Term vars ->
-                (sc : Value vars) -> (scTy : Term (free ++ vars)) ->
-                List (CaseAlt (free ++ vars)) ->
+                (sc : Value vars) -> (scTy : Term (vars ++ free)) ->
+                List (CaseAlt (vars ++ free)) ->
                 Core (Value vars)
   blockedCase fc locs env sc scTy alts
       = do scTy' <- eval locs env scTy
@@ -158,7 +160,7 @@ parameters {auto c : Ref Ctxt Defs}
             LocalEnv free vars -> Env Term vars ->
             (sc : Value vars) -> -- scrutinee, which we assume to be in
                   -- canonical form since we've checked (so not blocked)
-            List (CaseAlt (free ++ vars)) ->
+            List (CaseAlt (vars ++ free)) ->
             Core (Value vars) -> -- what to do if stuck
             Core (Value vars)
   tryAlts {vars} locs env sc@(VDCon _ _ t a sp) (ConCase _ t' cscope :: as) stuck
@@ -168,15 +170,15 @@ parameters {auto c : Ref Ctxt Defs}
       -- We've turned the spine into a list so that the argument positions
       -- correspond when going through the CaseScope
       evalCaseScope : forall free . LocalEnv free vars ->
-                      List (FC, Value vars) -> CaseScope (free ++ vars) ->
+                      List (FC, Value vars) -> CaseScope (vars ++ free) ->
                       Core (Value vars)
       evalCaseScope locs [] (RHS tm) = eval locs env tm
       evalCaseScope locs (v :: sp) (Arg x sc)
-          = evalCaseScope (snd v :: locs) sp sc
+          = evalCaseScope (locs :< snd v) sp sc
       evalCaseScope _ _ _ = stuck
 
   tryAlts locs env sc@(VDelay _ _ ty arg) (DelayCase ty' arg' rhs :: as) stuck
-      = eval (arg :: ty :: locs) env rhs
+      = eval (locs :< ty :< arg) env rhs
   tryAlts locs env sc@(VPrimVal _ c) (ConstCase c' rhs :: as) stuck
       = if c == c'
            then eval locs env rhs
@@ -187,8 +189,8 @@ parameters {auto c : Ref Ctxt Defs}
 
   evalCase : {vars : _} ->
              FC -> LocalEnv free vars -> Env Term vars ->
-             (sc : Value vars) -> (scTy : Term (free ++ vars)) ->
-             List (CaseAlt (free ++ vars)) ->
+             (sc : Value vars) -> (scTy : Term (vars ++ free)) ->
+             List (CaseAlt (vars ++ free)) ->
              Core (Value vars)
   evalCase fc locs env sc_in ty alts
       = do sc <- getVal sc_in
@@ -209,20 +211,20 @@ parameters {auto c : Ref Ctxt Defs}
   evalLocal : {vars, idx : _} ->
               Env Term vars ->
               FC -> Maybe Bool ->
-              (0 p : IsVar name idx (free ++ vars)) ->
+              (0 p : IsVar name idx (vars ++ free)) ->
               LocalEnv free vars ->
               Core (Value vars)
-  evalLocal env fc mloc p []
+  evalLocal env fc mloc p [<]
       = case getBinder p env of
-             Let _ _ val _ => eval [] env val
+             Let _ _ val _ => eval [<] env val
              _ => pure $ VLocal fc mloc _ p [<]
-  evalLocal env fc mloc First (x :: locs) = pure x
-  evalLocal env fc mloc (Later p) (x :: locs) = evalLocal env fc mloc p locs
+  evalLocal env fc mloc First (locs :< x) = pure x
+  evalLocal env fc mloc (Later p) (locs :< x) = evalLocal env fc mloc p locs
 
   evalPiInfo : {vars : _} ->
                LocalEnv free vars ->
                Env Term vars ->
-               PiInfo (Term (free ++ vars)) ->
+               PiInfo (Term (vars ++ free)) ->
                Core (PiInfo (Value vars))
   evalPiInfo locs env Implicit = pure Implicit
   evalPiInfo locs env Explicit = pure Explicit
@@ -234,7 +236,7 @@ parameters {auto c : Ref Ctxt Defs}
   evalBinder : {vars : _} ->
                LocalEnv free vars ->
                Env Term vars ->
-               Binder (Term (free ++ vars)) ->
+               Binder (Term (vars ++ free)) ->
                Core (Binder (Value vars))
   evalBinder locs env (Lam fc c p ty)
      = pure $ Lam fc c !(evalPiInfo locs env p) !(eval locs env ty)
@@ -253,7 +255,7 @@ parameters {auto c : Ref Ctxt Defs}
 --   eval : {vars : _} ->
 --          LocalEnv free vars ->
 --          Env Term vars ->
---          Term (free ++ vars) -> Core (Value vars)
+--          Term (vars ++ free) -> Core (Value vars)
   eval locs env (Local fc l idx p) = evalLocal env fc l p locs
   eval locs env (Ref fc (DataCon t a) n)
       = pure $ VDCon fc n t a [<]
@@ -281,13 +283,13 @@ parameters {auto c : Ref Ctxt Defs}
                         pure (Just res)
   eval locs env (Bind fc x (Lam bfc r p ty) sc)
       = pure $ VLam fc x r !(evalPiInfo locs env p) !(eval locs env ty)
-                    (\arg => eval (arg :: locs) env sc)
+                    (\arg => eval (locs :< arg) env sc)
   eval locs env (Bind fc x (Let bfc c val ty) sc)
       = do val' <- eval locs env val
-           eval (val' :: locs) env sc
+           eval (locs :< val') env sc
   eval locs env (Bind fc x b sc)
       = pure $ VBind fc x !(evalBinder locs env b)
-                     (\arg => eval (arg :: locs) env sc)
+                     (\arg => eval (locs :< arg) env sc)
   eval locs env (App fc fn arg)
       = apply fc !(eval locs env fn) !(eval locs env arg)
   eval locs env (As fc use (AsLoc afc idx p) pat)
@@ -314,7 +316,7 @@ parameters {auto c : Ref Ctxt Defs}
       = runOp fc op !(evalArgs args)
     where
       -- No traverse for Vect in Core...
-      evalArgs : Vect n (Term (free ++ vars)) -> Core (Vect n (Value vars))
+      evalArgs : Vect n (Term (vars ++ free)) -> Core (Vect n (Value vars))
       evalArgs [] = pure []
       evalArgs (a :: as) = pure $ !(eval locs env a) :: !(evalArgs as)
 
@@ -326,4 +328,4 @@ parameters {auto c : Ref Ctxt Defs}
   export
   nf : {vars : _} ->
        Env Term vars -> Term vars -> Core (Value vars)
-  nf = eval []
+  nf = eval [<]

@@ -55,12 +55,12 @@ parameters {auto c : Ref Ctxt Defs}
       repArg : Value vars -> Core (Term vars)
       repArg = replace' tmpi env orig parg
 
-      repScope : FC -> Int -> (args : List Name) ->
+      repScope : FC -> Int -> (args : SnocList Name) ->
                  VCaseScope args vars -> Core (CaseScope vars)
-      repScope fc tmpi [] rhs
+      repScope fc tmpi [<] rhs
           = do rhs' <- replace' tmpi env orig parg !rhs
                pure (RHS rhs')
-      repScope fc tmpi (x :: xs) scope
+      repScope fc tmpi (xs :< x) scope
           = do let xn = MN "tmp" tmpi
                let xv = VApp fc Bound xn [<] (pure Nothing)
                scope' <- repScope fc (tmpi + 1) xs (scope xv)

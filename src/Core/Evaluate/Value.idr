@@ -8,17 +8,17 @@ import Data.SnocList
 import Data.Vect
 
 public export
-data Value : List Name -> Type
+data Value : SnocList Name -> Type
 
 public export
-data VCaseAlt : List Name -> Type
+data VCaseAlt : SnocList Name -> Type
 
 public export
-0 Spine : List Name -> Type
+0 Spine : SnocList Name -> Type
 Spine vars = SnocList (FC, Value vars)
 
 public export
-data Value : List Name -> Type where
+data Value : SnocList Name -> Type where
      -- Lambdas - we also have a value for binders in general, but
      -- lambdas are the most common, so save the pattern match/indirection
      VLam : FC -> (x : Name) -> RigCount -> PiInfo (Value vars) ->
@@ -62,18 +62,18 @@ data Value : List Name -> Type where
      VType    : FC -> Name -> Value vars
 
 public export
-VCaseScope : List Name -> List Name -> Type
-VCaseScope [] vars = Core (Value vars)
-VCaseScope (x :: xs) vars = Value vars -> VCaseScope xs vars
+VCaseScope : SnocList Name -> SnocList Name -> Type
+VCaseScope [<] vars = Core (Value vars)
+VCaseScope (xs :< x) vars = Value vars -> VCaseScope xs vars
 
 public export
-data VCaseAlt : List Name -> Type where
+data VCaseAlt : SnocList Name -> Type where
      ||| Constructor for a data type; bind the arguments and subterms.
-     VConCase : Name -> (tag : Int) -> (args : List Name) ->
+     VConCase : Name -> (tag : Int) -> (args : SnocList Name) ->
                 VCaseScope args vars -> VCaseAlt vars
      ||| Lazy match for the Delay type use for codata types
      VDelayCase : (ty : Name) -> (arg : Name) ->
-                  VCaseScope [ty, arg] vars -> VCaseAlt vars
+                  VCaseScope [<arg, ty] vars -> VCaseAlt vars
      ||| Match against a literal
      VConstCase : Constant -> Value vars -> VCaseAlt vars
      ||| Catch-all case

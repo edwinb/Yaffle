@@ -31,7 +31,7 @@ record GlobalDef where
   constructor MkGlobalDef
   location : FC
   fullname : Name -- original unresolved name
-  type : Term []
+  type : Term [<]
   definition : Def
   evaldef : Maybe CompiledTerm
   visibility : Visibility

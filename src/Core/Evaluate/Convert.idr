@@ -125,13 +125,13 @@ parameters {auto c : Ref Ctxt Defs}
            True <- convGen s env ty ty' | False => pure False
            convAlts alts alts'
    where
-     convScope : (args : List Name) ->
+     convScope : (args : SnocList Name) ->
                  VCaseScope args vars ->
-                 (args' : List Name) ->
+                 (args' : SnocList Name) ->
                  VCaseScope args' vars ->
                  Core Bool
-     convScope [] sc [] sc' = convGen BlockApp env !sc !sc'
-     convScope (x :: xs) sc (y :: ys) sc'
+     convScope [<] sc [<] sc' = convGen BlockApp env !sc !sc'
+     convScope (xs :< x) sc (ys :< y) sc'
          = do xn <- genVar fc "arg"
               convScope xs (sc xn) ys (sc' xn)
      convScope _ _ _ _ = pure False

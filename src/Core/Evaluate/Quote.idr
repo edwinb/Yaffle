@@ -38,12 +38,12 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 
   quoteGen : {bound, vars : _} ->
              Strategy -> Bounds bound -> Env Term vars ->
-             Value vars -> Core (Term (bound ++ vars))
+             Value vars -> Core (Term (vars ++ bound))
 
   -- probably ought to make traverse work on SnocList/Vect too
   quoteSpine : {bound, vars : _} ->
                Strategy -> Bounds bound -> Env Term vars ->
-               Spine vars -> Core (SnocList (FC, Term (bound ++ vars)))
+               Spine vars -> Core (SnocList (FC, Term (vars ++ bound)))
   quoteSpine s bounds env [<] = pure [<]
   quoteSpine s bounds env (args :< (fc, arg))
       = pure $ !(quoteSpine s bounds env args) :<
@@ -54,20 +54,20 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 
   quoteAlt : {bound, vars : _} ->
              FC -> Strategy -> Bounds bound -> Env Term vars ->
-             VCaseAlt vars -> Core (CaseAlt (bound ++ vars))
+             VCaseAlt vars -> Core (CaseAlt (vars ++ bound))
   quoteAlt {vars} fc s bounds env (VConCase n t a sc)
       = do sc' <- quoteScope a bounds sc
            pure $ ConCase n t sc'
     where
       quoteScope : {bound : _} ->
-                   (args : List Name) ->
+                   (args : SnocList Name) ->
                    Bounds bound ->
                    VCaseScope args vars ->
-                   Core (CaseScope (bound ++ vars))
-      quoteScope [] bounds rhs
+                   Core (CaseScope (vars ++ bound))
+      quoteScope [<] bounds rhs
           = do rhs' <- quoteGen s bounds env !rhs
                pure (RHS rhs')
-      quoteScope (a :: as) bounds sc
+      quoteScope (as :< a) bounds sc
           = do an <- genName "c"
                let sc' = sc (mkTmpVar fc an)
                rhs' <- quoteScope as (Add a an bounds) sc'
@@ -88,7 +88,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 
   quotePi : {bound, vars : _} ->
             Strategy -> Bounds bound -> Env Term vars ->
-            PiInfo (Value vars) -> Core (PiInfo (Term (bound ++ vars)))
+            PiInfo (Value vars) -> Core (PiInfo (Term (vars ++ bound)))
   quotePi s bounds env Explicit = pure Explicit
   quotePi s bounds env Implicit = pure Implicit
   quotePi s bounds env AutoImplicit = pure AutoImplicit
@@ -98,7 +98,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 
   quoteBinder : {bound, vars : _} ->
                 Strategy -> Bounds bound -> Env Term vars ->
-                Binder (Value vars) -> Core (Binder (Term (bound ++ vars)))
+                Binder (Value vars) -> Core (Binder (Term (vars ++ bound)))
   quoteBinder s bounds env (Lam fc r p ty)
       = do ty' <- quoteGen s bounds env ty
            p' <- quotePi s bounds env p
@@ -126,7 +126,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 --   Declared above as:
 --   quoteGen : {bound, vars : _} ->
 --              Strategy -> Bounds bound -> Env Term vars ->
---              Value vars -> Core (Term (bound ++ vars))
+--              Value vars -> Core (Term (vars ++ bound))
   quoteGen s bounds env (VLam fc x c p ty sc)
       = do var <- genName "qv"
            p' <- quotePi s bounds env p
@@ -187,10 +187,10 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
            pure $ applySpine (Local fc mlet _ p') sp'
     where
       addLater : {idx : _} ->
-                 (ys : List Name) -> (0 p : IsVar n idx xs) ->
-                 Var (ys ++ xs)
-      addLater [] isv = MkVar isv
-      addLater (x :: xs) isv
+                 (ys : SnocList Name) -> (0 p : IsVar n idx xs) ->
+                 Var (xs ++ ys)
+      addLater [<] isv = MkVar isv
+      addLater (xs :< x) isv
           = let MkVar isv' = addLater xs isv in
                 MkVar (Later isv')
   quoteGen BlockApp bounds env (VMeta fc n i args sp val)
@@ -247,7 +247,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
            pure $ PrimOp fc fn args'
     where
       -- No traverse for Vect in Core...
-      quoteArgs : Vect n (Value vars) -> Core (Vect n (Term (bound ++ vars)))
+      quoteArgs : Vect n (Value vars) -> Core (Vect n (Term (vars ++ bound)))
       quoteArgs [] = pure []
       quoteArgs (a :: as)
           = pure $ !(quoteGen s bounds env a) :: !(quoteArgs as)

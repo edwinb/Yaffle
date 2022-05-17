@@ -14,7 +14,7 @@ record Prim where
   constructor MkPrim
   {arity : Nat}
   fn : PrimFn arity
-  type : Term []
+  type : Term [<]
   totality : Totality
 
 binOp : (Constant -> Constant -> Maybe Constant) ->
@@ -503,43 +503,43 @@ believeMe [_, _, val@(VPrimVal{})] = Just val
 believeMe [_, _, val@(VType fc u)] = Just val
 believeMe [_, _, val] = Nothing
 
-constTy : Constant -> Constant -> Constant -> Term []
+constTy : Constant -> Constant -> Constant -> Term [<]
 constTy a b c
     = let arr = fnType emptyFC in
     PrimVal emptyFC a `arr` (PrimVal emptyFC b `arr` PrimVal emptyFC c)
 
-constTy3 : Constant -> Constant -> Constant -> Constant -> Term []
+constTy3 : Constant -> Constant -> Constant -> Constant -> Term [<]
 constTy3 a b c d
     = let arr = fnType emptyFC in
     PrimVal emptyFC a `arr`
          (PrimVal emptyFC b `arr`
              (PrimVal emptyFC c `arr` PrimVal emptyFC d))
 
-predTy : Constant -> Constant -> Term []
+predTy : Constant -> Constant -> Term [<]
 predTy a b = let arr = fnType emptyFC in
              PrimVal emptyFC a `arr` PrimVal emptyFC b
 
-arithTy : Constant -> Term []
+arithTy : Constant -> Term [<]
 arithTy t = constTy t t t
 
-cmpTy : Constant -> Term []
+cmpTy : Constant -> Term [<]
 cmpTy t = constTy t t IntType
 
-doubleTy : Term []
+doubleTy : Term [<]
 doubleTy = predTy DoubleType DoubleType
 
 pi : (x : String) -> RigCount -> PiInfo (Term xs) -> Term xs ->
-     Term (UN (Basic x) :: xs) -> Term xs
+     Term (xs :< UN (Basic x)) -> Term xs
 pi x rig plic ty sc = Bind emptyFC (UN (Basic x)) (Pi emptyFC rig plic ty) sc
 
-believeMeTy : Term []
+believeMeTy : Term [<]
 believeMeTy
     = pi "a" erased Explicit (TType emptyFC (MN "top" 0)) $
       pi "b" erased Explicit (TType emptyFC (MN "top" 0)) $
       pi "x" linear Explicit (Local emptyFC Nothing _ (Later First)) $
       Local emptyFC Nothing _ (Later First)
 
-crashTy : Term []
+crashTy : Term [<]
 crashTy
     = pi "a" erased Explicit (TType emptyFC (MN "top" 0)) $
       pi "msg" top Explicit (PrimVal emptyFC StringType) $
@@ -563,7 +563,7 @@ castTo _ = const Nothing
 
 export
 getOp : {0 arity : Nat} -> PrimFn arity ->
-        {vars : List Name} -> Vect arity (Value vars) -> Maybe (Value vars)
+        {vars : SnocList Name} -> Vect arity (Value vars) -> Maybe (Value vars)
 getOp (Add ty) = binOp add
 getOp (Sub ty) = binOp sub
 getOp (Mul ty) = binOp mul

@@ -16,7 +16,7 @@ matchVars = go []
     -- variables in the top level term, so drop things that are in the inner
     -- scope
     dropVar : forall vars .
-              (Var (x :: vars), Term (x :: vars)) ->
+              (Var (vars :< x), Term (vars :< x)) ->
               Maybe (Var vars, Term vars)
     dropVar (v, tm)
         = do v' <- removeVar zero v

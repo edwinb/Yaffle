@@ -86,7 +86,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   infer rig env (RLet fc rigl n val ty sc)
       = do ty' <- check erased env ty (topType fc)
            val' <- check (rigMult rig rigl) env val ty'
-           let env' = Let fc rigl val' ty' :: env
+           let env' = env :< Let fc rigl val' ty'
            (sc', scty) <- infer rig env' sc
            let letTy = Bind fc n (Let fc rigl val' ty') scty
            pure (Bind fc n (Let fc rigl val' ty') sc', letTy)
@@ -94,7 +94,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = do su <- uniVar fc
            tu <- uniVar fc
            ty' <- check erased env argty (TType fc su)
-           let env' = Pi fc rigp Explicit ty' :: env
+           let env' = env :< Pi fc rigp Explicit ty'
            retty' <- check erased env' retty (TType fc tu)
            maxu <- uniVar fc
            addConstraint (ULE fc su fc maxu)
@@ -112,15 +112,15 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
              Bounds bound ->
              FC -> RigCount ->
              Env Term vars ->
-             Env Term (bound ++ vars) ->
+             Env Term (vars ++ bound) ->
              Name -> List Name ->
-             (conApp : Term (bound ++ vars)) ->
+             (conApp : Term (vars ++ bound)) ->
              (conTy : Value vars) ->
              (rhs : RawC) ->
-             (scr : Term (bound ++ vars)) ->
-             (scrTy : Term (bound ++ vars)) ->
-             (rhsTy : Term (bound ++ vars)) ->
-             Core (CaseScope (bound ++ vars))
+             (scr : Term (vars ++ bound)) ->
+             (scrTy : Term (vars ++ bound)) ->
+             (rhsTy : Term (vars ++ bound)) ->
+             Core (CaseScope (vars ++ bound))
   checkCon i bs fc rig valenv env cname [] app ty rhs scr scrTy rhsTy
       = do let conTy = refsToLocals bs !(quote valenv ty)
            -- Now the tricky step! To make this a dependent case, we need to
@@ -141,7 +141,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = do -- Extend the environment with the constructor argument name
            argty <- quote valenv aty
            let varty = refsToLocals bs argty
-           let env' = PVar fc rig Explicit varty :: env
+           let env' = env :< PVar fc rig Explicit varty
            -- Check the rest of the scope; apply the current constructor
            -- application to the new variable, and substitute the variable into
            -- the constructor type
@@ -202,7 +202,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = do tnf <- nf env ty
            case !(quote env tnf) of
                 Bind _ x (Pi _ rigp p aty) rty =>
-                    do let env' = Lam fc rigp p aty :: env
+                    do let env' = env :< Lam fc rigp p aty
                        sc' <- check rig env' scope rty
                        pure (Bind fc n (Lam fc rigp p aty)
                                   (renameTop n sc'))
