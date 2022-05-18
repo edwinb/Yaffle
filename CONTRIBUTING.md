@@ -43,7 +43,6 @@ edwinb's next steps:
 * Write a linearity checker for typechecked terms
   - find out where we need to cache quantities in applications
 * Add test framework with existing small tt files
-* Change index of Terms from List Name to SnocList Name
 * Universe level solver
 * Implement HasNames so we can do resolved names
 * Implement unification

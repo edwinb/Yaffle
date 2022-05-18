@@ -6,7 +6,7 @@ import Core.Error
 import Core.Evaluate
 import Core.Syntax.Decls
 import Core.Syntax.Raw
-import Core.Typecheck.Check
+import Core.Check.Typecheck
 import Core.Unify.State
 
 parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}

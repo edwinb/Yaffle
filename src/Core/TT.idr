@@ -245,12 +245,12 @@ insertNames out ns (Local fc r idx prf)
 insertNames out ns (Ref fc nt name)
     = Ref fc nt name
 insertNames out ns (Meta fc x y xs)
-    = Meta fc x y (map (insertNames out ns) xs)
+    = Meta fc x y (map (\ (q, tm) => (q, insertNames out ns tm)) xs)
 insertNames out ns (Bind fc x b scope)
     = Bind fc x (map (insertNames out ns) b)
            (insertNames (suc out) ns scope)
-insertNames out ns (App fc fn arg)
-    = App fc (insertNames out ns fn) (insertNames out ns arg)
+insertNames out ns (App fc fn q arg)
+    = App fc (insertNames out ns fn) q (insertNames out ns arg)
 insertNames out sns (As fc x as pat)
     = As fc x (insertAs as) (insertNames out sns pat)
   where
@@ -370,12 +370,13 @@ shrinkAlt (DefaultCase sc) prf = Just (DefaultCase !(shrinkTerm sc prf))
 shrinkTerm (Local fc r idx loc) prf = (\(MkVar loc') => Local fc r _ loc') <$> subElem loc prf
 shrinkTerm (Ref fc x name) prf = Just (Ref fc x name)
 shrinkTerm (Meta fc x y xs) prf
-   = do xs' <- traverse (\x => shrinkTerm x prf) xs
+   = do xs' <- traverse (\ (q, tm) => do tm' <- shrinkTerm tm prf
+                                         pure (q, tm')) xs
         Just (Meta fc x y xs')
 shrinkTerm (Bind fc x b scope) prf
    = Just (Bind fc x !(shrinkBinder b prf) !(shrinkTerm scope (KeepCons prf)))
-shrinkTerm (App fc fn arg) prf
-   = Just (App fc !(shrinkTerm fn prf) !(shrinkTerm arg prf))
+shrinkTerm (App fc fn q arg) prf
+   = Just (App fc !(shrinkTerm fn prf) q !(shrinkTerm arg prf))
 shrinkTerm (As fc s as tm) prf
    = Just (As fc s !(shrinkAs as prf) !(shrinkTerm tm prf))
 shrinkTerm (Case fc sc scTy alts) prf
@@ -444,13 +445,13 @@ mkLocals outer bs (Ref fc Bound name)
 mkLocals outer bs (Ref fc nt name)
     = Ref fc nt name
 mkLocals outer bs (Meta fc name y xs)
-    = maybe (Meta fc name y (map (mkLocals outer bs) xs))
+    = maybe (Meta fc name y (map (\ (q, tm) => (q, mkLocals outer bs tm)) xs))
             id (resolveRef outer zero bs fc name)
 mkLocals outer bs (Bind fc x b scope)
     = Bind fc x (map (mkLocals outer bs) b)
            (mkLocals (suc outer) bs scope)
-mkLocals outer bs (App fc fn arg)
-    = App fc (mkLocals outer bs fn) (mkLocals outer bs arg)
+mkLocals outer bs (App fc fn q arg)
+    = App fc (mkLocals outer bs fn) q (mkLocals outer bs arg)
 mkLocals outer bs (As fc s as tm)
     = As fc s (mkLocalsAs outer bs as) (mkLocals outer bs tm)
 mkLocals outer bs (Case fc sc scTy alts)
@@ -503,15 +504,15 @@ Weaken Term where
   weakenNs p tm = insertNames zero p tm
 
 export
-apply : FC -> Term vars -> List (Term vars) -> Term vars
+apply : FC -> Term vars -> List (RigCount, Term vars) -> Term vars
 apply loc fn [] = fn
-apply loc fn (a :: args) = apply loc (App loc fn a) args
+apply loc fn ((q, a) :: args) = apply loc (App loc fn q a) args
 
 -- Creates a chain of `App` nodes, each with its own file context
 export
-applyWithFC : Term vars -> List (FC, Term vars) -> Term vars
+applyWithFC : Term vars -> List (FC, RigCount, Term vars) -> Term vars
 applyWithFC fn [] = fn
-applyWithFC fn ((fc, arg) :: args) = applyWithFC (App fc fn arg) args
+applyWithFC fn ((fc, q, arg) :: args) = applyWithFC (App fc fn q arg) args
 
 -- Build a simple function type
 export
@@ -528,12 +529,12 @@ getFnArgs tm = getFA [] tm
   where
     getFA : List (Term vars) -> Term vars ->
             (Term vars, List (Term vars))
-    getFA args (App _ f a) = getFA (a :: args) f
+    getFA args (App _ f _ a) = getFA (a :: args) f
     getFA args tm = (tm, args)
 
 export
 getFn : Term vars -> Term vars
-getFn (App _ f a) = getFn f
+getFn (App _ f _ a) = getFn f
 getFn tm = tm
 
 export
@@ -607,7 +608,7 @@ mutual
         showApp (Bind _ x (PVTy _ c ty) sc) []
             = "pty " ++ show c ++ show x ++ " : " ++ show ty ++
               " => " ++ show sc
-        showApp (App _ _ _) [] = "[can't happen]"
+        showApp (App _ _ _ _) [] = "[can't happen]"
         showApp (As _ _ n tm) [] = show n ++ "@" ++ show tm
         showApp (Case _ sc _ alts) []
             = "case " ++ show sc ++ " of " ++ show alts

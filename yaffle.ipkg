@@ -9,6 +9,10 @@ modules
 
     -- The core type theory and support
     Core.Binary,
+    Core.Check.Linear,
+    Core.Check.Typecheck,
+    Core.Check.Support,
+    Core.CompileExpr,
     Core.Context,
     Core.Context.Ctxt,
     Core.Context.Def, -- top level definition forms live here
@@ -36,9 +40,6 @@ modules
     Core.TT.RigCount,
     Core.TT.TT, -- typechecked core language lives here
     Core.TT.Universes,
-
-    Core.Typecheck.Check,
-    Core.Typecheck.Support,
 
     Core.Unify.State,
 

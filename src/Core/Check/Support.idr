@@ -1,4 +1,4 @@
-module Core.Typecheck.Support
+module Core.Check.Support
 
 import Core.Context
 import Core.Evaluate
@@ -47,7 +47,7 @@ matchVars = go []
         = let sc' = renameTop _ sc'
               scMatch = mapMaybe dropVar (go [] sc sc') in
               goBinder (scMatch ++ acc) b b'
-    go acc (App _ f a) (App _ f' a')
+    go acc (App _ f _ a) (App _ f' _ a')
         = go (go acc f f') a a'
     -- TODO: This is enough to get us going, but better do the other cases ASAP!
     -- While we won't use the Raw typechecker in actual elaboration, it will

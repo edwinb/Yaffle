@@ -96,12 +96,13 @@ data UST : Type where
 mkConstantAppArgs : {vars : _} ->
                     Bool -> FC -> Env Term vars ->
                     (wkns : List Name) ->
-                    List (Term (wkns ++ (vars ++ done)))
+                    List (RigCount, Term (wkns ++ (vars ++ done)))
 mkConstantAppArgs lets fc [] wkns = []
 mkConstantAppArgs {done} {vars = x :: xs} lets fc (b :: env) wkns
     = let rec = mkConstantAppArgs {done} lets fc env (wkns ++ [x]) in
           if lets || not (isLet b)
-             then Local fc (Just (isLet b)) (length wkns) (mkVar wkns) ::
+             then (multiplicity b,
+                     Local fc (Just (isLet b)) (length wkns) (mkVar wkns)) ::
                   rewrite (appendAssociative wkns [x] (xs ++ done)) in rec
              else rewrite (appendAssociative wkns [x] (xs ++ done)) in rec
 
@@ -131,7 +132,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            addHoleName fc n idx
            pure (idx, Meta fc n idx envArgs)
     where
-      envArgs : List (Term vars)
+      envArgs : List (RigCount, Term vars)
       envArgs = let args = reverse (mkConstantAppArgs {done = []} lets fc env []) in
                     rewrite sym (appendNilRightNeutral vars) in args
 

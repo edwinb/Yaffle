@@ -1,9 +1,10 @@
-module Core.Typecheck.Check
+module Core.Check.Typecheck
 
 -- Typechecker for raw TT terms
 -- (Minimal elaboration happens here: this is primarily for being able to
 -- write TT directly to help with debugging and other experiments)
 
+import Core.Check.Support
 import Core.Context
 import Core.Env
 import Core.Error
@@ -12,7 +13,6 @@ import Core.Evaluate.Convert
 import Core.Syntax.Raw
 import Core.TT
 import Core.TT.Universes
-import Core.Typecheck.Support
 import Core.Unify.State -- just for adding metavariables
 
 parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
@@ -81,7 +81,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                do let checkRig = rigMult rigf rig
                   arg' <- check checkRig env arg !(quote env ty)
                   argnf <- nf env arg'
-                  pure (App fc fn' arg', !(quote env !(sc argnf)))
+                  pure (App fc fn' rigf arg', !(quote env !(sc argnf)))
              t => throw (NotFunctionType fc !(get Ctxt) env !(quote env t))
   infer rig env (RLet fc rigl n val ty sc)
       = do ty' <- check erased env ty (topType fc)
@@ -148,7 +148,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            let argn = MN "carg" i
            casesc <- checkCon (i + 1) (Add arg argn bs) fc rig
                               valenv env' cname args
-                              (App fc (weaken app) (Local fc (Just False) _ First))
+                              (App fc (weaken app) rigp (Local fc (Just False) _ First))
                               !(sc (VApp fc Bound argn [<] (pure Nothing)))
                               rhs (weaken scr) (weaken scrTy) (weaken rhsTy)
            pure (Arg arg casesc)

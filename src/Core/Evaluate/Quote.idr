@@ -30,9 +30,9 @@ primarily for readability of the result because we want to see the function
 that was blocked, not its complete definition.
 -}
 
-applySpine : Term vars -> SnocList (FC, Term vars) -> Term vars
+applySpine : Term vars -> SnocList (FC, RigCount, Term vars) -> Term vars
 applySpine tm [<] = tm
-applySpine tm (args :< (fc, arg)) = App fc (applySpine tm args) arg
+applySpine tm (args :< (fc, q, arg)) = App fc (applySpine tm args) q arg
 
 parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 
@@ -43,11 +43,11 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   -- probably ought to make traverse work on SnocList/Vect too
   quoteSpine : {bound, vars : _} ->
                Strategy -> Bounds bound -> Env Term vars ->
-               Spine vars -> Core (SnocList (FC, Term (bound ++ vars)))
+               Spine vars -> Core (SnocList (FC, RigCount, Term (bound ++ vars)))
   quoteSpine s bounds env [<] = pure [<]
-  quoteSpine s bounds env (args :< (fc, arg))
+  quoteSpine s bounds env (args :< (fc, q, arg))
       = pure $ !(quoteSpine s bounds env args) :<
-               (fc, !(quoteGen s bounds env arg))
+               (fc, q, !(quoteGen s bounds env arg))
 
   mkTmpVar : FC -> Name -> Value vars
   mkTmpVar fc n = VApp fc Bound n [<] (pure Nothing)
@@ -195,13 +195,17 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
                 MkVar (Later isv')
   quoteGen BlockApp bounds env (VMeta fc n i args sp val)
       = do sp' <- quoteSpine BlockApp bounds env sp
-           args' <- traverse (quoteGen BlockApp bounds env) args
+           args' <- traverse (\ (q, val) =>
+                                do val' <- quoteGen BlockApp bounds env val
+                                   pure (q, val')) args
            pure $ applySpine (Meta fc n i args') sp'
   quoteGen s bounds env (VMeta fc n i args sp val)
       = do Just v <- val
               | Nothing =>
                   do sp' <- quoteSpine BlockApp bounds env sp
-                     args' <- traverse (quoteGen BlockApp bounds env) args
+                     args' <- traverse (\ (q, val) =>
+                                          do val' <- quoteGen BlockApp bounds env val
+                                             pure (q, val')) args
                      pure $ applySpine (Meta fc n i args') sp'
            quoteGen s bounds env v
   quoteGen s bounds env (VDCon fc n t a sp)

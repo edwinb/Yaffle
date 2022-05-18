@@ -13,31 +13,31 @@ import Data.SnocList
 import Data.Vect
 
 export
-apply : FC -> Value vars -> Value vars -> Core (Value vars)
-apply fc (VLam _ _ _ _ _ sc) arg = sc arg
-apply fc (VApp afc nt n spine go) arg
-    = pure $ VApp afc nt n (spine :< (fc, arg)) $
+apply : FC -> Value vars -> RigCount -> Value vars -> Core (Value vars)
+apply fc (VLam _ _ _ _ _ sc) _ arg = sc arg
+apply fc (VApp afc nt n spine go) q arg
+    = pure $ VApp afc nt n (spine :< (fc, q, arg)) $
            do Just go' <- go
                    | Nothing => pure Nothing
-              res <- apply fc go' arg
+              res <- apply fc go' q arg
               pure (Just res)
-apply fc (VLocal lfc l idx p spine) arg
-    = pure $ VLocal lfc l idx p (spine :< (fc, arg))
-apply fc (VMeta mfc n i sc spine go) arg
-    = pure $ VMeta mfc n i sc (spine :< (fc, arg)) $
+apply fc (VLocal lfc l idx p spine) q arg
+    = pure $ VLocal lfc l idx p (spine :< (fc, q, arg))
+apply fc (VMeta mfc n i sc spine go) q arg
+    = pure $ VMeta mfc n i sc (spine :< (fc, q, arg)) $
            do Just go' <- go
                    | Nothing => pure Nothing
-              res <- apply fc go' arg
+              res <- apply fc go' q arg
               pure (Just res)
-apply fc (VDCon dfc n t a spine) arg
-    = pure $ VDCon dfc n t a (spine :< (fc, arg))
-apply fc (VTCon tfc n a spine) arg
-    = pure $ VTCon tfc n a (spine :< (fc, arg))
-apply fc (VAs _ _ _ pat) arg
-    = apply fc pat arg -- doesn't really make sense to keep the name
-apply fc (VForce ffc r v spine) arg
-    = pure $ VForce ffc r v (spine :< (fc, arg))
-apply fc (VCase cfc sc ty alts) arg
+apply fc (VDCon dfc n t a spine) q arg
+    = pure $ VDCon dfc n t a (spine :< (fc, q, arg))
+apply fc (VTCon tfc n a spine) q arg
+    = pure $ VTCon tfc n a (spine :< (fc, q, arg))
+apply fc (VAs _ _ _ pat) q arg
+    = apply fc pat q arg -- doesn't really make sense to keep the name
+apply fc (VForce ffc r v spine) q arg
+    = pure $ VForce ffc r v (spine :< (fc, q, arg))
+apply fc (VCase cfc sc ty alts) q arg
     = pure $ VCase cfc sc ty !(traverse (applyAlt arg) alts)
   where
     applyConCase : Value vars ->
@@ -47,7 +47,7 @@ apply fc (VCase cfc sc ty alts) arg
                    VCaseScope args vars
     applyConCase arg n t [] rhs
         = do rhs' <- rhs
-             apply fc rhs' arg
+             apply fc rhs' q arg
     applyConCase arg n t (a :: args) sc
         = \a' => applyConCase arg n t args (sc a')
 
@@ -59,16 +59,16 @@ apply fc (VCase cfc sc ty alts) arg
         = pure $ VDelayCase t a
                   (\t', a' =>
                       do rhs' <- rhs t' a'
-                         apply fc rhs' arg)
-    applyAlt arg (VConstCase c rhs) = VConstCase c <$> apply fc rhs arg
-    applyAlt arg (VDefaultCase rhs) = VDefaultCase <$> apply fc rhs arg
+                         apply fc rhs' q arg)
+    applyAlt arg (VConstCase c rhs) = VConstCase c <$> apply fc rhs q arg
+    applyAlt arg (VDefaultCase rhs) = VDefaultCase <$> apply fc rhs q arg
 -- Remaining cases would be ill-typed
-apply _ arg _ = pure arg
+apply _ arg _ _ = pure arg
 
-applyAll : FC -> Value vars -> List (Value vars) -> Core (Value vars)
+applyAll : FC -> Value vars -> List (RigCount, Value vars) -> Core (Value vars)
 applyAll fc f [] = pure f
-applyAll fc f (x :: xs)
-    = do f' <- apply fc f x
+applyAll fc f ((q, x) :: xs)
+    = do f' <- apply fc f q x
          applyAll fc f' xs
 
 data LocalEnv : List Name -> List Name -> Type where
@@ -168,11 +168,11 @@ parameters {auto c : Ref Ctxt Defs}
       -- We've turned the spine into a list so that the argument positions
       -- correspond when going through the CaseScope
       evalCaseScope : forall free . LocalEnv free vars ->
-                      List (FC, Value vars) -> CaseScope (free ++ vars) ->
+                      List (FC, RigCount, Value vars) -> CaseScope (free ++ vars) ->
                       Core (Value vars)
       evalCaseScope locs [] (RHS tm) = eval locs env tm
-      evalCaseScope locs (v :: sp) (Arg x sc)
-          = evalCaseScope (snd v :: locs) sp sc
+      evalCaseScope locs ((_, _, v) :: sp) (Arg x sc)
+          = evalCaseScope (v :: locs) sp sc
       evalCaseScope _ _ _ = stuck
 
   tryAlts locs env sc@(VDelay _ _ ty arg) (DelayCase ty' arg' rhs :: as) stuck
@@ -269,7 +269,9 @@ parameters {auto c : Ref Ctxt Defs}
                     do res <- eval locs env (embed fn)
                        pure (Just res)
   eval locs env (Meta fc n i scope)
-       = do scope' <- traverse (eval locs env) scope
+       = do scope' <- traverse (\ (q, val) =>
+                                     do val' <- eval locs env val
+                                        pure (q, val')) scope
             defs <- get Ctxt
             Just def <- lookupCtxtExact n (gamma defs)
                  | Nothing => pure (VMeta fc n i scope' [<] (pure Nothing))
@@ -288,8 +290,8 @@ parameters {auto c : Ref Ctxt Defs}
   eval locs env (Bind fc x b sc)
       = pure $ VBind fc x !(evalBinder locs env b)
                      (\arg => eval (arg :: locs) env sc)
-  eval locs env (App fc fn arg)
-      = apply fc !(eval locs env fn) !(eval locs env arg)
+  eval locs env (App fc fn q arg)
+      = apply fc !(eval locs env fn) q !(eval locs env arg)
   eval locs env (As fc use (AsLoc afc idx p) pat)
       = pure $ VAs fc use !(evalLocal env afc Nothing p locs)
                           !(eval locs env pat)

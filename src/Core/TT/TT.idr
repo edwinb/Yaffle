@@ -508,11 +508,13 @@ data Term : List Name -> Type where
              (idx : Nat) -> (0 p : IsVar name idx vars) -> Term vars
      Ref : FC -> NameType -> (name : Name) -> Term vars
      -- Metavariables and the scope they are applied to
-     Meta : FC -> Name -> Int -> List (Term vars) -> Term vars
+     Meta : FC -> Name -> Int -> List (RigCount, Term vars) -> Term vars
      Bind : FC -> (x : Name) ->
             (b : Binder (Term vars)) ->
             (scope : Term (x :: vars)) -> Term vars
-     App : FC -> (fn : Term vars) -> (arg : Term vars) -> Term vars
+     App : FC -> (fn : Term vars) ->
+           RigCount -> -- if fn : (q x : a) -> t, then this is 'q'
+           (arg : Term vars) -> Term vars
      -- As patterns, including whether (in a linear setting) it's the name
      -- or the pattern that is consumed
      As : FC -> UseSide -> (as : AsName vars) -> (pat : Term vars) -> Term vars

@@ -44,7 +44,7 @@ parameters {auto c : Ref Ctxt Defs}
               Strategy -> Env Term vars ->
               Spine vars -> Spine vars -> Core Bool
   convSpine s env [<] [<] = pure True
-  convSpine s env (xs :< (_, x)) (ys :< (_, y))
+  convSpine s env (xs :< (_, _, x)) (ys :< (_, _, y))
       = do True <- convGen s env x y | False => pure False
            convSpine s env xs ys
   convSpine s env _ _ = pure False
@@ -59,10 +59,10 @@ parameters {auto c : Ref Ctxt Defs}
            var <- genVar fc "conv"
            convGen s env !(sc var) !(sc' var)
   convGen {vars} s env tmx@(VLam fc x r p ty sc) tmy
-      = do let etay = VLam fc x r p ty (apply fc tmy)
+      = do let etay = VLam fc x r p ty (apply fc tmy r)
            convGen s env tmx etay
   convGen {vars} s env tmx tmy@(VLam fc x r p ty sc)
-      = do let etax = VLam fc x r p ty (apply fc tmy)
+      = do let etax = VLam fc x r p ty (apply fc tmy r)
            convGen s env etax tmy
   convGen {vars} s env (VBind fc x b sc) (VBind fc' x' b' sc')
       = do True <- convBinders b b' | False => pure False
@@ -98,9 +98,10 @@ parameters {auto c : Ref Ctxt Defs}
       = do True <- convScope sc sc' | False => pure False
            convSpine BlockApp env args args'
     where
-      convScope : List (Value vars) -> List (Value vars) -> Core Bool
+      convScope : List (RigCount, Value vars) ->
+                  List (RigCount, Value vars) -> Core Bool
       convScope [] [] = pure True
-      convScope (x :: xs) (y :: ys)
+      convScope ((_, x) :: xs) ((_, y) :: ys)
           = do True <- convGen BlockApp env x y | False => pure False
                convScope xs ys
       convScope _ _ = pure False

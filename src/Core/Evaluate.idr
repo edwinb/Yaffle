@@ -55,6 +55,13 @@ parameters {auto c : Ref Ctxt Defs}
       repArg : Value vars -> Core (Term vars)
       repArg = replace' tmpi env orig parg
 
+      repArgAll : Spine vars -> Core (SnocList (FC, RigCount, Term vars))
+      repArgAll [<] = pure [<]
+      repArgAll (xs :< (f, r, tm))
+          = do xs' <- repArgAll xs
+               tm' <- repArg tm
+               pure (xs' :< (f, r, tm'))
+
       repScope : FC -> Int -> (args : List Name) ->
                  VCaseScope args vars -> Core (CaseScope vars)
       repScope fc tmpi [] rhs
@@ -102,23 +109,24 @@ parameters {auto c : Ref Ctxt Defs}
       -- at the application (which is what we currently do) and one which
       -- evaluates further.
       repSub (VApp fc nt fn args val')
-          = do args' <- traverseSnocList (traversePair repArg) args
+          = do args' <- repArgAll args
                pure $ applyWithFC (Ref fc nt fn) (toList args')
       repSub (VLocal fc m idx p args)
-          = do args' <- traverseSnocList (traversePair repArg) args
+          = do args' <- repArgAll args
                pure $ applyWithFC (Local fc m idx p) (toList args')
       -- Look in value of the metavar if it's solved, otherwise leave it
       repSub (VMeta fc n i scope args val)
           = do Nothing <- val
                    | Just val' => repSub val'
-               sc' <- traverse repArg scope
-               args' <- traverseSnocList (traversePair repArg) args
+               sc' <- traverse (\ (q, tm) => do tm' <- repArg tm
+                                                pure (q, tm')) scope
+               args' <- repArgAll args
                pure $ applyWithFC (Meta fc n i sc') (toList args')
       repSub (VDCon fc n t a args)
-        = do args' <- traverseSnocList (traversePair repArg) args
+        = do args' <- repArgAll args
              pure $ applyWithFC (Ref fc (DataCon t a) n) (toList args')
       repSub (VTCon fc n a args)
-        = do args' <- traverseSnocList (traversePair repArg) args
+        = do args' <- repArgAll args
              pure $ applyWithFC (Ref fc (TyCon a) n) (toList args')
       repSub (VAs fc s a pat)
           = do Local lfc _ i prf <- repSub a
@@ -138,7 +146,7 @@ parameters {auto c : Ref Ctxt Defs}
                tm' <- repArg tm
                pure (TDelay fc r ty' tm')
       repSub (VForce fc r tm args)
-          = do args' <- traverseSnocList (traversePair repArg) args
+          = do args' <- repArgAll args
                tm' <- repSub tm
                pure $ applyWithFC (TForce fc r tm') (toList args')
       repSub tm = quote env tm

@@ -15,7 +15,7 @@ data VCaseAlt : List Name -> Type
 
 public export
 0 Spine : List Name -> Type
-Spine vars = SnocList (FC, Value vars)
+Spine vars = SnocList (FC, RigCount, Value vars)
 
 public export
 data Value : List Name -> Type where
@@ -39,7 +39,7 @@ data Value : List Name -> Type where
                 Spine vars ->
                 Value vars
      VMeta  : FC -> Name -> Int -> -- Name and resolved name of metavar
-              List (Value vars) -> -- Scope of metavar
+              List (RigCount, Value vars) -> -- Scope of metavar
               Spine vars ->
               Core (Maybe (Value vars)) -> -- the normal form, if solved
               Value vars
