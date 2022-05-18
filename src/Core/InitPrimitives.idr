@@ -24,7 +24,7 @@ mkFn i (S k) op args
                  (rewrite sym (plusSuccRightSucc k done) in op)
                  (MkVar First :: map later args))
 
-mkPrim : (arity : Nat) -> PrimFn arity -> Term []
+mkPrim : (arity : Nat) -> PrimFn arity -> Term [<]
 mkPrim a op = mkFn 0 a (rewrite plusZeroRightNeutral a in op) []
 
 addPrim : Ref Ctxt Defs =>

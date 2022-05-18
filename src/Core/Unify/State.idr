@@ -6,6 +6,8 @@ import Core.Env
 import Core.Error
 import Core.TT
 
+import Data.SnocList
+
 import Libraries.Data.IntMap
 
 public export
@@ -95,16 +97,16 @@ data UST : Type where
 
 mkConstantAppArgs : {vars : _} ->
                     Bool -> FC -> Env Term vars ->
-                    (wkns : List Name) ->
-                    List (RigCount, Term (wkns ++ (vars ++ done)))
-mkConstantAppArgs lets fc [] wkns = []
-mkConstantAppArgs {done} {vars = x :: xs} lets fc (b :: env) wkns
-    = let rec = mkConstantAppArgs {done} lets fc env (wkns ++ [x]) in
+                    (wkns : SnocList Name) ->
+                    List (RigCount, Term ((done ++ vars) ++ wkns))
+mkConstantAppArgs lets fc [<] wkns = []
+mkConstantAppArgs {done} {vars = xs :< x} lets fc (env :< b) wkns
+    = let rec = mkConstantAppArgs {done} lets fc env (cons x wkns) in
           if lets || not (isLet b)
              then (multiplicity b,
                      Local fc (Just (isLet b)) (length wkns) (mkVar wkns)) ::
-                  rewrite (appendAssociative wkns [x] (xs ++ done)) in rec
-             else rewrite (appendAssociative wkns [x] (xs ++ done)) in rec
+                       rewrite sym $ appendAssociative (done ++ xs) [<x] wkns in rec
+             else rewrite sym $ appendAssociative (done ++ xs) [<x] wkns in rec
 
 parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
 
@@ -133,8 +135,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            pure (idx, Meta fc n idx envArgs)
     where
       envArgs : List (RigCount, Term vars)
-      envArgs = let args = reverse (mkConstantAppArgs {done = []} lets fc env []) in
-                    rewrite sym (appendNilRightNeutral vars) in args
+      envArgs = let args = reverse (mkConstantAppArgs {done = [<]} lets fc env [<]) in
+                    rewrite sym (appendLinLeftNeutral vars) in args
 
   export
   newMeta : {vars : _} ->

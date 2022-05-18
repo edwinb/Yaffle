@@ -474,9 +474,9 @@ Functor Binder where
   map func (PVTy fc c ty) = PVTy fc c (func ty)
 
 public export
-data IsVar : Name -> Nat -> List Name -> Type where
-     First : IsVar n Z (n :: ns)
-     Later : IsVar n i ns -> IsVar n (S i) (m :: ns)
+data IsVar : Name -> Nat -> SnocList Name -> Type where
+     First : IsVar n Z (ns :< n)
+     Later : IsVar n i ns -> IsVar n (S i) (ns :< m)
 
 public export
 data LazyReason = LInf | LLazy | LUnknown
@@ -487,23 +487,23 @@ public export
 data UseSide = UseLeft | UseRight
 
 public export
-data AsName : List Name -> Type where
+data AsName : SnocList Name -> Type where
      -- resolved name
      AsLoc : FC -> (idx : Nat) -> (0 p : IsVar name idx vars) -> AsName vars
      -- not yet resolved name
      AsRef : FC -> Name -> AsName vars
 
 public export
-data CaseAlt : List Name -> Type
+data CaseAlt : SnocList Name -> Type
 
 public export
-data PatternClause : List Name -> Type
+data PatternClause : SnocList Name -> Type
 
 -- Typechecked terms
 -- These are guaranteed to be well-scoped wrt local variables, because they are
 -- indexed by the names of local variables in scope
 public export
-data Term : List Name -> Type where
+data Term : SnocList Name -> Type where
      Local : FC -> Maybe Bool -> -- Is it a let bound local?
              (idx : Nat) -> (0 p : IsVar name idx vars) -> Term vars
      Ref : FC -> NameType -> (name : Name) -> Term vars
@@ -511,7 +511,7 @@ data Term : List Name -> Type where
      Meta : FC -> Name -> Int -> List (RigCount, Term vars) -> Term vars
      Bind : FC -> (x : Name) ->
             (b : Binder (Term vars)) ->
-            (scope : Term (x :: vars)) -> Term vars
+            (scope : Term (vars :< x)) -> Term vars
      App : FC -> (fn : Term vars) ->
            RigCount -> -- if fn : (q x : a) -> t, then this is 'q'
            (arg : Term vars) -> Term vars
@@ -545,19 +545,19 @@ data UConstraint : Type where
 -- more sense during evaluation and is consistent with the way we bind
 -- arguments in 'Bind'.
 public export
-data CaseScope : List Name -> Type where
+data CaseScope : SnocList Name -> Type where
      RHS : Term vars -> CaseScope vars
-     Arg : (x : Name) -> CaseScope (x :: vars) -> CaseScope vars
+     Arg : (x : Name) -> CaseScope (vars :< x) -> CaseScope vars
 
 ||| Case alternatives. Unlike arbitrary patterns, they can be at most
 ||| one constructor deep.
 public export
-data CaseAlt : List Name -> Type where
+data CaseAlt : SnocList Name -> Type where
      ||| Constructor for a data type; bind the arguments and subterms.
      ConCase : Name -> (tag : Int) -> CaseScope vars -> CaseAlt vars
      ||| Lazy match for the Delay type use for codata types
      DelayCase : (ty : Name) -> (arg : Name) ->
-                 Term (ty :: arg :: vars) -> CaseAlt vars
+                 Term (vars :< arg :< ty) -> CaseAlt vars
      ||| Match against a literal
      ConstCase : Constant -> Term vars -> CaseAlt vars
      ||| Catch-all case
@@ -672,7 +672,7 @@ Pretty ann Terminating where
 public export
 data Covering
        = IsCovering
-       | MissingCases (List (Term []))
+       | MissingCases (List (Term [<]))
        | NonCoveringCall (List Name)
 
 export

@@ -352,9 +352,9 @@ nameEq (Resolved x) (Resolved y) with (decEq x y)
 nameEq _ _ = Nothing
 
 export
-namesEq : (xs : List Name) -> (ys : List Name) -> Maybe (xs = ys)
-namesEq [] [] = Just Refl
-namesEq (x :: xs) (y :: ys)
+namesEq : (xs : SnocList Name) -> (ys : SnocList Name) -> Maybe (xs = ys)
+namesEq [<] [<] = Just Refl
+namesEq (xs :< x) (ys :< y)
     = do p <- nameEq x y
          ps <- namesEq xs ys
          rewrite p
