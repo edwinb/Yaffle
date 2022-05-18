@@ -11,11 +11,12 @@ import Core.Env
 import Core.Error
 import Core.TT
 
+{-
 -- List of variable usages - we'll count the contents of specific variables
 -- when discharging binders, to ensure that linear names are only used once
-data Usage : List Name -> Type where
-     Nil : Usage vars
-     (::) : Var vars -> Usage vars -> Usage vars
+data Usage : SnocList Name -> Type where
+     Lin : Usage vars
+     (:<) : Usage vars -> Var vars -> Usage vars
 
 Show (Usage vars) where
   show xs = "[" ++ showAll xs ++ "]"

@@ -38,7 +38,7 @@ record TyConInfo where
 public export
 data Def : Type where
     None : Def -- Not yet defined
-    Function : FnInfo -> Term [] -> Def -- normal function
+    Function : FnInfo -> Term [<] -> Def -- normal function
     DCon : DataConInfo ->
            (tag : Int) -> (arity : Nat) -> Def -- data constructor
     TCon : TyConInfo -> (arity : Nat) -> Def -- type constructor
@@ -51,7 +51,7 @@ data Def : Type where
     -- constraints are solved. It's promoted into a 'Function' when they are.
     -- Constraints are integer references into the current map of
     -- constraints in the UnifyState (see Core.UnifyState)
-    Guess : (guess : Term []) ->
+    Guess : (guess : Term [<]) ->
             (envbind : Nat) -> -- Number of things in the environment when
                                -- we guessed the term
             (constraints : List Int) -> Def

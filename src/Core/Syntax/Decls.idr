@@ -12,14 +12,14 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   processDataCon : FC -> Name -> (Int, RawCon) -> Core Name
   processDataCon fc tycon (tag, RConDecl n rty)
       = do checkUndefined fc n
-           ty <- check erased [] rty (topType fc)
-           checkIsTy !(nf [] ty)
-           arity <- getArity [] ty
+           ty <- check erased [<] rty (topType fc)
+           checkIsTy !(nf [<] ty)
+           arity <- getArity [<] ty
            let dinf = MkDataConInfo Nothing
            idx <- addDef n (newDef fc n top ty Public (DCon dinf tag arity))
            pure n -- (Resolved idx)
     where
-      checkIsTy : Value [] -> Core ()
+      checkIsTy : Value [<] -> Core ()
       checkIsTy (VBind fc _ (Pi _ _ _ _) sc)
           = checkIsTy !(sc (VErased fc False))
       checkIsTy (VTCon fc cn _ _)
@@ -30,10 +30,10 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   processData : FC -> RawData -> Core ()
   processData fc (RDataDecl n rty cons)
       = do checkUndefined fc n
-           ty <- check erased [] rty (topType fc)
+           ty <- check erased [<] rty (topType fc)
            -- Add a placeholder for the type constructor so that we can
            -- check the data constructors
-           arity <- getArity [] ty
+           arity <- getArity [<] ty
            let tinf = MkTyConInfo [] [] [] [] Nothing
            ignore $ addDef n (newDef fc n top ty Public (TCon tinf arity))
            cnames <- traverse (processDataCon fc n) (mkTags 0 cons)
@@ -47,7 +47,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       mkTags i [] = []
       mkTags i (x :: xs) = (i, x) :: mkTags (i + 1) xs
 
-      checkIsType : Value [] -> Core ()
+      checkIsType : Value [<] -> Core ()
       checkIsType (VBind fc _ (Pi _ _ _ _) sc)
           = checkIsType !(sc (VErased fc False))
       checkIsType (VType fc _) = pure ()
@@ -56,7 +56,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   processTyDecl : FC -> Name -> RawC -> Core ()
   processTyDecl fc n rty
       = do checkUndefined fc n
-           ty <- check erased [] rty (topType fc)
+           ty <- check erased [<] rty (topType fc)
            ignore $ addDef n (newDef fc n top ty Public None)
 
   processDef : FC -> Name -> RawC -> Core ()
@@ -66,7 +66,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                 | ns => ambiguousName fc n (map fst ns)
            let None = definition def
                 | _ => throw (AlreadyDefined fc n)
-           tm <- check top [] rtm (type def)
+           tm <- check top [<] rtm (type def)
            updateDef n (const (Just (Function (MkFnInfo False) tm)))
 
   export

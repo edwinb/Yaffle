@@ -2,32 +2,69 @@ module Core.TT
 
 import public Core.TT.TT
 
-import Data.List
+import Data.SnocList
+import Data.SnocList.Operations
 import Data.Nat
 import Data.Vect
 
+public export
+reverseOnto : SnocList a -> SnocList a -> SnocList a
+reverseOnto acc [<] = acc
+reverseOnto acc (sx :< x) = reverseOnto (acc :< x) sx
+
+public export
+reverse : SnocList a -> SnocList a
+reverse = reverseOnto [<]
+
+public export
+revOnto : (xs, vs : SnocList a) -> reverseOnto xs vs = xs ++ reverse vs
+revOnto xs [<] = Refl
+revOnto xs (vs :< v)
+    = rewrite revOnto (xs :< v) vs in 
+        rewrite revOnto [<v] vs in 
+          rewrite appendAssociative xs [<v] (reverse vs) in Refl
+
+public export
+revNs : (vs, ns : SnocList a) -> reverse vs ++ reverse ns = reverse (ns ++ vs)
+revNs [<] ns = rewrite appendLinLeftNeutral (reverse ns) in Refl
+revNs (vs :< v) ns
+    = rewrite revOnto [<v] vs in
+        rewrite revOnto [<v] (ns ++ vs) in
+          rewrite sym $ revNs vs ns in
+            rewrite appendAssociative [<v] (reverse vs) (reverse ns) in Refl
+
+public export
+take : (n : Nat) -> (xs : Stream a) -> SnocList a
+take Z xs = [<]
+take (S k) (x :: xs) = take k xs :< x
+
+public export
+lengthMap : (xs : SnocList a) -> length (map f xs) = length xs
+lengthMap [<] = Refl
+lengthMap (sx :< x) = cong S (lengthMap sx)
+
 export
-dropLater : IsVar nm (S idx) (v :: vs) -> IsVar nm idx vs
+dropLater : IsVar nm (S idx) (vs :< v) -> IsVar nm idx vs
 dropLater (Later p) = p
 
 export
-mkVar : (wkns : List Name) -> IsVar nm (length wkns) (wkns ++ nm :: vars)
-mkVar [] = First
-mkVar (w :: ws) = Later (mkVar ws)
+mkVar : (wkns : SnocList Name) -> IsVar nm (length wkns) (vars :< nm ++ wkns) -- (wkns ++ nm :: vars)
+mkVar [<] = First
+mkVar (ws :< w) = Later (mkVar ws)
 
 public export
-dropVar : (ns : List Name) -> {idx : Nat} -> (0 p : IsVar name idx ns) -> List Name
-dropVar (n :: xs) First = xs
-dropVar (n :: xs) (Later p) = n :: dropVar xs p
+dropVar : (ns : SnocList Name) -> {idx : Nat} -> (0 p : IsVar name idx ns) -> SnocList Name
+dropVar (xs :< n) First = xs
+dropVar (xs :< n) (Later p) = dropVar xs p :< n
 
 public export
-data Var : List Name -> Type where
+data Var : SnocList Name -> Type where
      MkVar : {i : Nat} -> (0 p : IsVar n i vars) -> Var vars
 
 namespace Var
 
   export
-  later : Var ns -> Var (n :: ns)
+  later : Var ns -> Var (ns :< n)
   later (MkVar p) = MkVar (Later p)
 
 export
@@ -39,7 +76,7 @@ varIdx : Var xs -> Nat
 varIdx (MkVar {i} _) = i
 
 export
-dropFirst : List (Var (v :: vs)) -> List (Var vs)
+dropFirst : List (Var (vs :< v)) -> List (Var vs)
 dropFirst [] = []
 dropFirst (MkVar First :: vs) = dropFirst vs
 dropFirst (MkVar (Later p) :: vs) = MkVar p :: dropFirst vs
@@ -51,24 +88,24 @@ Show (Var ns) where
 namespace HasLength
 
   public export
-  data HasLength : Nat -> List a -> Type where
-    Z : HasLength Z []
-    S : HasLength n as -> HasLength (S n) (a :: as)
+  data HasLength : Nat -> SnocList a -> Type where
+    Z : HasLength Z [<]
+    S : HasLength n as -> HasLength (S n) (as :< a)
 
   export
-  sucR : HasLength n xs -> HasLength (S n) (xs ++ [x])
+  sucR : HasLength n xs -> HasLength (S n) (cons x xs)
   sucR Z     = S Z
   sucR (S n) = S (sucR n)
 
   export
-  hlAppend : HasLength m xs -> HasLength n ys -> HasLength (m + n) (xs ++ ys)
+  hlAppend : HasLength m xs -> HasLength n ys -> HasLength (m + n) (ys ++ xs)
   hlAppend Z ys = ys
   hlAppend (S xs) ys = S (hlAppend xs ys)
 
   export
-  mkHasLength : (xs : List a) -> HasLength (length xs) xs
-  mkHasLength [] = Z
-  mkHasLength (_ :: xs) = S (mkHasLength xs)
+  mkHasLength : (xs : SnocList a) -> HasLength (length xs) xs
+  mkHasLength [<] = Z
+  mkHasLength (xs :< _) = S (mkHasLength xs)
 
   export
   take : (n : Nat) -> (xs : Stream a) -> HasLength n (take n xs)
@@ -76,12 +113,9 @@ namespace HasLength
   take (S n) (x :: xs) = S (take n xs)
 
   export
-  cast : {ys : _} -> List.length xs = List.length ys -> HasLength m xs -> HasLength m ys
-  cast {ys = []}      eq Z = Z
-  cast {ys = y :: ys} eq (S p) = S (cast (succInjective _ _ eq) p)
-    where
-    succInjective : (0 l, r : Nat) -> S l = S r -> l = r
-    succInjective _ _ Refl = Refl
+  cast : {ys : _} -> SnocList.length xs = SnocList.length ys -> HasLength m xs -> HasLength m ys
+  cast {ys = [<]}     eq Z = Z
+  cast {ys = ys :< y} eq (S p) = S (cast (inj _ eq) p)
 
   hlReverseOnto : HasLength m acc -> HasLength n xs -> HasLength (m + n) (reverseOnto acc xs)
   hlReverseOnto p Z = rewrite plusZeroRightNeutral m in p
@@ -91,8 +125,9 @@ namespace HasLength
   hlReverse : HasLength m acc -> HasLength m (reverse acc)
   hlReverse = hlReverseOnto Z
 
+
 public export
-record SizeOf {a : Type} (xs : List a) where
+record SizeOf {a : Type} (xs : SnocList a) where
   constructor MkSizeOf
   size        : Nat
   0 hasLength : HasLength size xs
@@ -100,28 +135,28 @@ record SizeOf {a : Type} (xs : List a) where
 namespace SizeOf
 
   export
-  0 theList : SizeOf {a} xs -> List a
-  theList _ = xs
+  0 theSnocList : SizeOf {a} xs -> SnocList a
+  theSnocList _ = xs
 
   export
-  zero : SizeOf []
+  zero : SizeOf [<]
   zero = MkSizeOf Z Z
 
   export
-  suc : SizeOf as -> SizeOf (a :: as)
+  suc : SizeOf as -> SizeOf (as :< a)
   suc (MkSizeOf n p) = MkSizeOf (S n) (S p)
 
   -- ||| suc but from the right
   export
-  sucR : SizeOf as -> SizeOf (as ++ [a])
+  sucR : SizeOf as -> SizeOf (cons a as)
   sucR (MkSizeOf n p) = MkSizeOf (S n) (sucR p)
 
   export
-  (+) : SizeOf xs -> SizeOf ys -> SizeOf (xs ++ ys)
+  (+) : SizeOf xs -> SizeOf ys -> SizeOf (ys ++ xs)
   MkSizeOf m p + MkSizeOf n q = MkSizeOf (m + n) (hlAppend p q)
 
   export
-  mkSizeOf : (xs : List a) -> SizeOf xs
+  mkSizeOf : (xs : SnocList a) -> SizeOf xs
   mkSizeOf xs = MkSizeOf (length xs) (mkHasLength xs)
 
   export
@@ -148,17 +183,17 @@ sizedView : (p : SizeOf as) -> SizedView p
 sizedView (MkSizeOf Z Z)         = Z
 sizedView (MkSizeOf (S n) (S p)) = S (MkSizeOf n p)
 
-namespace CList
+namespace CSnocList
   -- A list correspoding to another list
   public export
-  data CList : List a -> Type -> Type where
-       Nil : CList [] ty
-       (::) : (x : ty) -> CList cs ty -> CList (c :: cs) ty
+  data CSnocList : SnocList a -> Type -> Type where
+       Nil : CSnocList [<] ty
+       (::) : (x : ty) -> CSnocList cs ty -> CSnocList (cs :< c) ty
 
 public export
 interface Weaken tm where
-  weaken : {0 vars : List Name} -> tm vars -> tm (n :: vars)
-  weakenNs : SizeOf ns -> tm vars -> tm (ns ++ vars)
+  weaken : {0 vars : SnocList Name} -> tm vars -> tm (vars :< n)
+  weakenNs : SizeOf ns -> tm vars -> tm (vars ++ ns)
 
   weakenNs p t = case sizedView p of
     Z   => t
@@ -167,24 +202,24 @@ interface Weaken tm where
   weaken = weakenNs (suc zero)
 
 public export
-data NVar : Name -> List Name -> Type where
+data NVar : Name -> SnocList Name -> Type where
      MkNVar : {i : Nat} -> (0 p : IsVar n i vars) -> NVar n vars
 
 namespace NVar
   export
-  later : NVar nm ns -> NVar nm (n :: ns)
+  later : NVar nm ns -> NVar nm (ns :< n)
   later (MkNVar p) = MkNVar (Later p)
 
 export
-weakenNVar : SizeOf ns -> NVar name inner -> NVar name (ns ++ inner)
+weakenNVar : SizeOf ns -> NVar name inner -> NVar name (inner ++ ns)
 weakenNVar p x = case sizedView p of
   Z     => x
   (S p) => later (weakenNVar p x)
 
 export
 insertNVar : SizeOf outer ->
-             NVar nm (outer ++ inner) ->
-             NVar nm (outer ++ n :: inner)
+             NVar nm (inner ++ outer) ->
+             NVar nm (inner :< n ++ outer)
 insertNVar p v = case sizedView p of
   Z     => later v
   (S p) => case v of
@@ -193,16 +228,16 @@ insertNVar p v = case sizedView p of
 
 export
 insertVar : SizeOf outer ->
-            Var (outer ++ inner) ->
-            Var (outer ++ n :: inner)
+            Var (inner ++ outer) ->
+            Var (inner :< n ++ outer)
 insertVar p (MkVar v) = let MkNVar v' = insertNVar p (MkNVar v) in MkVar v'
 
 
 ||| The (partial) inverse to insertVar
 export
 removeVar : SizeOf outer ->
-            Var        (outer ++ [x] ++ inner) ->
-            Maybe (Var (outer        ++ inner))
+            Var        (inner :< x ++ outer) ->
+            Maybe (Var (inner ++ outer))
 removeVar out var = case sizedView out of
   Z => case var of
           MkVar First     => Nothing
@@ -212,13 +247,13 @@ removeVar out var = case sizedView out of
               MkVar (Later p) => later <$> removeVar out' (MkVar p)
 
 export
-weakenVar : SizeOf ns -> Var inner -> Var (ns ++ inner)
+weakenVar : SizeOf ns -> Var inner -> Var (inner ++ ns)
 weakenVar p (MkVar v) = let MkNVar v' = weakenNVar p (MkNVar v) in MkVar v'
 
 export
 insertNVarNames : SizeOf outer -> SizeOf ns ->
-                  NVar name (outer ++ inner) ->
-                  NVar name (outer ++ (ns ++ inner))
+                  NVar name (inner ++ outer) ->
+                  NVar name (inner ++ ns ++ outer)
 insertNVarNames p q v = case sizedView p of
   Z     => weakenNVar q v
   (S p) => case v of
@@ -227,18 +262,18 @@ insertNVarNames p q v = case sizedView p of
 
 export
 insertVarNames : SizeOf outer -> SizeOf ns ->
-                 Var (outer ++ inner) ->
-                 Var (outer ++ (ns ++ inner))
+                 Var (inner ++ outer) ->
+                 Var (inner ++ ns ++ outer)
 insertVarNames p q (MkVar v) = let MkNVar v' = insertNVarNames p q (MkNVar v) in MkVar v'
 
 insertNamesAlt : SizeOf outer -> SizeOf ns ->
-                 CaseAlt (outer ++ inner) ->
-                 CaseAlt (outer ++ (ns ++ inner))
+                 CaseAlt (inner ++ outer) ->
+                 CaseAlt (inner ++ ns ++ outer)
 
 export
 insertNames : SizeOf outer -> SizeOf ns ->
-              Term (outer ++ inner) ->
-              Term (outer ++ (ns ++ inner))
+              Term (inner ++ outer) ->
+              Term (inner ++ ns ++ outer)
 insertNames out ns (Local fc r idx prf)
    = let MkNVar prf' = insertNVarNames out ns (MkNVar prf) in
          Local fc r _ prf'
@@ -254,7 +289,7 @@ insertNames out ns (App fc fn q arg)
 insertNames out sns (As fc x as pat)
     = As fc x (insertAs as) (insertNames out sns pat)
   where
-    insertAs : AsName (outer ++ inner) -> AsName (outer ++ (ns ++ inner))
+    insertAs : AsName (inner ++ outer) -> AsName (inner ++ ns ++ outer)
     insertAs (AsLoc fc idx prf)
         = let MkNVar prf' = insertNVarNames out sns (MkNVar prf) in
               AsLoc fc _ prf'
@@ -284,8 +319,8 @@ insertNamesAlt out sns (ConCase n t scope)
     = ConCase n t (insertScope out sns scope)
   where
     insertScope : forall outer . SizeOf outer -> SizeOf ns ->
-                  CaseScope (outer ++ inner) ->
-                  CaseScope (outer ++ (ns ++ inner))
+                  CaseScope (inner ++ outer) ->
+                  CaseScope (inner ++ ns ++ outer)
     insertScope out ns (RHS tm) = RHS (insertNames out ns tm)
     insertScope out ns (Arg x sc)
         = Arg x (insertScope (suc out) ns sc)
@@ -297,10 +332,10 @@ insertNamesAlt out ns (DefaultCase scope)
     = DefaultCase (insertNames out ns scope)
 
 public export
-data SubVars : List Name -> List Name -> Type where
+data SubVars : SnocList Name -> SnocList Name -> Type where
      SubRefl  : SubVars xs xs
-     DropCons : SubVars xs ys -> SubVars xs (y :: ys)
-     KeepCons : SubVars xs ys -> SubVars (x :: xs) (x :: ys)
+     DropCons : SubVars xs ys -> SubVars xs (ys :< y)
+     KeepCons : SubVars xs ys -> SubVars (xs :< x) (ys :< x)
 
 export
 subElem : {idx : Nat} -> (0 p : IsVar name idx xs) ->
@@ -316,12 +351,12 @@ subElem (Later x) (KeepCons p)
          Just (MkVar (Later prf'))
 
 export
-subExtend : (ns : List Name) -> SubVars xs ys -> SubVars (ns ++ xs) (ns ++ ys)
-subExtend [] sub = sub
-subExtend (x :: xs) sub = KeepCons (subExtend xs sub)
+subExtend : (ns : SnocList Name) -> SubVars xs ys -> SubVars (xs ++ ns) (ys ++ ns)
+subExtend [<] sub = sub
+subExtend (xs :< _) sub = KeepCons (subExtend xs sub)
 
 export
-subInclude : (ns : List Name) -> SubVars xs ys -> SubVars (xs ++ ns) (ys ++ ns)
+subInclude : (ns : SnocList Name) -> SubVars xs ys -> SubVars (ns ++ xs) (ns ++ ys)
 subInclude ns SubRefl = SubRefl
 subInclude ns (DropCons p) = DropCons (subInclude ns p)
 subInclude ns (KeepCons p) = KeepCons (subInclude ns p)
@@ -398,9 +433,9 @@ shrinkTerm (TType fc u) prf = Just (TType fc u)
 
 namespace Bounds
   public export
-  data Bounds : List Name -> Type where
-       None : Bounds []
-       Add : (x : Name) -> Name -> Bounds xs -> Bounds (x :: xs)
+  data Bounds : SnocList Name -> Type where
+       None : Bounds [<]
+       Add : (x : Name) -> Name -> Bounds xs -> Bounds (xs :< x)
 
   export
   sizeOf : Bounds xs -> SizeOf xs
@@ -409,23 +444,24 @@ namespace Bounds
 
 export
 addVars : SizeOf outer -> Bounds bound ->
-          NVar name (outer ++ vars) ->
-          NVar name (outer ++ (bound ++ vars))
+          NVar name (vars ++ outer) ->
+          NVar name (vars ++ bound ++ outer)
 addVars p = insertNVarNames p . sizeOf
 
 resolveRef : SizeOf outer -> SizeOf done -> Bounds bound -> FC -> Name ->
-             Maybe (Term (outer ++ (done ++ bound ++ vars)))
+             Maybe (Term (vars ++ (bound ++ done) ++ outer))
 resolveRef p q None fc n = Nothing
 resolveRef {outer} {done} p q (Add {xs} new old bs) fc n
     = if n == old
-         then rewrite appendAssociative outer done (new :: xs ++ vars) in
-              let MkNVar p = weakenNVar (p + q) (MkNVar First) in
-                     Just (Local fc Nothing _ p)
-         else rewrite appendAssociative done [new] (xs ++ vars)
-                in resolveRef p (sucR q) bs fc n
+         then let MkNVar p = weakenNVar (p + q) (MkNVar First) in 
+                  Just (Local fc Nothing _ 
+                   (rewrite sym $ appendAssociative (xs :< new) done outer in
+                    rewrite appendAssociative vars (xs :< new) (done ++ outer) in p))
+         else rewrite sym $ appendAssociative xs [<new] done in
+                      resolveRef p (sucR q) bs fc n
 
 mkLocalsAs : SizeOf outer -> Bounds bound ->
-             AsName (outer ++ vars) -> AsName (outer ++ (bound ++ vars))
+             AsName (vars ++ outer) -> AsName (vars ++ (bound ++ outer))
 mkLocalsAs outer bs (AsLoc fc idx p)
     = let MkNVar p' = addVars outer bs (MkNVar p) in AsLoc fc _ p'
 mkLocalsAs outer bs (AsRef fc n)
@@ -434,10 +470,10 @@ mkLocalsAs outer bs (AsRef fc n)
            _ => AsRef fc n
 
 mkLocalsAlt : SizeOf outer -> Bounds bound ->
-              CaseAlt (outer ++ vars) -> CaseAlt (outer ++ (bound ++ vars))
+              CaseAlt (vars ++ outer) -> CaseAlt (vars ++ (bound ++ outer))
 
 mkLocals : SizeOf outer -> Bounds bound ->
-           Term (outer ++ vars) -> Term (outer ++ (bound ++ vars))
+           Term (vars ++ outer) -> Term (vars ++ (bound ++ outer))
 mkLocals outer bs (Local fc r idx p)
     = let MkNVar p' = addVars outer bs (MkNVar p) in Local fc r _ p'
 mkLocals outer bs (Ref fc Bound name)
@@ -473,7 +509,7 @@ mkLocals outer bs (TType fc u) = TType fc u
 
 mkLocalsCaseScope
     : SizeOf outer -> Bounds bound ->
-      CaseScope (outer ++ vars) -> CaseScope (outer ++ (bound ++ vars))
+      CaseScope (vars ++ outer) -> CaseScope (vars ++ (bound ++ outer))
 mkLocalsCaseScope outer bs (RHS tm) = RHS (mkLocals outer bs tm)
 mkLocalsCaseScope outer bs (Arg x scope)
     = Arg x (mkLocalsCaseScope (suc outer) bs scope)
@@ -486,17 +522,17 @@ mkLocalsAlt outer bs (ConstCase c rhs) = ConstCase c (mkLocals outer bs rhs)
 mkLocalsAlt outer bs (DefaultCase rhs) = DefaultCase (mkLocals outer bs rhs)
 
 export
-refsToLocals : Bounds bound -> Term vars -> Term (bound ++ vars)
+refsToLocals : Bounds bound -> Term vars -> Term (vars ++ bound)
 refsToLocals None y = y
 refsToLocals bs y = mkLocals zero  bs y
 
 export
-refsToLocalsCaseScope : Bounds bound -> CaseScope vars -> CaseScope (bound ++ vars)
+refsToLocalsCaseScope : Bounds bound -> CaseScope vars -> CaseScope (vars ++ bound)
 refsToLocalsCaseScope bs sc = mkLocalsCaseScope zero bs sc
 
 -- Replace any reference to 'x' with a locally bound name 'new'
 export
-refToLocal : (x : Name) -> (new : Name) -> Term vars -> Term (new :: vars)
+refToLocal : (x : Name) -> (new : Name) -> Term vars -> Term (vars :< new)
 refToLocal x new tm = refsToLocals (Add new x None) tm
 
 export
@@ -546,7 +582,7 @@ Weaken Var where
   weaken = later
 
 export
-varExtend : IsVar x idx xs -> IsVar x idx (xs ++ ys)
+varExtend : IsVar x idx xs -> IsVar x idx (ys ++ xs)
 -- What Could Possibly Go Wrong?
 -- This relies on the runtime representation of the term being the same
 -- after embedding! It is just an identity function at run time, though, and
@@ -554,17 +590,17 @@ varExtend : IsVar x idx xs -> IsVar x idx (xs ++ ys)
 varExtend p = believe_me p
 
 export
-embed : Term vars -> Term (vars ++ more)
+embed : Term vars -> Term (more ++ vars)
 embed tm = believe_me tm
 
 export
-renameTop : (m : Name) -> Term (n :: vars) -> Term (m :: vars)
+renameTop : (m : Name) -> Term (vars :< n) -> Term (vars :< m)
 renameTop m tm = believe_me tm
 
 export
 nameAt : {vars : _} -> {idx : Nat} -> (0 p : IsVar n idx vars) -> Name
-nameAt {vars = n :: ns} First     = n
-nameAt {vars = n :: ns} (Later p) = nameAt p
+nameAt {vars = ns :< n} First     = n
+nameAt {vars = ns :< n} (Later p) = nameAt p
 
 export
 withPiInfo : Show t => PiInfo t -> String -> String

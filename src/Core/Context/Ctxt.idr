@@ -351,7 +351,7 @@ commitCtxt ctxt
 
 export
 newDef : FC -> Name -> RigCount ->
-         Term [] -> Visibility -> Def -> GlobalDef
+         Term [<] -> Visibility -> Def -> GlobalDef
 newDef fc n rig ty vis def
     = MkGlobalDef
         { location = fc
