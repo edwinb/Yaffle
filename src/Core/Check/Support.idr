@@ -4,6 +4,9 @@ import Core.Context
 import Core.Evaluate
 import Core.TT
 
+import Data.SnocList
+import Data.Vect
+
 -- Match the first term against the second, returning all the expressions
 -- that the variables match against.
 -- If there's no match, return an empty list.
@@ -23,6 +26,11 @@ matchVars = go []
              tm' <- shrinkTerm tm (DropCons SubRefl)
              pure (v', tm')
 
+    renameNTopScope : forall vars .
+                      (ms : SnocList Name) -> CaseScope (vars ++ ns) -> CaseScope (vars ++ ms)
+    renameNTopScope ms (RHS tm) = RHS (renameNTop ms tm)
+    renameNTopScope ms (Arg x sc) = Arg x (renameNTopScope {ns = ns :< x} (ms :< x) sc)
+
     go : forall vars .
          List (Var vars, Term vars) -> Term vars -> Term vars ->
          List (Var vars, Term vars)
@@ -41,6 +49,41 @@ matchVars = go []
     goBinder acc (PVTy _ _ ty) (PVTy _ _ ty') = go acc ty ty'
     goBinder acc _ _ = []
 
+    goPrimOp : forall vars .
+               List (Var vars, Term vars) -> Vect arity (Term vars) -> Vect arity' (Term vars) ->
+               List (Var vars, Term vars)
+    goPrimOp acc (tm :: tms) (tm' :: tms') = goPrimOp (go acc tm tm') tms tms'
+    goPrimOp acc _ _ = []
+
+    goCaseScope : forall vars .
+                  List (Var vars, Term vars) -> CaseScope vars -> CaseScope vars ->
+                  List (Var vars, Term vars)
+    goCaseScope acc (RHS tm) (RHS tm') = go acc tm tm'
+    goCaseScope acc (Arg n sc) (Arg n' sc')
+        = let sc' = renameNTopScope {ns = [<n']} [<n] sc'
+              scMatch = mapMaybe dropVar (goCaseScope [] sc sc') in
+              scMatch ++ acc
+    goCaseScope acc _ _ = []
+
+    goCaseAlt : forall vars .
+                List (Var vars, Term vars) -> CaseAlt vars -> CaseAlt vars ->
+                List (Var vars, Term vars)
+    goCaseAlt acc (ConCase _ _ sc) (ConCase _ _ sc')
+        = goCaseScope acc sc sc'
+    goCaseAlt acc (DelayCase n a tm) (DelayCase n' a' tm')
+        = let tm' = renameNTop {ns = [<a', n']} [<a, n] tm'
+              scMatch = mapMaybe (dropVar <=< dropVar) (go [] tm tm') in
+              scMatch ++ acc
+    goCaseAlt acc (ConstCase _ tm) (ConstCase _ tm') = go acc tm tm'
+    goCaseAlt acc (DefaultCase tm) (DefaultCase tm') = go acc tm tm'
+    goCaseAlt acc _ _ = []
+
+    goCaseAlts : forall vars .
+                 List (Var vars, Term vars) -> List (CaseAlt vars) -> List (CaseAlt vars) ->
+                 List (Var vars, Term vars)
+    goCaseAlts acc (ca :: cas) (ca' :: cas') = goCaseAlts (goCaseAlt acc ca ca') cas cas'
+    goCaseAlts acc _ _ = []
+
     go acc (Local _ _ _ p) tm
         = (MkVar p, tm) :: acc
     go acc (Bind _ x b sc) (Bind _ x' b' sc')
@@ -49,9 +92,18 @@ matchVars = go []
               goBinder (scMatch ++ acc) b b'
     go acc (App _ f _ a) (App _ f' _ a')
         = go (go acc f f') a a'
-    -- TODO: This is enough to get us going, but better do the other cases ASAP!
-    -- While we won't use the Raw typechecker in actual elaboration, it will
-    -- still be useful for debugging/rechecking so this needs to be complete.
+    go acc (As _ _ _ pat) (As _ _ _ pat')
+        = go acc pat pat'
+    go acc (Case _ sc scTy cs) (Case _ sc' scTy' cs')
+        = goCaseAlts (go (go acc sc sc') scTy scTy') cs cs'
+    go acc (TDelayed _ _ tm) (TDelayed _ _ tm')
+        = go acc tm tm'
+    go acc (TDelay _ _ ty arg) (TDelay _ _ ty' arg')
+        = go (go acc ty ty') arg arg'
+    go acc (TForce _ _ tm) (TForce _ _ tm')
+        = go acc tm tm'
+    go acc (PrimOp _ _ args) (PrimOp _ _ args')
+        = goPrimOp acc args args'
     go acc tmx tmy = []
 
 export

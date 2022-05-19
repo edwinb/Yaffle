@@ -594,8 +594,12 @@ embed : Term vars -> Term (more ++ vars)
 embed tm = believe_me tm
 
 export
+renameNTop : (ms : SnocList Name) -> Term (vars ++ ns) -> Term (vars ++ ms)
+renameNTop ms tm = believe_me tm
+
+export
 renameTop : (m : Name) -> Term (vars :< n) -> Term (vars :< m)
-renameTop m tm = believe_me tm
+renameTop m tm = renameNTop {ns = [<n]} [<m] tm
 
 export
 nameAt : {vars : _} -> {idx : Nat} -> (0 p : IsVar n idx vars) -> Name
