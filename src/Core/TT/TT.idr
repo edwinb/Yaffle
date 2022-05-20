@@ -530,7 +530,7 @@ data Term : SnocList Name -> Type where
      Erased : FC -> (imp : Bool) -> -- True == impossible term, for coverage checker
               Term vars
      Unmatched : FC -> String -> Term vars -- error from a partialmatch
-     Impossible : FC -> Term vars --impossible case
+     Impossible : FC -> Term vars -- impossible case
      TType : FC -> Name -> -- universe variable
              Term vars
 
