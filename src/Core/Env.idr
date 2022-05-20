@@ -19,7 +19,7 @@ length (xs :< _) = S (length xs)
 export
 lengthNoLet : Env tm xs -> Nat
 lengthNoLet [<] = 0
-lengthNoLet (xs :< Let _ _ _ _) = lengthNoLet xs
+lengthNoLet (xs :< MkBinder _ _ (LetVal _) _) = lengthNoLet xs
 lengthNoLet (xs :< _) = S (lengthNoLet xs)
 
 -- Weaken by all the names at once at the end, to save multiple traversals
@@ -67,9 +67,9 @@ export
 abstractEnvType : {vars : _} ->
                   FC -> Env Term vars -> (tm : Term vars) -> Term [<]
 abstractEnvType fc [<] tm = tm
-abstractEnvType fc (env :< Let fc' c val ty) tm
+abstractEnvType fc (env :< MkBinder fc' c (LetVal val) ty) tm
     = abstractEnvType fc env (Bind fc _ (Let fc' c val ty) tm)
-abstractEnvType fc (env :< Pi fc' c e ty) tm
+abstractEnvType fc (env :< MkBinder fc' c (BPiVal e) ty) tm
     = abstractEnvType fc env (Bind fc _ (Pi fc' c e ty) tm)
 abstractEnvType fc (env :< b) tm
     = let bnd = Pi (binderLoc b) (multiplicity b) Explicit (binderType b)
@@ -80,7 +80,7 @@ export
 abstractEnv : {vars : _} ->
               FC -> Env Term vars -> (tm : Term vars) -> Term [<]
 abstractEnv fc [<] tm = tm
-abstractEnv fc (env :< Let fc' c val ty) tm
+abstractEnv fc (env :< MkBinder fc' c (LetVal val) ty) tm
     = abstractEnv fc env (Bind fc _ (Let fc' c val ty) tm)
 abstractEnv fc (env :< b) tm
     = let bnd = Lam (binderLoc b) (multiplicity b) Explicit (binderType b)
@@ -91,7 +91,7 @@ export
 abstractFullEnvType : {vars : _} ->
                       FC -> Env Term vars -> (tm : Term vars) -> Term [<]
 abstractFullEnvType fc [<] tm = tm
-abstractFullEnvType fc (env :< Pi fc' c e ty) tm
+abstractFullEnvType fc (env :< MkBinder fc' c (BPiVal e) ty) tm
     = abstractFullEnvType fc env (Bind fc _ (Pi fc' c e ty) tm)
 abstractFullEnvType fc (env :< b) tm
     = let bnd = Pi fc (multiplicity b) Explicit (binderType b)

@@ -70,11 +70,11 @@ parameters {auto c : Ref Ctxt Defs}
            convGen s env !(sc var) !(sc' var)
     where
       convBinders : Binder (Value vars) -> Binder (Value vars) -> Core Bool
-      convBinders (Lam _ cx _ tx) (Lam _ cy _ ty)
+      convBinders (MkBinder _ cx (LamVal _) tx) (MkBinder _ cy (LamVal _) ty)
           = if cx /= cy
                then pure False
                else convGen s env tx ty
-      convBinders (Pi _ cx _ tx) (Pi _ cy _ ty)
+      convBinders (MkBinder _ cx (BPiVal _) tx) (MkBinder _ cy (BPiVal _) ty)
           = if cx /= cy
                then pure False
                else convGen s env tx ty

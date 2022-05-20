@@ -30,7 +30,7 @@ parameters {auto c : Ref Ctxt Defs}
 
   export
   getArityVal : Value vars -> Core Nat
-  getArityVal (VBind fc _ (Pi _ _ _ _) sc)
+  getArityVal (VBind fc _ (MkBinder _ _ (BPiVal _) _) sc)
       = pure $ 1 + !(getArityVal !(sc (VErased fc False)))
   getArityVal (VApp _ _ _ _ val)
       = do Just val' <- val
@@ -94,7 +94,7 @@ parameters {auto c : Ref Ctxt Defs}
 
       repSub : Value vars -> Core (Term vars)
       repSub (VLam fc x c p ty scfn)
-          = do b' <- traverse repSub (Lam fc c p ty)
+          = do b' <- traverse repSub (MkBinder fc c (LamVal p) ty)
                let x' = MN "tmp" tmpi
                let var = VApp fc Bound x' [<] (pure Nothing)
                sc' <- replace' (tmpi + 1) env orig parg !(scfn var)

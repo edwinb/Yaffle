@@ -216,7 +216,7 @@ parameters {auto c : Ref Ctxt Defs}
               Core (Value vars)
   evalLocal env fc mloc p [<]
       = case getBinder p env of
-             Let _ _ val _ => eval [<] env val
+             MkBinder _ _ (LetVal val) _ => eval [<] env val
              _ => pure $ VLocal fc mloc _ p [<]
   evalLocal env fc mloc First (locs :< x) = pure x
   evalLocal env fc mloc (Later p) (locs :< x) = evalLocal env fc mloc p locs
@@ -238,18 +238,9 @@ parameters {auto c : Ref Ctxt Defs}
                Env Term vars ->
                Binder (Term (vars ++ free)) ->
                Core (Binder (Value vars))
-  evalBinder locs env (Lam fc c p ty)
-     = pure $ Lam fc c !(evalPiInfo locs env p) !(eval locs env ty)
-  evalBinder locs env (Let fc c val ty)
-     = pure $ Let fc c !(eval locs env val) !(eval locs env ty)
-  evalBinder locs env (Pi fc c p ty)
-     = pure $ Pi fc c !(evalPiInfo locs env p) !(eval locs env ty)
-  evalBinder locs env (PVar fc c p ty)
-     = pure $ PVar fc c !(evalPiInfo locs env p) !(eval locs env ty)
-  evalBinder locs env (PLet fc c val ty)
-     = pure $ PLet fc c !(eval locs env val) !(eval locs env ty)
-  evalBinder locs env (PVTy fc c ty)
-     = pure $ PVTy fc c !(eval locs env ty)
+  evalBinder locs env (MkBinder fc c p ty)
+     = pure $ MkBinder fc c !(mapBinderM (evalPiInfo locs env) (eval locs env) p)
+                            !(eval locs env ty)
 
 --   Declared above with this type:
 --   eval : {vars : _} ->
@@ -283,10 +274,10 @@ parameters {auto c : Ref Ctxt Defs}
                      do evalfn <- eval locs env (embed fn)
                         res <- applyAll fc evalfn scope'
                         pure (Just res)
-  eval locs env (Bind fc x (Lam bfc r p ty) sc)
+  eval locs env (Bind fc x (MkBinder bfc r (LamVal p) ty) sc)
       = pure $ VLam fc x r !(evalPiInfo locs env p) !(eval locs env ty)
                     (\arg => eval (locs :< arg) env sc)
-  eval locs env (Bind fc x (Let bfc c val ty) sc)
+  eval locs env (Bind fc x (MkBinder bfc c (LetVal val) ty) sc)
       = do val' <- eval locs env val
            eval (locs :< val') env sc
   eval locs env (Bind fc x b sc)

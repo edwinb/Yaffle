@@ -99,29 +99,9 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteBinder : {bound, vars : _} ->
                 Strategy -> Bounds bound -> Env Term vars ->
                 Binder (Value vars) -> Core (Binder (Term (vars ++ bound)))
-  quoteBinder s bounds env (Lam fc r p ty)
-      = do ty' <- quoteGen s bounds env ty
-           p' <- quotePi s bounds env p
-           pure (Lam fc r p' ty')
-  quoteBinder s bounds env (Let fc r val ty)
-      = do ty' <- quoteGen s bounds env ty
-           val' <- quoteGen s bounds env val
-           pure (Let fc r val' ty')
-  quoteBinder s bounds env (Pi fc r p ty)
-      = do ty' <- quoteGen s bounds env ty
-           p' <- quotePi s bounds env p
-           pure (Pi fc r p' ty')
-  quoteBinder s bounds env (PVar fc r p ty)
-      = do ty' <- quoteGen s bounds env ty
-           p' <- quotePi s bounds env p
-           pure (PVar fc r p' ty')
-  quoteBinder s bounds env (PLet fc r val ty)
-      = do ty' <- quoteGen s bounds env ty
-           val' <- quoteGen s bounds env val
-           pure (PLet fc r val' ty')
-  quoteBinder s bounds env (PVTy fc r ty)
-      = do ty' <- quoteGen s bounds env ty
-           pure (PVTy fc r ty')
+  quoteBinder s bounds env (MkBinder fc r p ty)
+      = pure $ MkBinder fc r !(mapBinderM (quotePi s bounds env) (quoteGen s bounds env) p)
+                             !(quoteGen s bounds env ty)
 
 --   Declared above as:
 --   quoteGen : {bound, vars : _} ->

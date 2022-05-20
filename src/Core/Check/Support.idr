@@ -30,15 +30,15 @@ matchVars = go []
     goBinder : forall vars .
          List (Var vars, Term vars) -> Binder (Term vars) -> Binder (Term vars) ->
          List (Var vars, Term vars)
-    goBinder acc (Lam _ _ _ ty) (Lam _ _ _ ty') = go acc ty ty'
-    goBinder acc (Let _ _ val ty) (Let _ _ val' ty')
+    goBinder acc (MkBinder _ _ (LamVal _) ty) (MkBinder _ _ (LamVal _) ty') = go acc ty ty'
+    goBinder acc (MkBinder _ _ (LetVal val) ty) (MkBinder _ _ (LetVal val') ty')
         = go (go acc val val') ty ty'
-    goBinder acc (Pi _ _ _ ty) (Pi _ _ _ ty') = go acc ty ty'
+    goBinder acc (MkBinder _ _ (BPiVal _) ty) (MkBinder _ _ (BPiVal _) ty') = go acc ty ty'
     -- We're not going to see this, but for completeness
-    goBinder acc (PVar _ _ _ ty) (PVar _ _ _ ty') = go acc ty ty'
-    goBinder acc (PLet _ _ val ty) (PLet _ _ val' ty')
+    goBinder acc (MkBinder _ _ (PVarVal _) ty) (MkBinder _ _ (PVarVal _) ty') = go acc ty ty'
+    goBinder acc (MkBinder _ _ (PLetVal val) ty) (MkBinder _ _ (PLetVal val') ty')
         = go (go acc val val') ty ty'
-    goBinder acc (PVTy _ _ ty) (PVTy _ _ ty') = go acc ty ty'
+    goBinder acc (MkBinder _ _ PVTyVal ty) (MkBinder _ _ PVTyVal ty') = go acc ty ty'
     goBinder acc _ _ = []
 
     go acc (Local _ _ _ p) tm

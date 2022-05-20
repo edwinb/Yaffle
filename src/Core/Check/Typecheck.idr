@@ -77,7 +77,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   infer rig env (RApp fc fn arg)
       = do (fn', fnty) <- infer rig env fn
            case !(nf env fnty) of
-             VBind fc x (Pi _ rigf _ ty) sc =>
+             VBind fc x (MkBinder _ rigf (BPiVal _) ty) sc =>
                do let checkRig = rigMult rigf rig
                   arg' <- check checkRig env arg !(quote env ty)
                   argnf <- nf env arg'
@@ -137,7 +137,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            rhs' <- check rig env rhs rhsExp
            pure (RHS rhs')
 
-  checkCon i bs fc rig valenv env cname (arg :: args) app (VBind _ x (Pi _ rigp p aty) sc) rhs scr scrTy rhsTy
+  checkCon i bs fc rig valenv env cname (arg :: args) app (VBind _ x (MkBinder _ rigp (BPiVal p) aty) sc) rhs scr scrTy rhsTy
       = do -- Extend the environment with the constructor argument name
            argty <- quote valenv aty
            let varty = refsToLocals bs argty
@@ -201,7 +201,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   check {vars} rig env (RLam fc n scope) ty
       = do tnf <- nf env ty
            case !(quote env tnf) of
-                Bind _ x (Pi _ rigp p aty) rty =>
+                Bind _ x (MkBinder _ rigp (BPiVal p) aty) rty =>
                     do let env' = env :< Lam fc rigp p aty
                        sc' <- check rig env' scope rty
                        pure (Bind fc n (Lam fc rigp p aty)

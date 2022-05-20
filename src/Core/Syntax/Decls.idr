@@ -20,7 +20,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            pure n -- (Resolved idx)
     where
       checkIsTy : Value [<] -> Core ()
-      checkIsTy (VBind fc _ (Pi _ _ _ _) sc)
+      checkIsTy (VBind fc _ (MkBinder _ _ (BPiVal _) _) sc)
           = checkIsTy !(sc (VErased fc False))
       checkIsTy (VTCon fc cn _ _)
           = when (cn /= tycon) $
@@ -48,7 +48,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       mkTags i (x :: xs) = (i, x) :: mkTags (i + 1) xs
 
       checkIsType : Value [<] -> Core ()
-      checkIsType (VBind fc _ (Pi _ _ _ _) sc)
+      checkIsType (VBind fc _ (MkBinder _ _ (BPiVal _) _) sc)
           = checkIsType !(sc (VErased fc False))
       checkIsType (VType fc _) = pure ()
       checkIsType _ = throw (BadTypeConType fc n)

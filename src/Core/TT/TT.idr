@@ -367,68 +367,101 @@ export
 Eq t => Eq (PiInfo t) where
   (==) = eqPiInfoBy (==)
 
+||| The different types of binders we can have
+public export
+data BinderKind : Type -> Type where
+  LamVal : PiInfo type -> BinderKind type
+  LetVal : (val : type) -> BinderKind type
+  BPiVal : PiInfo type -> BinderKind type
+  PVarVal : PiInfo type -> BinderKind type
+  PLetVal : (val : type) -> BinderKind type
+  PVTyVal : BinderKind type
+
+||| Traverse the BinderKind tree
+export
+mapBinderM : Monad m => (PiInfo a -> m (PiInfo b)) -> (a -> m b) -> BinderKind a -> m (BinderKind b)
+mapBinderM piFn valFn (LamVal x) = LamVal <$> piFn x
+mapBinderM piFn valFn (LetVal val) = LetVal <$> valFn val
+mapBinderM piFn valFn (BPiVal x) = BPiVal <$> piFn x
+mapBinderM piFn valFn (PVarVal x) = PVarVal <$> piFn x
+mapBinderM piFn valFn (PLetVal val) = PLetVal <$> valFn val
+mapBinderM piFn valFn PVTyVal = pure PVTyVal
+
+-- this is the same as above but ran in the Identity Monad
+-- mapBinder piFn valFn = runIdentity . mapBinderM (pure . map piFn) (pure . valFn)
+export
+mapBinder : (PiInfo a -> PiInfo b) -> (a -> b) -> BinderKind a -> BinderKind b
+mapBinder piFn valFn (LamVal x) = LamVal $ piFn x
+mapBinder piFn valFn (LetVal val) = LetVal $ valFn val
+mapBinder piFn valFn (BPiVal x) = BPiVal $ piFn x
+mapBinder piFn valFn (PVarVal x) = PVarVal $ piFn x
+mapBinder piFn valFn (PLetVal val) = PLetVal $ valFn val
+mapBinder piFn valFn PVTyVal = PVTyVal
+
 -- Perhaps The 'RigCount' should be first class, and therefore 'type'?
 -- We can revisit this later without too many drastic changes (as long as
 -- we don't revisit it *too much* later)
 public export
-data Binder : Type -> Type where
-     -- Lambda bound variables with their implicitness
-     Lam : FC -> RigCount -> PiInfo type -> (ty : type) -> Binder type
-     -- Let bound variables with their value
-     Let : FC -> RigCount -> (val : type) -> (ty : type) -> Binder type
-     -- Forall/pi bound variables with their implicitness
-     Pi : FC -> RigCount -> PiInfo type -> (ty : type) -> Binder type
-     -- pattern bound variables. The PiInfo gives the implicitness at the
-     -- point it was bound (Explicit if it was explicitly named in the
-     -- program)
-     PVar : FC -> RigCount -> PiInfo type -> (ty : type) -> Binder type
-     -- variable bound for an as pattern (Like a let, but no computational
-     -- force, and only used on the lhs. Converted to a let on the rhs because
-     -- we want the computational behaviour.)
-     PLet : FC -> RigCount -> (val : type) -> (ty : type) -> Binder type
-     -- the type of pattern bound variables
-     PVTy : FC -> RigCount -> (ty : type) -> Binder type
+record Binder (type : Type) where
+  constructor MkBinder
+  ||| Position of the binder
+  fc : FC
+  ||| Quantity of the binder
+  qty : RigCount
+  ||| Kind of binder
+  val : BinderKind type
+  ||| Type of the binder
+  ty : type
+
+-- constructors for compatibility
+%inline export
+Lam : FC -> RigCount -> PiInfo type -> type -> Binder type
+Lam fc rig info ty = MkBinder fc rig (LamVal info) ty
+
+%inline export
+Let : FC -> RigCount -> type -> type -> Binder type
+Let fc rig val ty = MkBinder fc rig (LetVal val) ty
+
+%inline export
+Pi : FC -> RigCount -> PiInfo type -> type -> Binder type
+Pi fc rig info ty = MkBinder fc rig (BPiVal info) ty
+
+%inline export
+PVar : FC -> RigCount -> PiInfo type -> type -> Binder type
+PVar fc rig info ty = MkBinder fc rig (PVarVal info) ty
+
+%inline export
+PLet : FC -> RigCount -> type -> type -> Binder type
+PLet fc rig val ty = MkBinder fc rig (PLetVal val) ty
 
 export
 isLet : Binder t -> Bool
-isLet (Let _ _ _ _) = True
+isLet (MkBinder _ _ (LetVal _) _) = True
 isLet _ = False
 
 export
 binderLoc : Binder tm -> FC
-binderLoc (Lam fc _ x ty) = fc
-binderLoc (Let fc _ val ty) = fc
-binderLoc (Pi fc _ x ty) = fc
-binderLoc (PVar fc _ p ty) = fc
-binderLoc (PLet fc _ val ty) = fc
-binderLoc (PVTy fc _ ty) = fc
+binderLoc = fc
 
 export
 binderType : Binder tm -> tm
-binderType (Lam _ _ x ty) = ty
-binderType (Let _ _ val ty) = ty
-binderType (Pi _ _ x ty) = ty
-binderType (PVar _ _ _ ty) = ty
-binderType (PLet _ _ val ty) = ty
-binderType (PVTy _ _ ty) = ty
+binderType = ty
 
 export
 multiplicity : Binder tm -> RigCount
-multiplicity (Lam _ c x ty) = c
-multiplicity (Let _ c val ty) = c
-multiplicity (Pi _ c x ty) = c
-multiplicity (PVar _ c p ty) = c
-multiplicity (PLet _ c val ty) = c
-multiplicity (PVTy _ c ty) = c
+multiplicity = qty
 
 export
 piInfo : Binder tm -> PiInfo tm
-piInfo (Lam _ c x ty) = x
-piInfo (Let _ c val ty) = Explicit
-piInfo (Pi _ c x ty) = x
-piInfo (PVar _ c p ty) = p
-piInfo (PLet _ c val ty) = Explicit
-piInfo (PVTy _ c ty) = Explicit
+piInfo = piInfo' . val
+  where
+    piInfo' : BinderKind tm -> PiInfo tm
+    piInfo' (LamVal x) = x
+    piInfo' (LetVal _) = Explicit
+    piInfo' (BPiVal x) = x
+    piInfo' (PVarVal x) = x
+    piInfo' (PLetVal _) = Explicit
+    piInfo' PVTyVal = Explicit
 
 export
 isImplicit : Binder tm -> Bool
@@ -436,12 +469,7 @@ isImplicit = PiInfo.isImplicit . piInfo
 
 export
 setMultiplicity : Binder tm -> RigCount -> Binder tm
-setMultiplicity (Lam fc _ x ty) c = Lam fc c x ty
-setMultiplicity (Let fc _ val ty) c = Let fc c val ty
-setMultiplicity (Pi fc _ x ty) c = Pi fc c x ty
-setMultiplicity (PVar fc _ p ty) c = PVar fc c p ty
-setMultiplicity (PLet fc _ val ty) c = PLet fc c val ty
-setMultiplicity (PVTy fc _ ty) c = PVTy fc c ty
+setMultiplicity binder qty = { qty := qty } binder
 
 export
 Functor PiInfo where
@@ -465,13 +493,12 @@ Traversable PiInfo where
   traverse f (DefImplicit x) = map DefImplicit (f x)
 
 export
+Functor BinderKind where
+  map func = mapBinder (map func) (func)
+
+export
 Functor Binder where
-  map func (Lam fc c x ty) = Lam fc c (map func x) (func ty)
-  map func (Let fc c val ty) = Let fc c (func val) (func ty)
-  map func (Pi fc c x ty) = Pi fc c (map func x) (func ty)
-  map func (PVar fc c p ty) = PVar fc c (map func p) (func ty)
-  map func (PLet fc c val ty) = PLet fc c (func val) (func ty)
-  map func (PVTy fc c ty) = PVTy fc c (func ty)
+  map f (MkBinder fc qty val ty) = MkBinder fc qty (map f val) (f ty)
 
 public export
 data IsVar : Name -> Nat -> SnocList Name -> Type where

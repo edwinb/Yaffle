@@ -20,8 +20,8 @@ public export
 revOnto : (xs, vs : SnocList a) -> reverseOnto xs vs = xs ++ reverse vs
 revOnto xs [<] = Refl
 revOnto xs (vs :< v)
-    = rewrite revOnto (xs :< v) vs in 
-        rewrite revOnto [<v] vs in 
+    = rewrite revOnto (xs :< v) vs in
+        rewrite revOnto [<v] vs in
           rewrite appendAssociative xs [<v] (reverse vs) in Refl
 
 public export
@@ -376,18 +376,9 @@ shrinkPi Implicit prf = pure Implicit
 shrinkPi AutoImplicit prf = pure AutoImplicit
 shrinkPi (DefImplicit t) prf = pure (DefImplicit !(shrinkTerm t prf))
 
-shrinkBinder (Lam fc c p ty) prf
-    = Just (Lam fc c !(shrinkPi p prf) !(shrinkTerm ty prf))
-shrinkBinder (Let fc c val ty) prf
-    = Just (Let fc c !(shrinkTerm val prf) !(shrinkTerm ty prf))
-shrinkBinder (Pi fc c p ty) prf
-    = Just (Pi fc c !(shrinkPi p prf) !(shrinkTerm ty prf))
-shrinkBinder (PVar fc c p ty) prf
-    = Just (PVar fc c !(shrinkPi p prf) !(shrinkTerm ty prf))
-shrinkBinder (PLet fc c val ty) prf
-    = Just (PLet fc c !(shrinkTerm val prf) !(shrinkTerm ty prf))
-shrinkBinder (PVTy fc c ty) prf
-    = Just (PVTy fc c !(shrinkTerm ty prf))
+shrinkBinder (MkBinder fc qty val ty)  prf
+    = Just (MkBinder fc qty !(mapBinderM (flip shrinkPi prf) (flip shrinkTerm prf) val)
+                            !(shrinkTerm ty prf))
 
 shrinkAs (AsLoc fc idx loc) prf = (\(MkVar loc') => AsLoc fc _ loc') <$> subElem loc prf
 shrinkAs (AsRef fc n) prf = Just (AsRef fc n)
@@ -453,8 +444,8 @@ resolveRef : SizeOf outer -> SizeOf done -> Bounds bound -> FC -> Name ->
 resolveRef p q None fc n = Nothing
 resolveRef {outer} {done} p q (Add {xs} new old bs) fc n
     = if n == old
-         then let MkNVar p = weakenNVar (p + q) (MkNVar First) in 
-                  Just (Local fc Nothing _ 
+         then let MkNVar p = weakenNVar (p + q) (MkNVar First) in
+                  Just (Local fc Nothing _
                    (rewrite sym $ appendAssociative (xs :< new) done outer in
                     rewrite appendAssociative vars (xs :< new) (done ++ outer) in p))
          else rewrite sym $ appendAssociative xs [<new] done in
@@ -626,22 +617,22 @@ mutual
         showApp (Ref _ _ n) [] = show n
         showApp (Meta _ n _ args) []
             = "?" ++ show n ++ "_" ++ show args
-        showApp (Bind _ x (Lam _ c info ty) sc) []
+        showApp (Bind _ x (MkBinder _ c (LamVal info) ty) sc) []
             = "\\" ++ withPiInfo info (show c ++ show x ++ " : " ++ show ty) ++
               " => " ++ show sc
-        showApp (Bind _ x (Let _ c val ty) sc) []
+        showApp (Bind _ x (MkBinder _ c (LetVal val) ty) sc) []
             = "let " ++ show c ++ show x ++ " : " ++ show ty ++
               " = " ++ show val ++ " in " ++ show sc
-        showApp (Bind _ x (Pi _ c info ty) sc) []
+        showApp (Bind _ x (MkBinder _ c (BPiVal info) ty) sc) []
             = "(" ++ withPiInfo info (show c ++ show x ++ " : " ++ show ty) ++
               " -> " ++ show sc ++ ")"
-        showApp (Bind _ x (PVar _ c info ty) sc) []
+        showApp (Bind _ x (MkBinder _ c (PVarVal info) ty) sc) []
             = withPiInfo info ("pat " ++ show c ++ show x ++ " : " ++ show ty) ++
               " => " ++ show sc
-        showApp (Bind _ x (PLet _ c val ty) sc) []
+        showApp (Bind _ x (MkBinder _ c (PLetVal val) ty) sc) []
             = "plet " ++ show c ++ show x ++ " : " ++ show ty ++
               " = " ++ show val ++ " in " ++ show sc
-        showApp (Bind _ x (PVTy _ c ty) sc) []
+        showApp (Bind _ x (MkBinder _ c PVTyVal ty) sc) []
             = "pty " ++ show c ++ show x ++ " : " ++ show ty ++
               " => " ++ show sc
         showApp (App _ _ _ _) [] = "[can't happen]"

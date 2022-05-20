@@ -240,15 +240,25 @@ namespace PiInfo
   traverse f AutoImplicit = pure AutoImplicit
   traverse f (DefImplicit t) = pure (DefImplicit !(f t))
 
+namespace BinderKind
+
+  export
+  mapBinderM : (PiInfo a -> CoreE err (PiInfo b)) -> (a -> CoreE err b) -> BinderKind a -> CoreE err (BinderKind b)
+  mapBinderM piFn valFn (LamVal x) = LamVal <$> piFn x
+  mapBinderM piFn valFn (LetVal val) = LetVal <$> valFn val
+  mapBinderM piFn valFn (BPiVal x) = BPiVal <$> piFn x
+  mapBinderM piFn valFn (PVarVal x) = PVarVal <$> piFn x
+  mapBinderM piFn valFn (PLetVal val) = PLetVal <$> valFn val
+  mapBinderM piFn valFn PVTyVal = pure PVTyVal
+
+  export
+  traverse : (a -> CoreE err b) -> BinderKind a -> CoreE err (BinderKind b)
+  traverse f = mapBinderM (traverse f) f
+
 namespace Binder
   export
   traverse : (a -> CoreE err b) -> Binder a -> CoreE err (Binder b)
-  traverse f (Lam fc c p ty) = pure $ Lam fc c !(traverse f p) !(f ty)
-  traverse f (Let fc c val ty) = pure $ Let fc c !(f val) !(f ty)
-  traverse f (Pi fc c p ty) = pure $ Pi fc c !(traverse f p) !(f ty)
-  traverse f (PVar fc c p ty) = pure $ PVar fc c !(traverse f p) !(f ty)
-  traverse f (PLet fc c val ty) = pure $ PLet fc c !(f val) !(f ty)
-  traverse f (PVTy fc c ty) = pure $ PVTy fc c !(f ty)
+  traverse f (MkBinder fc c p ty) = pure $ MkBinder fc c !(traverse f p) !(f ty)
 
 export
 anyM : (a -> CoreE err Bool) -> List a -> CoreE err Bool
