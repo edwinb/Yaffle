@@ -133,11 +133,11 @@ parameters {auto c : Ref Ctxt Defs}
                    | _ => repSub pat
                pat' <- repSub pat
                pure (As fc s (AsLoc lfc i prf) pat')
-      repSub (VCase fc sc scty alts)
+      repSub (VCase fc r sc scty alts)
           = do sc' <- repArg sc
                scty' <- repArg scty
                alts' <- traverse (repAlt fc) alts
-               pure (Case fc sc' scty' alts')
+               pure (Case fc r sc' scty' alts')
       repSub (VDelayed fc r tm)
           = do tm' <- repSub tm
                pure (TDelayed fc r tm')

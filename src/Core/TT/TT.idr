@@ -518,7 +518,7 @@ data Term : SnocList Name -> Type where
      -- As patterns, including whether (in a linear setting) it's the name
      -- or the pattern that is consumed
      As : FC -> UseSide -> (as : AsName vars) -> (pat : Term vars) -> Term vars
-     Case : FC -> (sc : Term vars) -> (scTy : Term vars) ->
+     Case : FC -> RigCount -> (sc : Term vars) -> (scTy : Term vars) ->
             List (CaseAlt vars) ->
             Term vars
      -- Typed laziness annotations

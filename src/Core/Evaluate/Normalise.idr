@@ -37,8 +37,8 @@ apply fc (VAs _ _ _ pat) q arg
     = apply fc pat q arg -- doesn't really make sense to keep the name
 apply fc (VForce ffc r v spine) q arg
     = pure $ VForce ffc r v (spine :< (fc, q, arg))
-apply fc (VCase cfc sc ty alts) q arg
-    = pure $ VCase cfc sc ty !(traverse (applyAlt arg) alts)
+apply fc (VCase cfc r sc ty alts) q arg
+    = pure $ VCase cfc r sc ty !(traverse (applyAlt arg) alts)
   where
     applyConCase : Value vars ->
                    Name -> Int ->
@@ -148,13 +148,13 @@ parameters {auto c : Ref Ctxt Defs}
 
   blockedCase : {vars : _} ->
                 FC -> LocalEnv free vars -> Env Term vars ->
-                (sc : Value vars) -> (scTy : Term (vars ++ free)) ->
+                RigCount -> (sc : Value vars) -> (scTy : Term (vars ++ free)) ->
                 List (CaseAlt (vars ++ free)) ->
                 Core (Value vars)
-  blockedCase fc locs env sc scTy alts
+  blockedCase fc locs env r sc scTy alts
       = do scTy' <- eval locs env scTy
            alts' <- traverse (evalCaseAlt locs env) alts
-           pure (VCase fc sc scTy' alts')
+           pure (VCase fc r sc scTy' alts')
 
   tryAlts : {vars : _} ->
             LocalEnv free vars -> Env Term vars ->
@@ -189,14 +189,14 @@ parameters {auto c : Ref Ctxt Defs}
 
   evalCase : {vars : _} ->
              FC -> LocalEnv free vars -> Env Term vars ->
-             (sc : Value vars) -> (scTy : Term (vars ++ free)) ->
+             RigCount -> (sc : Value vars) -> (scTy : Term (vars ++ free)) ->
              List (CaseAlt (vars ++ free)) ->
              Core (Value vars)
-  evalCase fc locs env sc_in ty alts
+  evalCase fc locs env r sc_in ty alts
       = do sc <- getVal sc_in
            if isCanonical sc
-              then tryAlts locs env sc alts (blockedCase fc locs env sc ty alts)
-              else blockedCase fc locs env sc_in ty alts
+              then tryAlts locs env sc alts (blockedCase fc locs env r sc ty alts)
+              else blockedCase fc locs env r sc_in ty alts
     where
       isCanonical : Value vars -> Bool
       isCanonical (VLam{}) = True
@@ -299,12 +299,12 @@ parameters {auto c : Ref Ctxt Defs}
                           !(eval locs env pat)
   eval locs env (As fc use _ pat)
       = eval locs env pat
-  eval locs env (Case fc sc ty alts)
+  eval locs env (Case fc r sc ty alts)
       = do sc' <- eval locs env sc
            locs' <- case sc of
                          Local _ _ _ p => pure $ updateEnv locs p !(getVal sc')
                          _ => pure locs
-           evalCase fc locs' env sc' ty alts
+           evalCase fc locs' env r sc' ty alts
   eval locs env (TDelayed fc r tm)
       = pure $ VDelayed fc r !(eval locs env tm)
   eval locs env (TDelay fc r ty arg)

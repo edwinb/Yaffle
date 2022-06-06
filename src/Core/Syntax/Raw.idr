@@ -22,7 +22,7 @@ public export
 data RawC : Type where
      RInf : FC -> RawI -> RawC -- inferrable, so must be checkable
      RLam : FC -> Name -> (scope : RawC) -> RawC
-     RCase : FC -> (sc : RawI) -> List RawCaseAlt -> RawC
+     RCase : FC -> RigCount -> (sc : RawI) -> List RawCaseAlt -> RawC
      RMeta : FC -> String -> RawC
 
 public export
@@ -78,7 +78,7 @@ mutual -- grr
     show (RInf fc t) = show t
     show (RLam fc n sc)
         = assert_total $ "lam " ++ show n ++ " . " ++ show sc
-    show (RCase fc sc alts)
+    show (RCase fc _ sc alts)
         = assert_total $
           "(case " ++ show sc ++ " of " ++
               showSep " | " (map show alts) ++ ")"

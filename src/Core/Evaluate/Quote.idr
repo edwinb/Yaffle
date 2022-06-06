@@ -229,11 +229,11 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
                 Ref rfc Bound n =>
                     pure (As fc use (AsRef rfc n) pat')
                 _ => pure pat'
-  quoteGen s bounds env (VCase fc sc scTy alts)
+  quoteGen s bounds env (VCase fc rig sc scTy alts)
       = do sc' <- quoteGen s bounds env sc
            scTy' <- quoteGen s bounds env scTy
            alts' <- traverse (quoteAlt fc BlockApp bounds env) alts
-           pure $ Case fc sc' scTy' alts'
+           pure $ Case fc rig sc' scTy' alts'
   quoteGen s bounds env (VDelayed fc r ty)
       = do ty' <- quoteGen s bounds env ty
            pure (TDelayed fc r ty')

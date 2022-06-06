@@ -94,7 +94,7 @@ matchVars = go []
         = go (go acc f f') a a'
     go acc (As _ _ _ pat) (As _ _ _ pat')
         = go acc pat pat'
-    go acc (Case _ sc scTy cs) (Case _ sc' scTy' cs')
+    go acc (Case _ _ sc scTy cs) (Case _ _ sc' scTy' cs')
         = goCaseAlts (go (go acc sc sc') scTy scTy') cs cs'
     go acc (TDelayed _ _ tm) (TDelayed _ _ tm')
         = go acc tm tm'

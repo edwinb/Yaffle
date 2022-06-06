@@ -207,10 +207,10 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                        pure (Bind fc n (Lam fc rigp p aty)
                                   (renameTop n sc'))
                 _ => throw (NotFunctionType fc !(get Ctxt) env ty)
-  check rig env (RCase fc sc alts) exp
+  check rig env (RCase fc r sc alts) exp
       = do (sc', scTy') <- infer rig env sc
            alts <- traverse (checkAlt fc rig env sc' scTy' exp) alts
-           pure (Case fc sc' scTy' alts)
+           pure (Case fc r sc' scTy' alts)
   check rig env (RMeta fc str) exp
       = do let n = UN (mkUserName str)
            (idx, meta) <- newMeta fc rig env n exp (Hole (length env))

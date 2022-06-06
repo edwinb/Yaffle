@@ -20,8 +20,8 @@ public export
 revOnto : (xs, vs : SnocList a) -> reverseOnto xs vs = xs ++ reverse vs
 revOnto xs [<] = Refl
 revOnto xs (vs :< v)
-    = rewrite revOnto (xs :< v) vs in 
-        rewrite revOnto [<v] vs in 
+    = rewrite revOnto (xs :< v) vs in
+        rewrite revOnto [<v] vs in
           rewrite appendAssociative xs [<v] (reverse vs) in Refl
 
 public export
@@ -294,8 +294,8 @@ insertNames out sns (As fc x as pat)
         = let MkNVar prf' = insertNVarNames out sns (MkNVar prf) in
               AsLoc fc _ prf'
     insertAs (AsRef fc n) = AsRef fc n
-insertNames out ns (Case fc sc scTy xs)
-    = Case fc (insertNames out ns sc) (insertNames out ns scTy)
+insertNames out ns (Case fc r sc scTy xs)
+    = Case fc r (insertNames out ns sc) (insertNames out ns scTy)
            (map (insertNamesAlt out ns) xs)
 insertNames out ns (TDelayed fc x y)
     = TDelayed fc x (insertNames out ns y)
@@ -414,8 +414,8 @@ shrinkTerm (App fc fn q arg) prf
    = Just (App fc !(shrinkTerm fn prf) q !(shrinkTerm arg prf))
 shrinkTerm (As fc s as tm) prf
    = Just (As fc s !(shrinkAs as prf) !(shrinkTerm tm prf))
-shrinkTerm (Case fc sc scTy alts) prf
-   = Just (Case fc !(shrinkTerm sc prf) !(shrinkTerm scTy prf)
+shrinkTerm (Case fc r sc scTy alts) prf
+   = Just (Case fc r !(shrinkTerm sc prf) !(shrinkTerm scTy prf)
                 !(traverse (\alt => shrinkAlt alt prf) alts))
 shrinkTerm (TDelayed fc x y) prf
    = Just (TDelayed fc x !(shrinkTerm y prf))
@@ -453,8 +453,8 @@ resolveRef : SizeOf outer -> SizeOf done -> Bounds bound -> FC -> Name ->
 resolveRef p q None fc n = Nothing
 resolveRef {outer} {done} p q (Add {xs} new old bs) fc n
     = if n == old
-         then let MkNVar p = weakenNVar (p + q) (MkNVar First) in 
-                  Just (Local fc Nothing _ 
+         then let MkNVar p = weakenNVar (p + q) (MkNVar First) in
+                  Just (Local fc Nothing _
                    (rewrite sym $ appendAssociative (xs :< new) done outer in
                     rewrite appendAssociative vars (xs :< new) (done ++ outer) in p))
          else rewrite sym $ appendAssociative xs [<new] done in
@@ -490,8 +490,8 @@ mkLocals outer bs (App fc fn q arg)
     = App fc (mkLocals outer bs fn) q (mkLocals outer bs arg)
 mkLocals outer bs (As fc s as tm)
     = As fc s (mkLocalsAs outer bs as) (mkLocals outer bs tm)
-mkLocals outer bs (Case fc sc scTy alts)
-    = Case fc (mkLocals outer bs sc) (mkLocals outer bs scTy)
+mkLocals outer bs (Case fc r sc scTy alts)
+    = Case fc r (mkLocals outer bs sc) (mkLocals outer bs scTy)
            (map (mkLocalsAlt outer bs) alts)
 mkLocals outer bs (TDelayed fc x y)
     = TDelayed fc x (mkLocals outer bs y)
@@ -650,7 +650,7 @@ mutual
               " => " ++ show sc
         showApp (App _ _ _ _) [] = "[can't happen]"
         showApp (As _ _ n tm) [] = show n ++ "@" ++ show tm
-        showApp (Case _ sc _ alts) []
+        showApp (Case _ _ sc _ alts) []
             = "case " ++ show sc ++ " of " ++ show alts
         showApp (TDelayed _ _ tm) [] = "%Delayed " ++ show tm
         showApp (TDelay _ _ _ tm) [] = "%Delay " ++ show tm

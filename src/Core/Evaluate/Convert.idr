@@ -121,7 +121,7 @@ parameters {auto c : Ref Ctxt Defs}
            then convSpine s env sp sp'
            else pure False
   convGen s env (VAs _ _ _ x) (VAs _ _ _ y) = convGen s env x y
-  convGen {vars} s env (VCase fc sc ty alts) (VCase _ sc' ty' alts')
+  convGen {vars} s env (VCase fc r sc ty alts) (VCase _ r' sc' ty' alts')
       = do True <- convGen s env sc sc' | False => pure False
            True <- convGen s env ty ty' | False => pure False
            convAlts alts alts'

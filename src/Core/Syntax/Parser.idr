@@ -153,7 +153,7 @@ rawc fname
          keyword "of"
          alts <- sepBy (symbol "|") (caseAlt fname)
          end <- location
-         pure (RCase (MkFC fname start end) scr alts)
+         pure (RCase (MkFC fname start end) top scr alts)
   <|> do start <- location
          keyword "lam"
          n <- name

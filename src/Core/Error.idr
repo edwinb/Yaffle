@@ -38,6 +38,7 @@ data Error : Type where
      NotFunctionType : {vars : _} ->
                    FC -> Defs -> Env Term vars ->
                    Term vars -> Error
+     LinearUsed : FC -> Nat -> Name -> Error
      LinearMisuse : FC -> Name -> RigCount -> RigCount -> Error
 
      MaybeMisspelling : Error -> List1 String -> Error
@@ -66,6 +67,8 @@ Show Error where
   show (AlreadyDefined fc n) = show fc ++ ":" ++ show n ++ " is already defined"
   show (NotFunctionType fc defs env t)
       = show fc ++ ":" ++ show t ++ " is not a function type"
+  show (LinearUsed fc count n)
+      = show fc ++ ":There are " ++ show count ++ " uses of linear name " ++ show n
   show (LinearMisuse fc n exp ctx)
       = show fc ++ ":Trying to use " ++ showRig exp ++ " name " ++ show n ++
                    " in " ++ showRel ctx ++ " context"

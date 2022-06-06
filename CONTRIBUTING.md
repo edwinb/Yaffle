@@ -36,7 +36,6 @@ edwinb's next steps:
 * Add universe constraints when adding data definitions
   - Find parameters + other properties we need to know elsewhere
 * Write a linearity checker for typechecked terms
-  - find out where we need to cache quantities in applications
 * Add test framework with existing small tt files
 * Universe level solver
 * Implement HasNames so we can do resolved names
@@ -45,4 +44,4 @@ edwinb's next steps:
 * ???
 * PROFIT
 
-(Last updated 13th May 2022)
+(Last updated 27th May 2022)

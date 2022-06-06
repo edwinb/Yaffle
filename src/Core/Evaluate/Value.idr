@@ -48,7 +48,7 @@ data Value : SnocList Name -> Type where
      VTCon    : FC -> Name -> (arity : Nat) ->
                 Spine vars -> Value vars
      VAs      : FC -> UseSide -> Value vars -> Value vars -> Value vars
-     VCase    : FC -> (sc : Value vars) -> (scTy : Value vars) ->
+     VCase    : FC -> RigCount -> (sc : Value vars) -> (scTy : Value vars) ->
                 List (VCaseAlt vars) ->
                 Value vars
      VDelayed : FC -> LazyReason -> Value vars -> Value vars
