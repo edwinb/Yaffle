@@ -48,9 +48,43 @@ parameters {auto c : Ref Ctxt Defs}
   lcheck : {vars : _} ->
            RigCount -> Env Term vars -> Term vars -> Core (Usage vars)
 
+  -- Checking if the bound variable is used appropriately in the scope
+  checkUsageOK : FC -> Nat -> Name -> RigCount -> Core ()
+  checkUsageOK fc used nm r
+      = when (isLinear r && used /= 1)
+          (throw (LinearUsed fc used nm))
+
+  lcheckAlt : {vars : _} ->
+              (scrig : RigCount) ->
+              (rhsrig : RigCount) ->
+              Env Term vars -> CaseAlt vars ->
+              Core (Usage vars)
+  lcheckAlt scrig rig env (ConCase fc n t sc) = ?foo1
+  lcheckAlt scrig rig env (DelayCase fc t a rhs)
+      = do -- t and a are RigW, so just add them to the environment as scrig
+           let env'
+               = env :<
+                 PVar fc scrig Implicit (TType fc (MN "top" 0)) :<
+                 PVar fc scrig Explicit (Local fc Nothing _ First)
+           u' <- lcheck rig env' rhs
+           let usedt = count 1 u'
+           let useda = count 0 u'
+           checkUsageOK EmptyFC usedt t (rigMult scrig rig)
+           checkUsageOK EmptyFC useda a (rigMult scrig rig)
+           pure (doneScope (doneScope u'))
+  lcheckAlt scrig rig env (ConstCase fc c rhs) = lcheck rig env rhs
+  lcheckAlt scrig rig env (DefaultCase fc rhs) = lcheck rig env rhs
+
   lcheckAlts : {vars : _} ->
-               RigCount -> Env Term vars -> List (CaseAlt vars) ->
+               (scrig : RigCount) ->
+               (rhsrig : RigCount) ->
+               Env Term vars -> List (CaseAlt vars) ->
                Core (Usage vars)
+  lcheckAlts scrig rig env [] = pure [<]
+  lcheckAlts scrig rig env (a :: alts)
+     = do ua <- lcheckAlt scrig rig env a
+          ualts <- lcheckAlts scrig rig env alts
+          pure (ua ++ ualts)
 
   lcheckBinder : {vars : _} ->
            RigCount -> Env Term vars -> Binder (Term vars) -> Core (Usage vars)
@@ -83,14 +117,9 @@ parameters {auto c : Ref Ctxt Defs}
            let used = count 0 usc
            -- TODO holes in the scope
 
-           checkUsageOK used (rigMult (multiplicity b) rig)
+           checkUsageOK fc used nm (rigMult (multiplicity b) rig)
            pure (ub ++ doneScope usc)
     where
-      -- Checking if the bound variable is used appropriately in the scope
-      checkUsageOK : Nat -> RigCount -> Core ()
-      checkUsageOK used r = when (isLinear r && used /= 1)
-                                 (throw (LinearUsed fc used nm))
-
       rig : RigCount
       rig = case b of
                  Pi _ _ _ _ =>
@@ -110,7 +139,7 @@ parameters {auto c : Ref Ctxt Defs}
       = lcheck rig env pat
   lcheck rig env (Case fc scrig sc ty alts)
       = do usc <- lcheck rig env sc
-           ualts <- lcheckAlts rig env alts
+           ualts <- lcheckAlts scrig rig env alts
            pure (usc ++ ualts)
   lcheck _ _ _ = ?todo
 

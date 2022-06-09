@@ -126,9 +126,9 @@ parameters {auto c : Ref Ctxt Defs}
            True <- convGen s env ty ty' | False => pure False
            convAlts alts alts'
    where
-     convScope : (args : SnocList Name) ->
+     convScope : (args : SnocList (RigCount, Name)) ->
                  VCaseScope args vars ->
-                 (args' : SnocList Name) ->
+                 (args' : SnocList (RigCount, Name)) ->
                  VCaseScope args' vars ->
                  Core Bool
      convScope [<] sc [<] sc' = convGen BlockApp env !sc !sc'
@@ -138,19 +138,19 @@ parameters {auto c : Ref Ctxt Defs}
      convScope _ _ _ _ = pure False
 
      convAlt : VCaseAlt vars -> VCaseAlt vars -> Core Bool
-     convAlt (VConCase n t args sc) (VConCase n' t' args' sc')
+     convAlt (VConCase _ n t args sc) (VConCase _ n' t' args' sc')
          = if t == t'
               then convScope args sc args' sc'
               else pure False
-     convAlt (VDelayCase t a sc) (VDelayCase t' a' sc')
+     convAlt (VDelayCase _ t a sc) (VDelayCase _ t' a' sc')
          = do tn <- genVar fc "t"
               an <- genVar fc "a"
               convGen s env !(sc tn an) !(sc' tn an)
-     convAlt (VConstCase c x) (VConstCase c' y)
+     convAlt (VConstCase _ c x) (VConstCase _ c' y)
          = if c == c'
               then convGen BlockApp env x y
               else pure False
-     convAlt (VDefaultCase x) (VDefaultCase y) = convGen BlockApp env x y
+     convAlt (VDefaultCase _ x) (VDefaultCase _ y) = convGen BlockApp env x y
      convAlt _ _ = pure False
 
      convAlts : List (VCaseAlt vars) -> List (VCaseAlt vars) -> Core Bool

@@ -547,21 +547,21 @@ data UConstraint : Type where
 public export
 data CaseScope : SnocList Name -> Type where
      RHS : Term vars -> CaseScope vars
-     Arg : (x : Name) -> CaseScope (vars :< x) -> CaseScope vars
+     Arg : RigCount -> (x : Name) -> CaseScope (vars :< x) -> CaseScope vars
 
 ||| Case alternatives. Unlike arbitrary patterns, they can be at most
 ||| one constructor deep.
 public export
 data CaseAlt : SnocList Name -> Type where
      ||| Constructor for a data type; bind the arguments and subterms.
-     ConCase : Name -> (tag : Int) -> CaseScope vars -> CaseAlt vars
+     ConCase : FC -> Name -> (tag : Int) -> CaseScope vars -> CaseAlt vars
      ||| Lazy match for the Delay type use for codata types
-     DelayCase : (ty : Name) -> (arg : Name) ->
+     DelayCase : FC -> (ty : Name) -> (arg : Name) ->
                  Term (vars :< arg :< ty) -> CaseAlt vars
      ||| Match against a literal
-     ConstCase : Constant -> Term vars -> CaseAlt vars
+     ConstCase : FC -> Constant -> Term vars -> CaseAlt vars
      ||| Catch-all case
-     DefaultCase : Term vars -> CaseAlt vars
+     DefaultCase : FC -> Term vars -> CaseAlt vars
 
 public export
 data Visibility = Private | Export | Public

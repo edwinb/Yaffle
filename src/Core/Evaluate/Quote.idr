@@ -53,38 +53,38 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   mkTmpVar fc n = VApp fc Bound n [<] (pure Nothing)
 
   quoteAlt : {bound, vars : _} ->
-             FC -> Strategy -> Bounds bound -> Env Term vars ->
+             Strategy -> Bounds bound -> Env Term vars ->
              VCaseAlt vars -> Core (CaseAlt (vars ++ bound))
-  quoteAlt {vars} fc s bounds env (VConCase n t a sc)
+  quoteAlt {vars} s bounds env (VConCase fc n t a sc)
       = do sc' <- quoteScope a bounds sc
-           pure $ ConCase n t sc'
+           pure $ ConCase fc n t sc'
     where
       quoteScope : {bound : _} ->
-                   (args : SnocList Name) ->
+                   (args : SnocList (RigCount, Name)) ->
                    Bounds bound ->
                    VCaseScope args vars ->
                    Core (CaseScope (vars ++ bound))
       quoteScope [<] bounds rhs
           = do rhs' <- quoteGen s bounds env !rhs
                pure (RHS rhs')
-      quoteScope (as :< a) bounds sc
+      quoteScope (as :< (r, a)) bounds sc
           = do an <- genName "c"
                let sc' = sc (mkTmpVar fc an)
                rhs' <- quoteScope as (Add a an bounds) sc'
-               pure (Arg a rhs')
+               pure (Arg r a rhs')
 
-  quoteAlt fc s bounds env (VDelayCase ty arg sc)
+  quoteAlt s bounds env (VDelayCase fc ty arg sc)
       = do tyn <- genName "ty"
            argn <- genName "arg"
            sc' <- quoteGen s (Add ty tyn (Add arg argn bounds)) env
                            !(sc (mkTmpVar fc tyn) (mkTmpVar fc argn))
-           pure (DelayCase ty arg sc')
-  quoteAlt fc s bounds env (VConstCase c sc)
+           pure (DelayCase fc ty arg sc')
+  quoteAlt s bounds env (VConstCase fc c sc)
       = do sc' <- quoteGen s bounds env sc
-           pure (ConstCase c sc')
-  quoteAlt fc s bounds env (VDefaultCase sc)
+           pure (ConstCase fc c sc')
+  quoteAlt s bounds env (VDefaultCase fc sc)
       = do sc' <- quoteGen s bounds env sc
-           pure (DefaultCase sc')
+           pure (DefaultCase fc sc')
 
   quotePi : {bound, vars : _} ->
             Strategy -> Bounds bound -> Env Term vars ->
@@ -232,7 +232,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteGen s bounds env (VCase fc rig sc scTy alts)
       = do sc' <- quoteGen s bounds env sc
            scTy' <- quoteGen s bounds env scTy
-           alts' <- traverse (quoteAlt fc BlockApp bounds env) alts
+           alts' <- traverse (quoteAlt BlockApp bounds env) alts
            pure $ Case fc rig sc' scTy' alts'
   quoteGen s bounds env (VDelayed fc r ty)
       = do ty' <- quoteGen s bounds env ty

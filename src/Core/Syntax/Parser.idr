@@ -65,19 +65,25 @@ mkApp1 fc f (arg ::: args) = mkApp fc (RApp fc f arg) args
 
 caseAlt : OriginDesc -> Rule RawCaseAlt
 caseAlt fname
-    = do symbol "_"
+    = do start <- location
+         symbol "_"
          symbol "=>"
          rhs <- rawc fname
-         pure (RDefaultCase rhs)
-  <|> do p <- constant
+         end <- location
+         pure (RDefaultCase (MkFC fname start end) rhs)
+  <|> do start <- location
+         p <- constant
          symbol "=>"
          rhs <- rawc fname
-         pure (RConstCase p rhs)
-  <|> do n <- name
+         end <- location
+         pure (RConstCase (MkFC fname start end) p rhs)
+  <|> do start <- location
+         n <- name
          args <- many name
          symbol "=>"
          rhs <- rawc fname
-         pure (RConCase n args rhs)
+         end <- location
+         pure (RConCase (MkFC fname start end) n args rhs)
 
 simpleRawi fname
     = do var <- bounds name

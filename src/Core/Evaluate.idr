@@ -62,35 +62,35 @@ parameters {auto c : Ref Ctxt Defs}
                tm' <- repArg tm
                pure (xs' :< (f, r, tm'))
 
-      repScope : FC -> Int -> (args : SnocList Name) ->
+      repScope : FC -> Int -> (args : SnocList (RigCount, Name)) ->
                  VCaseScope args vars -> Core (CaseScope vars)
       repScope fc tmpi [<] rhs
           = do rhs' <- replace' tmpi env orig parg !rhs
                pure (RHS rhs')
-      repScope fc tmpi (xs :< x) scope
+      repScope fc tmpi (xs :< (r, x)) scope
           = do let xn = MN "tmp" tmpi
                let xv = VApp fc Bound xn [<] (pure Nothing)
                scope' <- repScope fc (tmpi + 1) xs (scope xv)
-               pure (Arg x (refsToLocalsCaseScope (Add x xn None) scope'))
+               pure (Arg r x (refsToLocalsCaseScope (Add x xn None) scope'))
 
-      repAlt : FC -> VCaseAlt vars -> Core (CaseAlt vars)
-      repAlt fc (VConCase n t args scope)
+      repAlt : VCaseAlt vars -> Core (CaseAlt vars)
+      repAlt (VConCase fc n t args scope)
           = do scope' <- repScope fc tmpi args scope
-               pure (ConCase n t scope')
-      repAlt fc (VDelayCase ty arg scope)
+               pure (ConCase fc n t scope')
+      repAlt (VDelayCase fc ty arg scope)
           = do let tyn = MN "tmp" tmpi
                let argn = MN "tmp" (tmpi + 1)
                let tyv = VApp fc Bound tyn [<] (pure Nothing)
                let argv = VApp fc Bound argn [<] (pure Nothing)
                scope' <- replace' (tmpi + 2) env orig parg !(scope tyv argv)
                let rhs = refsToLocals (Add ty tyn (Add arg argn None)) scope'
-               pure (DelayCase ty arg rhs)
-      repAlt fc (VConstCase c rhs)
+               pure (DelayCase fc ty arg rhs)
+      repAlt (VConstCase fc c rhs)
           = do rhs' <- repArg rhs
-               pure (ConstCase c rhs')
-      repAlt fc (VDefaultCase rhs)
+               pure (ConstCase fc c rhs')
+      repAlt (VDefaultCase fc rhs)
           = do rhs' <- repArg rhs
-               pure (DefaultCase rhs')
+               pure (DefaultCase fc rhs')
 
       repSub : Value vars -> Core (Term vars)
       repSub (VLam fc x c p ty scfn)
@@ -136,7 +136,7 @@ parameters {auto c : Ref Ctxt Defs}
       repSub (VCase fc r sc scty alts)
           = do sc' <- repArg sc
                scty' <- repArg scty
-               alts' <- traverse (repAlt fc) alts
+               alts' <- traverse repAlt alts
                pure (Case fc r sc' scty' alts')
       repSub (VDelayed fc r tm)
           = do tm' <- repSub tm

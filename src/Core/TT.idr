@@ -315,21 +315,21 @@ insertNames out ns (TType fc u) = TType fc u
 -- insertNamesAlt : SizeOf outer -> SizeOf ns ->
 --                  CaseAlt (outer ++ inner) ->
 --                  CaseAlt (outer ++ (ns ++ inner))
-insertNamesAlt out sns (ConCase n t scope)
-    = ConCase n t (insertScope out sns scope)
+insertNamesAlt out sns (ConCase fc n t scope)
+    = ConCase fc n t (insertScope out sns scope)
   where
     insertScope : forall outer . SizeOf outer -> SizeOf ns ->
                   CaseScope (inner ++ outer) ->
                   CaseScope (inner ++ ns ++ outer)
     insertScope out ns (RHS tm) = RHS (insertNames out ns tm)
-    insertScope out ns (Arg x sc)
-        = Arg x (insertScope (suc out) ns sc)
-insertNamesAlt out ns (DelayCase ty arg scope)
-    = DelayCase ty arg (insertNames (suc (suc out)) ns scope)
-insertNamesAlt out ns (ConstCase c scope)
-    = ConstCase c (insertNames out ns scope)
-insertNamesAlt out ns (DefaultCase scope)
-    = DefaultCase (insertNames out ns scope)
+    insertScope out ns (Arg r x sc)
+        = Arg r x (insertScope (suc out) ns sc)
+insertNamesAlt out ns (DelayCase fc ty arg scope)
+    = DelayCase fc ty arg (insertNames (suc (suc out)) ns scope)
+insertNamesAlt out ns (ConstCase fc c scope)
+    = ConstCase fc c (insertNames out ns scope)
+insertNamesAlt out ns (DefaultCase fc scope)
+    = DefaultCase fc (insertNames out ns scope)
 
 public export
 data SubVars : SnocList Name -> SnocList Name -> Type where
@@ -393,14 +393,14 @@ shrinkAs (AsLoc fc idx loc) prf = (\(MkVar loc') => AsLoc fc _ loc') <$> subElem
 shrinkAs (AsRef fc n) prf = Just (AsRef fc n)
 
 shrinkScope (RHS tm) prf = Just (RHS !(shrinkTerm tm prf))
-shrinkScope (Arg x sc) prf = Just (Arg x !(shrinkScope sc (KeepCons prf)))
+shrinkScope (Arg r x sc) prf = Just (Arg r x !(shrinkScope sc (KeepCons prf)))
 
-shrinkAlt (ConCase x tag sc) prf
-    = Just (ConCase x tag !(shrinkScope sc prf))
-shrinkAlt (DelayCase ty arg sc) prf
-    = Just (DelayCase ty arg !(shrinkTerm sc (KeepCons (KeepCons prf))))
-shrinkAlt (ConstCase c sc) prf = Just (ConstCase c !(shrinkTerm sc prf))
-shrinkAlt (DefaultCase sc) prf = Just (DefaultCase !(shrinkTerm sc prf))
+shrinkAlt (ConCase fc x tag sc) prf
+    = Just (ConCase fc x tag !(shrinkScope sc prf))
+shrinkAlt (DelayCase fc ty arg sc) prf
+    = Just (DelayCase fc ty arg !(shrinkTerm sc (KeepCons (KeepCons prf))))
+shrinkAlt (ConstCase fc c sc) prf = Just (ConstCase fc c !(shrinkTerm sc prf))
+shrinkAlt (DefaultCase fc sc) prf = Just (DefaultCase fc !(shrinkTerm sc prf))
 
 shrinkTerm (Local fc r idx loc) prf = (\(MkVar loc') => Local fc r _ loc') <$> subElem loc prf
 shrinkTerm (Ref fc x name) prf = Just (Ref fc x name)
@@ -511,15 +511,15 @@ mkLocalsCaseScope
     : SizeOf outer -> Bounds bound ->
       CaseScope (vars ++ outer) -> CaseScope (vars ++ (bound ++ outer))
 mkLocalsCaseScope outer bs (RHS tm) = RHS (mkLocals outer bs tm)
-mkLocalsCaseScope outer bs (Arg x scope)
-    = Arg x (mkLocalsCaseScope (suc outer) bs scope)
+mkLocalsCaseScope outer bs (Arg r x scope)
+    = Arg r x (mkLocalsCaseScope (suc outer) bs scope)
 
-mkLocalsAlt outer bs (ConCase n t scope)
-    = ConCase n t (mkLocalsCaseScope outer bs scope)
-mkLocalsAlt outer bs (DelayCase ty arg rhs)
-    = DelayCase ty arg (mkLocals (suc (suc outer)) bs rhs)
-mkLocalsAlt outer bs (ConstCase c rhs) = ConstCase c (mkLocals outer bs rhs)
-mkLocalsAlt outer bs (DefaultCase rhs) = DefaultCase (mkLocals outer bs rhs)
+mkLocalsAlt outer bs (ConCase fc n t scope)
+    = ConCase fc n t (mkLocalsCaseScope outer bs scope)
+mkLocalsAlt outer bs (DelayCase fc ty arg rhs)
+    = DelayCase fc ty arg (mkLocals (suc (suc outer)) bs rhs)
+mkLocalsAlt outer bs (ConstCase fc c rhs) = ConstCase fc c (mkLocals outer bs rhs)
+mkLocalsAlt outer bs (DefaultCase fc rhs) = DefaultCase fc (mkLocals outer bs rhs)
 
 export
 refsToLocals : Bounds bound -> Term vars -> Term (vars ++ bound)
@@ -668,7 +668,7 @@ mutual
 
   export
   {vars : _} -> Show (CaseAlt vars) where
-     show (ConCase n t sc) = "???"
-     show (DelayCase ty arg sc) = "???"
-     show (ConstCase c sc) = show c ++ " => " ++ show sc
-     show (DefaultCase sc) = "_ => " ++ show sc
+     show (ConCase fc n t sc) = "???"
+     show (DelayCase fc ty arg sc) = "???"
+     show (ConstCase fc c sc) = show c ++ " => " ++ show sc
+     show (DefaultCase fc sc) = "_ => " ++ show sc

@@ -27,9 +27,9 @@ data RawC : Type where
 
 public export
 data RawCaseAlt : Type where
-     RConCase : Name -> List Name -> RawC -> RawCaseAlt
-     RConstCase : Constant -> RawC -> RawCaseAlt
-     RDefaultCase : RawC -> RawCaseAlt
+     RConCase : FC -> Name -> List Name -> RawC -> RawCaseAlt
+     RConstCase : FC -> Constant -> RawC -> RawCaseAlt
+     RDefaultCase : FC -> RawC -> RawCaseAlt
 
 public export
 data RawCon : Type where
@@ -86,14 +86,14 @@ mutual -- grr
 
   export
   Show RawCaseAlt where
-    show (RConCase n args sc)
+    show (RConCase fc n args sc)
         = assert_total $
           show n ++ " "
               ++ showSep " " (map show args) ++ " => "
               ++ show sc
-    show (RConstCase c sc)
+    show (RConstCase fc c sc)
         = show c ++ " => " ++ show sc
-    show (RDefaultCase sc)
+    show (RDefaultCase fc sc)
         = "_ => " ++ show sc
 
 export

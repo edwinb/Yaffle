@@ -62,22 +62,23 @@ data Value : SnocList Name -> Type where
      VType    : FC -> Name -> Value vars
 
 public export
-VCaseScope : SnocList Name -> SnocList Name -> Type
+VCaseScope : SnocList (RigCount, Name) -> SnocList Name -> Type
 VCaseScope [<] vars = Core (Value vars)
 VCaseScope (xs :< x) vars = Value vars -> VCaseScope xs vars
 
 public export
 data VCaseAlt : SnocList Name -> Type where
      ||| Constructor for a data type; bind the arguments and subterms.
-     VConCase : Name -> (tag : Int) -> (args : SnocList Name) ->
+     VConCase : FC -> Name -> (tag : Int) ->
+                (args : SnocList (RigCount, Name)) ->
                 VCaseScope args vars -> VCaseAlt vars
      ||| Lazy match for the Delay type use for codata types
-     VDelayCase : (ty : Name) -> (arg : Name) ->
-                  VCaseScope [<arg, ty] vars -> VCaseAlt vars
+     VDelayCase : FC -> (ty : Name) -> (arg : Name) ->
+                  VCaseScope [<(RigCount.top, arg), (RigCount.erased, ty)] vars -> VCaseAlt vars
      ||| Match against a literal
-     VConstCase : Constant -> Value vars -> VCaseAlt vars
+     VConstCase : FC -> Constant -> Value vars -> VCaseAlt vars
      ||| Catch-all case
-     VDefaultCase : Value vars -> VCaseAlt vars
+     VDefaultCase : FC -> Value vars -> VCaseAlt vars
 
 -- Get the NF out of a value, if it's a VApp
 export

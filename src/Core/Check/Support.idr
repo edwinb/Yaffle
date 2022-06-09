@@ -29,7 +29,7 @@ matchVars = go []
     renameNTopScope : forall vars .
                       (ms : SnocList Name) -> CaseScope (vars ++ ns) -> CaseScope (vars ++ ms)
     renameNTopScope ms (RHS tm) = RHS (renameNTop ms tm)
-    renameNTopScope ms (Arg x sc) = Arg x (renameNTopScope {ns = ns :< x} (ms :< x) sc)
+    renameNTopScope ms (Arg r x sc) = Arg r x (renameNTopScope {ns = ns :< x} (ms :< x) sc)
 
     go : forall vars .
          List (Var vars, Term vars) -> Term vars -> Term vars ->
@@ -59,7 +59,7 @@ matchVars = go []
                   List (Var vars, Term vars) -> CaseScope vars -> CaseScope vars ->
                   List (Var vars, Term vars)
     goCaseScope acc (RHS tm) (RHS tm') = go acc tm tm'
-    goCaseScope acc (Arg n sc) (Arg n' sc')
+    goCaseScope acc (Arg _ n sc) (Arg _ n' sc')
         = let sc' = renameNTopScope {ns = [<n']} [<n] sc'
               scMatch = mapMaybe dropVar (goCaseScope [] sc sc') in
               scMatch ++ acc
@@ -68,14 +68,14 @@ matchVars = go []
     goCaseAlt : forall vars .
                 List (Var vars, Term vars) -> CaseAlt vars -> CaseAlt vars ->
                 List (Var vars, Term vars)
-    goCaseAlt acc (ConCase _ _ sc) (ConCase _ _ sc')
+    goCaseAlt acc (ConCase _ _ _ sc) (ConCase _ _ _ sc')
         = goCaseScope acc sc sc'
-    goCaseAlt acc (DelayCase n a tm) (DelayCase n' a' tm')
+    goCaseAlt acc (DelayCase _ n a tm) (DelayCase _ n' a' tm')
         = let tm' = renameNTop {ns = [<a', n']} [<a, n] tm'
               scMatch = mapMaybe (dropVar <=< dropVar) (go [] tm tm') in
               scMatch ++ acc
-    goCaseAlt acc (ConstCase _ tm) (ConstCase _ tm') = go acc tm tm'
-    goCaseAlt acc (DefaultCase tm) (DefaultCase tm') = go acc tm tm'
+    goCaseAlt acc (ConstCase _ _ tm) (ConstCase _ _ tm') = go acc tm tm'
+    goCaseAlt acc (DefaultCase _ tm) (DefaultCase _ tm') = go acc tm tm'
     goCaseAlt acc _ _ = []
 
     goCaseAlts : forall vars .
