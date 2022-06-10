@@ -1,7 +1,7 @@
 .PHONY: testbin test
 
 test:
-	./build/exec/runtests $(YAFFLE) --only $(only)
+	./build/exec/runtests $(YAFFLE) --timing --interactive --only $(only)
 
 testbin:
 	idris2 --build tests.ipkg

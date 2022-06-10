@@ -36,7 +36,7 @@ doneScope (xs :< MkVar (Later p)) = doneScope xs :< MkVar p
 
 (++) : Usage ns -> Usage ns -> Usage ns
 (++) ys [<] = ys
-(++) ys (x :< xs) = ys ++ x :< xs
+(++) ys (xs :< x) = (ys ++ xs) :< x
 
 concat : List (Usage ns) -> Usage ns
 concat [] = [<]
