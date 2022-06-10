@@ -3,6 +3,7 @@ module Core.Syntax.Decls
 import Core.Context
 import Core.Error
 import Core.Evaluate
+import Core.Check.Linear
 import Core.Syntax.Raw
 import Core.Check.Typecheck
 import Core.Unify.State
@@ -67,6 +68,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            let None = definition def
                 | _ => throw (AlreadyDefined fc n)
            tm <- check top [<] rtm (type def)
+           linearCheck fc top [<] tm
            updateDef n (const (Just (Function (MkFnInfo False) tm)))
 
   export

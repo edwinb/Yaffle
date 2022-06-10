@@ -35,13 +35,15 @@ edwinb's next steps:
 
 * Add universe constraints when adding data definitions
   - Find parameters + other properties we need to know elsewhere
-* Write a linearity checker for typechecked terms
+* Deal with hole types in linearity checker
 * Add test framework with existing small tt files
 * Universe level solver
 * Implement HasNames so we can do resolved names
+  - Check for 'TODO' which mention resolved names. These are in the raw typechecker
+    and linearity checker.
 * Implement unification
 * Check TTCs work
 * ???
 * PROFIT
 
-(Last updated 27th May 2022)
+(Last updated 10th June 2022)
