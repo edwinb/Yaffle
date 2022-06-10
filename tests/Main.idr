@@ -13,7 +13,7 @@ import Test.Golden
 
 ttTests : TestPool
 ttTests = MkTestPool "TT" [] Nothing
-     [ "basic001" ]
+     [ "basic001", "basic002", "basic003" ]
 
 main : IO ()
 main
