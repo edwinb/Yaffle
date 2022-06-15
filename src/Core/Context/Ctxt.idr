@@ -474,6 +474,14 @@ parameters {auto c : Ref Ctxt Defs}
                                                   evaldef := Nothing } gdef)
 
   export
+  updateTy : Int -> Term [<] -> Core ()
+  updateTy i ty
+      = do defs <- get Ctxt
+           Just gdef <- lookupCtxtExact (Resolved i) (gamma defs)
+                | Nothing => pure ()
+           ignore $ addDef (Resolved i) ({ type := ty } gdef)
+
+  export
   addContextEntry : Ref STable (IntMap String) =>
                     Name -> Binary -> CoreE err Int
   addContextEntry n def

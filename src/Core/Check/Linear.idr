@@ -8,6 +8,7 @@ module Core.Check.Linear
 -- update quantities in hold types.
 
 import Core.Context
+import Core.Context.Log
 import Core.Env
 import Core.Error
 import Core.TT
@@ -55,9 +56,139 @@ localPrf {n} {vars} {later = (xs :< x)}
 
 parameters {auto c : Ref Ctxt Defs}
 
+  -- Look for holes in the scope. On finding one, update its type so that
+  -- the variable in question's usage is set appropriate. If 'useVar' is
+  -- set, then leave its multiplicity alone, otherwise set its multiplicity
+  -- to zero.
+  -- This is so that, in interactive editing, a user can see whether a variable
+  -- is available for usage in a hole or not.
   updateHoleUsage : {vars : _} ->
-                    Var vars -> List (Var vars) ->
+                    (useVar : Bool) -> -- Should the variable be used in the scope?
+                    Var vars -> -- Variable in question
+                    List (Var vars) -> -- Variables with multiplicity 0
                     Term vars -> Core Bool
+
+  -- ...and its mutually defined helpers
+  updateHoleUsageArgs : {vars : _} ->
+                    (useVar : Bool) ->
+                    Var vars ->
+                    List (Var vars) ->
+                    List (Term vars) -> Core Bool
+  updateHoleUsageArgs useVar var zs [] = pure False
+  updateHoleUsageArgs useVar var zs (a :: as)
+      = do h <- updateHoleUsage useVar var zs a
+           h' <- updateHoleUsageArgs useVar var zs as
+           pure (h || h')
+
+  updateHoleUsageScope : {vars : _} ->
+                    (useVar : Bool) ->
+                    Var vars ->
+                    List (Var vars) ->
+                    CaseScope vars -> Core Bool
+  updateHoleUsageScope useVar var zs (RHS tm)
+      = updateHoleUsage useVar var zs tm
+  updateHoleUsageScope useVar (MkVar var) zs (Arg c x sc)
+      = updateHoleUsageScope useVar (MkVar (Later var)) (map weaken zs) sc
+
+  updateHoleUsageAlt : {vars : _} ->
+                    (useVar : Bool) ->
+                    Var vars ->
+                    List (Var vars) ->
+                    CaseAlt vars -> Core Bool
+  updateHoleUsageAlt useVar var zs (ConCase fc n t sc)
+      = updateHoleUsageScope useVar var zs sc
+  updateHoleUsageAlt useVar (MkVar var) zs (DelayCase fc n t sc)
+      = updateHoleUsage useVar (MkVar (Later (Later var)))
+                        (map (weakenNs (suc (suc zero))) zs) sc
+  updateHoleUsageAlt useVar var zs (ConstCase fc c sc)
+      = updateHoleUsage useVar var zs sc
+  updateHoleUsageAlt useVar var zs (DefaultCase fc sc)
+      = updateHoleUsage useVar var zs sc
+
+  updateHoleUsageAlts : {vars : _} ->
+                    (useVar : Bool) ->
+                    Var vars ->
+                    List (Var vars) ->
+                    List (CaseAlt vars) -> Core Bool
+  updateHoleUsageAlts useVar var zs [] = pure False
+  updateHoleUsageAlts useVar var zs (a :: as)
+      = do h <- updateHoleUsageAlt useVar var zs a
+           h' <- updateHoleUsageAlts useVar var zs as
+           pure (h || h')
+
+  -- The assumption here is that hole types are abstracted over the entire
+  -- environment, so that they have the appropriate number of function
+  -- arguments and there are no lets
+  updateHoleType : {vars : _} ->
+                   (useVar : Bool) ->
+                   Var vars -> List (Var vars) ->
+                   Term vs -> List (Term vars) ->
+                   Core (Term vs)
+  updateHoleType useVar var zs (Bind bfc nm (Pi fc' c e ty) sc) (Local _ r v _ :: as)
+      -- if the argument to the hole type is the variable of interest,
+      -- and the variable should be used in the hole, leave multiplicity alone,
+      -- otherwise set it to erased
+      = if varIdx var == v
+           then do scty <- updateHoleType False var zs sc as
+                   let c' = if useVar then c else erased
+                   pure (Bind bfc nm (Pi fc' c' e ty) scty)
+           else if elem v (map varIdx zs)
+                then do scty <- updateHoleType useVar var zs sc as
+                        pure (Bind bfc nm (Pi fc' erased e ty) scty)
+                else do scty <- updateHoleType useVar var zs sc as
+                        pure (Bind bfc nm (Pi fc' c e ty) scty)
+  updateHoleType useVar var zs (Bind bfc nm (Pi fc' c e ty) sc) (a :: as)
+      = do ignore $ updateHoleUsage False var zs a
+           scty <- updateHoleType useVar var zs sc as
+           pure (Bind bfc nm (Pi fc' c e ty) scty)
+  updateHoleType useVar var zs ty as
+      = do ignore $ updateHoleUsageArgs False var zs as
+           pure ty
+
+  updateHoleUsage useVar (MkVar var) zs (Bind _ _ (Let _ _ val _) sc)
+      = do h <- updateHoleUsage useVar (MkVar var) zs val
+           h' <- updateHoleUsage useVar (MkVar (Later var)) (map weaken zs) sc
+           pure (h || h')
+  updateHoleUsage useVar (MkVar var) zs (Bind _ n b sc)
+      = updateHoleUsage useVar (MkVar (Later var)) (map weaken zs) sc
+  updateHoleUsage useVar var zs (Meta fc n i args)
+      = do defs <- get Ctxt
+           Just gdef <- lookupCtxtExact (Resolved i) (gamma defs)
+                | Nothing => updateHoleUsageArgs useVar var zs (map snd args)
+           -- only update for holes with no definition yet
+           case definition gdef of
+                Hole _ =>
+                   do let ty = type gdef
+                      ty' <- updateHoleType useVar var zs ty (map snd args)
+                      updateTy i ty'
+                      logTerm "quantity.hole.update" 5 ("New type of " ++
+                                 show (fullname gdef)) ty'
+                      logTerm "quantity.hole.update" 5 ("Updated from " ++
+                                 show (fullname gdef)) (type gdef)
+                      pure True
+                _ => updateHoleUsageArgs useVar var zs (map snd args)
+  updateHoleUsage useVar var zs (Case _ _ sc scTy alts)
+      = do hsc <- updateHoleUsage useVar var zs sc
+           hscTy <- updateHoleUsage useVar var zs scTy
+           halts <- updateHoleUsageAlts useVar var zs alts
+           pure (hsc || hscTy || halts)
+  updateHoleUsage useVar var zs (As _ _ a p)
+      = updateHoleUsage useVar var zs p
+  updateHoleUsage useVar var zs (TDelayed _ _ t)
+      = updateHoleUsage useVar var zs t
+  updateHoleUsage useVar var zs (TDelay _ _ _ t)
+      = updateHoleUsage useVar var zs t
+  updateHoleUsage useVar var zs (TForce _ _ t)
+      = updateHoleUsage useVar var zs t
+
+  updateHoleUsage useVar var zs tm
+      = case getFnArgs tm of
+             (Ref _ _ fn, args) =>
+                  -- no need to look inside 'fn' for holes since we did that
+                  -- when working through lcheckDef recursively
+                  updateHoleUsageArgs useVar var zs args
+             (f, []) => pure False
+             (f, args) => updateHoleUsageArgs useVar var zs (f :: args)
 
   lcheck : {vars : _} ->
            RigCount -> Env Term vars -> Term vars -> Core (Usage vars)
@@ -167,8 +298,36 @@ parameters {auto c : Ref Ctxt Defs}
   lcheck rig_in env (Bind fc nm b sc)
       = do ub <- lcheckBinder rig env b
            usc <- lcheck rig (env :< b) sc
-           let used = count 0 usc
-           -- TODO holes in the scope
+           let used_in = count 0 usc
+
+           -- Anything linear can't be used in the scope of a lambda, if we're
+           -- checking in general context
+           let env' = if rig_in == top
+                         then case b of
+                              Lam _ _ _ _ => eraseLinear env
+                              _ => env
+                         else env
+
+           -- Look for holes in the scope, if the variable is linearly bound.
+           -- If the variable hasn't been used, we assume it is to be used in
+           -- any holes in the scope of the binder (this is so when a user
+           -- inspects the type, they see there is 1 usage available).
+           -- 'updateHoleUsage' updates the type of any holes to reflect
+           -- whether the variable in question is usable or not.
+           holeFound <- if isLinear (multiplicity b)
+                           then updateHoleUsage (used_in == 0)
+                                         (MkVar First)
+                                         (map weaken (getZeroes env'))
+                                         sc
+                           else pure False
+
+           -- The final usage count is always 1 if the bound variable is
+           -- linear and there are holes. Otherwise, we take the count we
+           -- found above.
+           let used = if isLinear (rigMult (multiplicity b) rig) &&
+                         holeFound && used_in == 0
+                         then 1
+                         else used_in
 
            checkUsageOK fc used nm (rigMult (multiplicity b) rig)
            pure (ub ++ doneScope usc)
@@ -183,6 +342,20 @@ parameters {auto c : Ref Ctxt Defs}
                  _ => if isErased rig_in
                          then erased
                          else linear -- checking as if top level function declaration
+
+      getZeroes : {vs : _} -> Env Term vs -> List (Var vs)
+      getZeroes [<] = []
+      getZeroes (bs :< b)
+          = if isErased (multiplicity b)
+               then MkVar First :: map weaken (getZeroes bs)
+               else map weaken (getZeroes bs)
+
+      eraseLinear : Env Term vs -> Env Term vs
+      eraseLinear [<] = [<]
+      eraseLinear (bs :< b)
+          = if isLinear (multiplicity b)
+               then eraseLinear bs :< setMultiplicity b erased
+               else eraseLinear bs :< b
 
   lcheck rig env (App fc fn q arg)
       = do uf <- lcheck rig env fn

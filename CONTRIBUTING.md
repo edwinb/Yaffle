@@ -2,7 +2,7 @@ Thanks for your interest! There is still significant work to be done on the
 core before accepting contributions generally, but there are a number of
 TODOs throughout for which I would welcome some help. Currently these are:
 
-* Please review the rules implement in Core/Typecheck/Check.idr
+* Please review the rules implemented in Core/Typecheck/Check.idr
     - Especially regarding quantities and universe levels
 * Any missing support functions for TT to be ported from existing Idris 2
     - I will add these as they are needed, but it's even better if they're
