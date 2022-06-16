@@ -278,14 +278,14 @@ parameters {auto c : Ref Ctxt Defs}
 
   export
   toFullNames : HasNames a =>
-                a -> CoreE err a
+                a -> Core a
   toFullNames t
       = do defs <- get Ctxt
            full (gamma defs) t
 
   export
   toResolvedNames : HasNames a =>
-                    a -> CoreE err a
+                    a -> Core a
   toResolvedNames t
       = do defs <- get Ctxt
            resolved (gamma defs) t

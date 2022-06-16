@@ -67,8 +67,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                         | ns => ambiguousName fc n (map fst ns)
                    rigSafe (multiplicity def) rigc
                    let nt = fromMaybe Func (defNameType $ definition def)
-                   -- FIXME: pname should be Resolved i
-                   pure (Ref fc nt pname, embed (type def))
+                   pure (Ref fc nt (Resolved i), embed (type def))
     where
       rigSafe : RigCount -> RigCount -> Core ()
       rigSafe lhs rhs = when (lhs < rhs)

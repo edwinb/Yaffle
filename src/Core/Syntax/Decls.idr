@@ -18,13 +18,13 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            arity <- getArity [<] ty
            let dinf = MkDataConInfo Nothing
            idx <- addDef n (newDef fc n top ty Public (DCon dinf tag arity))
-           pure n -- (Resolved idx)
+           pure (Resolved idx)
     where
       checkIsTy : Value [<] -> Core ()
       checkIsTy (VBind fc _ (Pi _ _ _ _) sc)
           = checkIsTy !(sc (VErased fc False))
       checkIsTy (VTCon fc cn _ _)
-          = when (cn /= tycon) $
+          = when (!(toResolvedNames cn) /= !(toResolvedNames tycon)) $
                throw (BadDataConType fc n tycon)
       checkIsTy _ = throw (BadDataConType fc n tycon)
 

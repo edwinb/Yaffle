@@ -286,7 +286,7 @@ parameters {auto c : Ref Ctxt Defs}
       -- things are still available.
       = do defs <- get Ctxt
            let defined
-                 = case !(lookupCtxtExact n (gamma defs)) of -- TODO: Resolved i when name resolution done!
+                 = case !(lookupCtxtExact (Resolved i) (gamma defs)) of
                         Nothing => False
                         Just def => case definition def of
                                          Function _ _ => True
@@ -382,19 +382,29 @@ parameters {auto c : Ref Ctxt Defs}
   checkEnvUsage : {vars, done : _} ->
                   FC -> RigCount ->
                   Env Term vars -> Usage (vars ++ done) ->
+                  Term (vars ++ done) ->
                   Core ()
-  checkEnvUsage fc rig [<] usage = pure ()
-  checkEnvUsage {done} {vars = xs :< nm} fc rig (bs :< b) usage
+  checkEnvUsage fc rig [<] usage tm = pure ()
+  checkEnvUsage {done} {vars = xs :< nm} fc rig (bs :< b) usage tm
       = do let pos = localPrf {later=done} {vars=xs} {n=nm}
-           let used = count (varIdx pos) usage
-           -- TODO: adjust usage count depending on holes
+           let used_in = count (varIdx pos) usage
+           -- Adjust usage count depending on holes, as we do when
+           -- checking binders
+           holeFound <- if isLinear (multiplicity b)
+                           then updateHoleUsage (used_in == 0) pos [] tm
+                           else pure False
+           let used = if isLinear (rigMult (multiplicity b) rig) &&
+                         holeFound && used_in == 0
+                         then 1
+                         else used_in
            checkUsageOK fc used nm (rigMult (multiplicity b) rig)
            checkEnvUsage {done = [<nm] ++ done} fc rig bs
                    (rewrite appendAssociative xs [<nm] done in usage)
+                   (rewrite appendAssociative xs [<nm] done in tm)
 
   export
   linearCheck : {vars : _} ->
                 FC -> RigCount -> Env Term vars -> Term vars -> Core ()
   linearCheck fc rig env tm
       = do used <- lcheck rig env tm
-           checkEnvUsage {done = [<]} fc rig env used
+           checkEnvUsage {done = [<]} fc rig env used tm

@@ -37,6 +37,8 @@ record GlobalDef where
   visibility : Visibility
   totality : Totality
   multiplicity : RigCount
+  -- Remember to check HasNames instances when adding fields (especially when
+  -- referring to other names)
 
 export
 TTC GlobalDef where

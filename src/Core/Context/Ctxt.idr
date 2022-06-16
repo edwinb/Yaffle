@@ -142,58 +142,10 @@ addEntry n entry ctxt_in
 getContent : Context -> Ref Arr (IOArray ContextEntry)
 getContent = content
 
--- Conversion between full names and resolved names. We can only do this
--- once we have a context to refer to to get the full names, so we'll
--- define the basic implementations for core terms and definitions here.
-public export
-interface HasNames a where
-  full : Context -> a -> CoreE err a
-  resolved : Context -> a -> CoreE err a
 
-export
-HasNames Name where
-  full gam (Resolved i)
-      = case lookup i (staging gam) of
-             Just (Coded _ n _) => pure n
-             Just (Decoded def) => pure (fullname def)
-             Nothing => pure (Resolved i)
-  full gam n = pure n
-
-  resolved gam (Resolved i)
-      = pure (Resolved i)
-  resolved gam n
-      = do let Just i = getNameID n gam
-                    | Nothing => pure n
-           pure (Resolved i)
-
-export
-HasNames Def where
-  full ctxt def = ?todo_hasnamesdef1
-  resolved ctxt def = ?todo_hasnamesdef2
-
-export
-HasNames GlobalDef where
-  full ctxt def = ?todo_hasnames1
-  resolved ctxt def = ?todo_hasnames2
-
-export
-HasNames (Term vars) where
-  full ctxt def = ?todo_hasnamesterm1
-  resolved ctxt def = ?todo_hasnamesterm2
-
+-- Needs HasNames instances, so defined at the end
 decode : Context -> Int -> (update : Bool) -> ContextEntry ->
          Core GlobalDef
-decode gam idx update (Coded stbl _ bin)
-    = do b <- newRef Bin bin
-         st <- newRef STable stbl
-         def <- ttc $ fromBuf {a = GlobalDef}
-
-         let a = getContent gam
-         arr <- get Arr
-         def' <- resolved gam def
-         when update $ coreLift $ writeArray arr idx (Decoded def')
-         pure def'
-decode gam idx update (Decoded def) = pure def
 
 returnDef : Bool -> Int -> GlobalDef -> Maybe (Int, GlobalDef)
 returnDef False idx def = Just (idx, def)
@@ -514,3 +466,232 @@ defNameType (Guess {}) = Nothing
 defNameType ImpBind = Just Bound
 defNameType (UniverseLevel {}) = Nothing
 defNameType Delayed = Nothing
+
+--- HasNames and instances
+-- Conversion between full names and resolved names. We can only do this
+-- once we have a context to refer to to get the full names, so we'll
+-- define the basic implementations for core terms and definitions here.
+public export
+interface HasNames a where
+  full : Context -> a -> Core a
+  resolved : Context -> a -> Core a
+
+export
+HasNames Name where
+  full gam (Resolved i)
+      = case lookup i (staging gam) of
+             Just (Coded _ n _) => pure n
+             Just (Decoded def) => pure (fullname def)
+             Nothing => pure (Resolved i)
+  full gam n = pure n
+
+  resolved gam (Resolved i)
+      = pure (Resolved i)
+  resolved gam n
+      = do let Just i = getNameID n gam
+                    | Nothing => pure n
+           pure (Resolved i)
+
+export
+HasNames UConstraint where
+  full gam (ULT fcx x fcy y)
+      = do x' <- full gam x; y' <- full gam y
+           pure (ULT fcx x' fcy y')
+  full gam (ULE fcx x fcy y)
+      = do x' <- full gam x; y' <- full gam y
+           pure (ULE fcx x' fcy y')
+
+  resolved gam (ULT fcx x fcy y)
+      = do x' <- resolved gam x; y' <- resolved gam y
+           pure (ULT fcx x' fcy y')
+  resolved gam (ULE fcx x fcy y)
+      = do x' <- resolved gam x; y' <- resolved gam y
+           pure (ULE fcx x' fcy y')
+
+export
+HasNames (AsName vars) where
+  full gam (AsRef fc n) = pure (AsRef fc !(full gam n))
+  full gam x = pure x
+
+  resolved gam (AsRef fc n) = pure (AsRef fc !(resolved gam n))
+  resolved gam x = pure x
+
+mutual -- Bah, they are all mutual and we can't forward declare implementations yet
+  export
+  HasNames (CaseScope vars) where
+    full gam (RHS x) = pure (RHS !(full gam x))
+    full gam (Arg c x sc) = pure (Arg c x !(full gam sc))
+
+    resolved gam (RHS x) = pure (RHS !(resolved gam x))
+    resolved gam (Arg c x sc) = pure (Arg c x !(resolved gam sc))
+
+  export
+  HasNames (CaseAlt vars) where
+    full gam (ConCase fc x tag y)
+        = pure (ConCase fc x tag !(full gam y))
+    full gam (DelayCase fc ty arg x)
+        = pure (DelayCase fc ty arg !(full gam x))
+    full gam (ConstCase fc c x)
+        = pure (ConstCase fc c !(full gam x))
+    full gam (DefaultCase fc x)
+        = pure (DefaultCase fc !(full gam x))
+
+    resolved gam (ConCase fc x tag y)
+        = pure (ConCase fc x tag !(resolved gam y))
+    resolved gam (DelayCase fc ty arg x)
+        = pure (DelayCase fc ty arg !(resolved gam x))
+    resolved gam (ConstCase fc c x)
+        = pure (ConstCase fc c !(resolved gam x))
+    resolved gam (DefaultCase fc x)
+        = pure (DefaultCase fc !(resolved gam x))
+
+  export
+  HasNames a => HasNames (List a) where
+    full gam [] = pure []
+    full gam (x :: xs) = pure $ !(full gam x) :: !(full gam xs)
+
+    resolved gam [] = pure []
+    resolved gam (x :: xs) = pure $ !(resolved gam x) :: !(resolved gam xs)
+
+  export
+  HasNames (Term vars) where
+    full gam (Ref fc x (Resolved i))
+        = do Just gdef <- lookupCtxtExact (Resolved i) gam
+                  | Nothing => pure (Ref fc x (Resolved i))
+             pure (Ref fc x (fullname gdef))
+    full gam (Meta fc x i xs)
+        = do xs <- traverse (\ (c, tm) => pure (c, !(full gam tm))) xs
+             pure $ case !(lookupCtxtExact (Resolved i) gam) of
+               Nothing => Meta fc x i xs
+               Just gdef => Meta fc (fullname gdef) i xs
+    full gam (Bind fc x b scope)
+        = pure (Bind fc x !(traverse (full gam) b) !(full gam scope))
+    full gam (App fc fn c arg)
+        = pure (App fc !(full gam fn) c !(full gam arg))
+    full gam (As fc s p tm)
+        = pure (As fc s !(full gam p) !(full gam tm))
+    full gam (Case fc c sc scTy alts)
+        = pure (Case fc c !(full gam sc) !(full gam scTy) !(full gam alts))
+    full gam (TDelayed fc x y)
+        = pure (TDelayed fc x !(full gam y))
+    full gam (TDelay fc x t y)
+        = pure (TDelay fc x !(full gam t) !(full gam y))
+    full gam (TForce fc r y)
+        = pure (TForce fc r !(full gam y))
+    full gam (TType fc (Resolved i))
+        = do Just gdef <- lookupCtxtExact (Resolved i) gam
+                  | Nothing => pure (TType fc (Resolved i))
+             pure (TType fc (fullname gdef))
+    full gam def = pure def
+
+    resolved gam (Ref fc x n)
+        = do let Just i = getNameID n gam
+                  | Nothing => pure (Ref fc x n)
+             pure (Ref fc x (Resolved i))
+    resolved gam (Meta fc x y xs)
+        = do xs' <- traverse (\ (c, tm) => pure (c, !(resolved gam tm))) xs
+             let Just i = getNameID x gam
+                 | Nothing => pure (Meta fc x y xs')
+             pure (Meta fc x i xs')
+    resolved gam (Bind fc x b scope)
+        = pure (Bind fc x !(traverse (resolved gam) b) !(resolved gam scope))
+    resolved gam (App fc fn c arg)
+        = pure (App fc !(resolved gam fn) c !(resolved gam arg))
+    resolved gam (As fc s p tm)
+        = pure (As fc s !(resolved gam p) !(resolved gam tm))
+    resolved gam (Case fc c sc scTy alts)
+        = pure (Case fc c !(resolved gam sc) !(resolved gam scTy) !(resolved gam alts))
+    resolved gam (TDelayed fc x y)
+        = pure (TDelayed fc x !(resolved gam y))
+    resolved gam (TDelay fc x t y)
+        = pure (TDelay fc x !(resolved gam t) !(resolved gam y))
+    resolved gam (TForce fc r y)
+        = pure (TForce fc r !(resolved gam y))
+    resolved gam (TType fc n)
+        = do let Just i = getNameID n gam
+                  | Nothing => pure (TType fc n)
+             pure (TType fc (Resolved i))
+    resolved gam tm = pure tm
+
+export
+HasNames TyConInfo where
+  full gam x
+      = pure $ { mutWith := !(full gam (mutWith x)),
+                 datacons := !(full gam (datacons x)) } x
+  resolved gam x
+      = pure $ { mutWith := !(resolved gam (mutWith x)),
+                 datacons := !(resolved gam (datacons x)) } x
+
+export
+HasNames Def where
+  full gam (Function x tm) = pure $ Function x !(full gam tm)
+  full gam (TCon info arity) = pure $ TCon !(full gam info) arity
+  full gam (BySearch x max def) = pure $ BySearch x max !(full gam def)
+  full gam (Guess guess e cons) = pure $ Guess !(full gam guess) e cons
+  full gam x = pure x
+
+  resolved gam (Function x tm) = pure $ Function x !(resolved gam tm)
+  resolved gam (TCon info arity) = pure $ TCon !(resolved gam info) arity
+  resolved gam (BySearch x max def) = pure $ BySearch x max !(resolved gam def)
+  resolved gam (Guess guess e cons) = pure $ Guess !(resolved gam guess) e cons
+  resolved gam x = pure x
+
+export
+HasNames PartialReason where
+  full gam NotStrictlyPositive = pure NotStrictlyPositive
+  full gam (BadCall ns) = pure $ BadCall !(traverse (full gam) ns)
+  full gam (RecPath ns) = pure $ RecPath !(traverse (full gam) ns)
+
+  resolved gam NotStrictlyPositive = pure NotStrictlyPositive
+  resolved gam (BadCall ns) = pure $ BadCall !(traverse (resolved gam) ns)
+  resolved gam (RecPath ns) = pure $ RecPath !(traverse (resolved gam) ns)
+
+export
+HasNames Terminating where
+  full gam (NotTerminating p) = pure $ NotTerminating !(full gam p)
+  full gam t = pure t
+
+  resolved gam (NotTerminating p) = pure $ NotTerminating !(resolved gam p)
+  resolved gam t = pure t
+
+export
+HasNames Covering where
+  full gam IsCovering = pure IsCovering
+  full gam (MissingCases ts)
+      = pure $ MissingCases !(traverse (full gam) ts)
+  full gam (NonCoveringCall ns)
+      = pure $ NonCoveringCall !(traverse (full gam) ns)
+
+  resolved gam IsCovering = pure IsCovering
+  resolved gam (MissingCases ts)
+      = pure $ MissingCases !(traverse (resolved gam) ts)
+  resolved gam (NonCoveringCall ns)
+      = pure $ NonCoveringCall !(traverse (resolved gam) ns)
+
+export
+HasNames Totality where
+  full gam (MkTotality t c) = pure $ MkTotality !(full gam t) !(full gam c)
+  resolved gam (MkTotality t c) = pure $ MkTotality !(resolved gam t) !(resolved gam c)
+
+export
+HasNames GlobalDef where
+  full gam def
+      = pure $ { type := !(full gam (type def)),
+                 definition := !(full gam (definition def)),
+                 totality := !(full gam (totality def)) } def
+  resolved gam def
+      = pure $ { type := !(resolved gam (type def)),
+                 definition := !(resolved gam (definition def)),
+                 totality := !(resolved gam (totality def)) } def
+
+decode gam idx update (Coded stbl _ bin)
+    = do b <- newRef Bin bin
+         st <- newRef STable stbl
+         def <- ttc $ fromBuf {a = GlobalDef}
+
+         let a = getContent gam
+         arr <- get Arr
+         def' <- resolved gam def
+         when update $ coreLift $ writeArray arr idx (Decoded def')
+         pure def'
+decode gam idx update (Decoded def) = pure def

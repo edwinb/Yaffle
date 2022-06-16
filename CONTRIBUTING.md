@@ -33,14 +33,10 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
+* Implement unification
 * Add universe constraints when adding data definitions
   - Find parameters + other properties we need to know elsewhere
-* Deal with hole types in linearity checker
 * Universe level solver
-* Implement HasNames so we can do resolved names
-  - Check for 'TODO' which mention resolved names. These are in the raw typechecker
-    and linearity checker.
-* Implement unification
 * Check TTCs work
 * ???
 * PROFIT

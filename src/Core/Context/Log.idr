@@ -55,7 +55,7 @@ logTerm : {vars : _} ->
           {auto c : Ref Ctxt Defs} ->
           (s : String) ->
           {auto 0 _ : KnownTopic s} ->
-          Nat -> Lazy String -> Term vars -> CoreE err ()
+          Nat -> Lazy String -> Term vars -> Core ()
 logTerm str n msg tm
     = when !(logging str n)
         $ do tm' <- toFullNames tm

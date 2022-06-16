@@ -14,13 +14,15 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   processEval rawtm
       = do (tm, ty) <- infer top [<] rawtm
            tmnf <- normalise [<] tm
-           coreLift $ putStrLn $ show tmnf ++ " : " ++ show ty
+           coreLift $ putStrLn $ show !(toFullNames tmnf) ++ " : "
+                                     ++ show !(toFullNames ty)
 
   processHNF : RawI -> Core ()
   processHNF rawtm
       = do (tm, ty) <- infer top [<] rawtm
            tmnf <- normaliseHNF [<] tm
-           coreLift $ putStrLn $ show tmnf ++ " : " ++ show ty
+           coreLift $ putStrLn $ show !(toFullNames tmnf) ++ " : "
+                                     ++ show !(toFullNames ty)
 
   export
   processCommand : Command -> Core ()
