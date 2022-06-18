@@ -67,8 +67,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                 | ns => ambiguousName fc n (map fst ns)
            let None = definition def
                 | _ => throw (AlreadyDefined fc n)
-           tm <- check top [<] rtm (type def)
-           linearCheck fc top [<] tm
+           tm <- check linear [<] rtm (type def)
+           linearCheck fc linear [<] tm
            updateDef n (const (Just (Function (MkFnInfo False) tm)))
 
   export
