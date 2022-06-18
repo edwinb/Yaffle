@@ -1,0 +1,5 @@
+0 id_irrelevant : pi 0 x : Integer. Integer;
+id_irrelevant = lam x. x;
+
+0 test1 : Integer;
+test1 = let i : Integer = 0 in id_irrelevant i;
