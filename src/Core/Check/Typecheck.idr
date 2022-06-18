@@ -65,7 +65,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                 do defs <- get Ctxt
                    [(pname, i, def)] <- lookupCtxtName n (gamma defs)
                         | ns => ambiguousName fc n (map fst ns)
-                   rigSafe (multiplicity def) rigc
+                   rigSafe (multiplicity def) (relevance rigc)
                    let nt = fromMaybe Func (defNameType $ definition def)
                    pure (Ref fc nt (Resolved i), embed (type def))
     where

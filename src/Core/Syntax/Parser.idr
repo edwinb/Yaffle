@@ -117,17 +117,17 @@ simpleRawi fname
          pure (RAnnot (MkFC fname start end) val ty)
   <|> do start <- location
          keyword "pi"
-         r <- option RigW rig01
+         c <- option RigW rig01
          n <- name
          symbol ":"
          arg <- rawc fname
          symbol "."
          ret <- rawc fname
          end <- location
-         pure (RPi (MkFC fname start end) r n arg ret)
+         pure (RPi (MkFC fname start end) c n arg ret)
   <|> do start <- location
          keyword "let"
-         r <- option RigW rig01
+         c <- option RigW rig01
          n <- name
          symbol ":"
          ty <- rawc fname
@@ -136,7 +136,7 @@ simpleRawi fname
          keyword "in"
          sc <- rawi fname
          end <- location
-         pure (RLet (MkFC fname start end) r n val ty sc)
+         pure (RLet (MkFC fname start end) c n val ty sc)
   <|> do symbol "("
          tm <- rawi fname
          symbol ")"
@@ -190,12 +190,13 @@ rawc fname
 tyDecl : OriginDesc -> Rule RawDecl
 tyDecl fname
     = do start <- location
+         c <- option Rig1 rig01
          n <- name
          symbol ":"
          d <- rawc fname
          symbol ";"
          end <- location
-         pure (RTyDecl (MkFC fname start end) n d)
+         pure (RTyDecl (MkFC fname start end) c n d)
 
 conDecl : OriginDesc -> Rule RawCon
 conDecl fname

@@ -17,7 +17,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            checkIsTy !(nf [<] ty)
            arity <- getArity [<] ty
            let dinf = MkDataConInfo Nothing
-           idx <- addDef n (newDef fc n top ty Public (DCon dinf tag arity))
+           idx <- addDef n (newDef fc n linear ty Public (DCon dinf tag arity))
            pure (Resolved idx)
     where
       checkIsTy : Value [<] -> Core ()
@@ -54,11 +54,11 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       checkIsType (VType fc _) = pure ()
       checkIsType _ = throw (BadTypeConType fc n)
 
-  processTyDecl : FC -> Name -> RawC -> Core ()
-  processTyDecl fc n rty
+  processTyDecl : FC -> RigCount -> Name -> RawC -> Core ()
+  processTyDecl fc c n rty
       = do checkUndefined fc n
            ty <- check erased [<] rty (topType fc)
-           ignore $ addDef n (newDef fc n top ty Public None)
+           ignore $ addDef n (newDef fc n c ty Public None)
 
   processDef : FC -> Name -> RawC -> Core ()
   processDef fc n rtm
@@ -67,12 +67,12 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                 | ns => ambiguousName fc n (map fst ns)
            let None = definition def
                 | _ => throw (AlreadyDefined fc n)
-           tm <- check linear [<] rtm (type def)
-           linearCheck fc linear [<] tm
+           tm <- check (multiplicity def) [<] rtm (type def)
+           linearCheck fc (multiplicity def) [<] tm
            updateDef n (const (Just (Function (MkFnInfo False) tm)))
 
   export
   processDecl : RawDecl -> Core ()
   processDecl (RData fc d) = processData fc d
-  processDecl (RTyDecl fc n ty) = processTyDecl fc n ty
+  processDecl (RTyDecl fc c n ty) = processTyDecl fc c n ty
   processDecl (RDef fc n def) = processDef fc n def
