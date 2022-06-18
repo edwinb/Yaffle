@@ -1,0 +1,12 @@
+data LPair : Type where {
+    MakeLPair : pi 1 x : Integer. pi 1 y : Integer. LPair
+}
+
+test1 : LPair;
+test1 = MakeLPair 0 1;
+
+test2 : LPair;
+test2 = let 1 x : Integer = 0 in MakeLPair x 1;
+
+test3 : LPair;
+test3 = let 1  x : Integer = 0 in MakeLPair x x;

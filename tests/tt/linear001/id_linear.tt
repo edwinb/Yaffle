@@ -1,0 +1,11 @@
+id_linear : pi 1 x : Integer. Integer;
+id_linear = lam x. x;
+
+test1 : Integer;
+test1 = let 1 i : Integer = 0 in id_linear i;
+
+test2 : Integer;
+test2 = let i : Integer = 0 in id_linear i;
+
+test3 : Integer;
+test3 = let 0 i : Integer = 0 in id_linear i;
