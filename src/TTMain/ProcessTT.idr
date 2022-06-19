@@ -19,7 +19,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
 
   processHNF : RawI -> Core ()
   processHNF rawtm
-      = do (tm, ty) <- infer top [<] rawtm
+      = do (tm, ty) <- infer linear [<] rawtm
            tmnf <- normaliseHNF [<] tm
            coreLift $ putStrLn $ show !(toFullNames tmnf) ++ " : "
                                      ++ show !(toFullNames ty)
