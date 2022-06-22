@@ -28,7 +28,8 @@ ttMain fname
          u <- newRef UST initUState
          addPrimitives
          -- And we're off. Process the commands from the input file...
-         traverse_ processCommand cmds
+         catch (traverse_ processCommand cmds)
+               (\err => throw !(toFullNames err))
          -- ...and start the REPL
          repl
 

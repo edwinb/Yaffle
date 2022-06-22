@@ -684,6 +684,42 @@ HasNames GlobalDef where
                  definition := !(resolved gam (definition def)),
                  totality := !(resolved gam (totality def)) } def
 
+export
+HasNames Error where
+  full gam (UndefinedName fc n) = pure $ UndefinedName fc !(full gam n)
+  full gam (NoDeclaration fc n) = pure $ NoDeclaration fc !(full gam n)
+  full gam (BadTypeConType fc n) = pure $ BadTypeConType fc !(full gam n)
+  full gam (BadDataConType fc n t)
+      = pure $ BadDataConType fc !(full gam n) !(full gam t)
+  full gam (AmbiguousName fc n) = pure $ AmbiguousName fc !(full gam n)
+  full gam (CantConvert fc defs env t1 t2)
+      = pure $ CantConvert fc defs env
+                           !(full (gamma defs) t1) !(full (gamma defs) t2)
+  full gam (AlreadyDefined fc n) = pure $ AlreadyDefined fc !(full gam n)
+  full gam (NotFunctionType fc defs env t1)
+      = pure $ NotFunctionType fc defs env !(full (gamma defs) t1)
+  full gam (LinearUsed fc i n) = pure $ LinearUsed fc i !(full gam n)
+  full gam (LinearMisuse fc n c1 c2)
+      = pure $ LinearMisuse fc !(full gam n) c1 c2
+  full gam err = pure err
+
+  resolved gam (UndefinedName fc n) = pure $ UndefinedName fc !(resolved gam n)
+  resolved gam (NoDeclaration fc n) = pure $ NoDeclaration fc !(resolved gam n)
+  resolved gam (BadTypeConType fc n) = pure $ BadTypeConType fc !(resolved gam n)
+  resolved gam (BadDataConType fc n t)
+      = pure $ BadDataConType fc !(resolved gam n) !(resolved gam t)
+  resolved gam (AmbiguousName fc n) = pure $ AmbiguousName fc !(resolved gam n)
+  resolved gam (CantConvert fc defs env t1 t2)
+      = pure $ CantConvert fc defs env
+                           !(resolved (gamma defs) t1) !(resolved (gamma defs) t2)
+  resolved gam (AlreadyDefined fc n) = pure $ AlreadyDefined fc !(resolved gam n)
+  resolved gam (NotFunctionType fc defs env t1)
+      = pure $ NotFunctionType fc defs env !(resolved (gamma defs) t1)
+  resolved gam (LinearUsed fc i n) = pure $ LinearUsed fc i !(resolved gam n)
+  resolved gam (LinearMisuse fc n c1 c2)
+      = pure $ LinearMisuse fc !(resolved gam n) c1 c2
+  resolved gam err = pure err
+
 decode gam idx update (Coded stbl _ bin)
     = do b <- newRef Bin bin
          st <- newRef STable stbl
