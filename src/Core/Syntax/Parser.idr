@@ -47,6 +47,17 @@ name = do nsx <- bounds namespacedIdent
     isNotReservedName id
     pure $ uncurry mkNamespacedName (map Basic nsx.val)
 
+rig01 : Rule RigCount
+rig01
+    = terminal "Expected 0 or 1" $ \case
+        IntegerLit i =>
+          case i of
+               0 => Just Rig0
+               1 => Just Rig1
+               _ => Nothing
+        _ => Nothing
+
+
 bracketed : Rule a -> Rule a
 bracketed r
     = do symbol "("; x <- r; symbol ")"; pure x
@@ -106,15 +117,17 @@ simpleRawi fname
          pure (RAnnot (MkFC fname start end) val ty)
   <|> do start <- location
          keyword "pi"
+         c <- option RigW rig01
          n <- name
          symbol ":"
          arg <- rawc fname
          symbol "."
          ret <- rawc fname
          end <- location
-         pure (RPi (MkFC fname start end) RigW n arg ret)
+         pure (RPi (MkFC fname start end) c n arg ret)
   <|> do start <- location
          keyword "let"
+         c <- option RigW rig01
          n <- name
          symbol ":"
          ty <- rawc fname
@@ -123,7 +136,7 @@ simpleRawi fname
          keyword "in"
          sc <- rawi fname
          end <- location
-         pure (RLet (MkFC fname start end) RigW n val ty sc)
+         pure (RLet (MkFC fname start end) c n val ty sc)
   <|> do symbol "("
          tm <- rawi fname
          symbol ")"
@@ -177,12 +190,13 @@ rawc fname
 tyDecl : OriginDesc -> Rule RawDecl
 tyDecl fname
     = do start <- location
+         c <- option Rig1 rig01
          n <- name
          symbol ":"
          d <- rawc fname
          symbol ";"
          end <- location
-         pure (RTyDecl (MkFC fname start end) n d)
+         pure (RTyDecl (MkFC fname start end) c n d)
 
 conDecl : OriginDesc -> Rule RawCon
 conDecl fname

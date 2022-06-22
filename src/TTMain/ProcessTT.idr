@@ -12,14 +12,14 @@ import Core.Unify.State
 parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   processEval : RawI -> Core ()
   processEval rawtm
-      = do (tm, ty) <- infer top [<] rawtm
+      = do (tm, ty) <- infer linear [<] rawtm
            tmnf <- normalise [<] tm
            coreLift $ putStrLn $ show !(toFullNames tmnf) ++ " : "
                                      ++ show !(toFullNames ty)
 
   processHNF : RawI -> Core ()
   processHNF rawtm
-      = do (tm, ty) <- infer top [<] rawtm
+      = do (tm, ty) <- infer linear [<] rawtm
            tmnf <- normaliseHNF [<] tm
            coreLift $ putStrLn $ show !(toFullNames tmnf) ++ " : "
                                      ++ show !(toFullNames ty)

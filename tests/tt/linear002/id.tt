@@ -1,0 +1,9 @@
+id : pi x : Integer. Integer;
+id = lam x. x;
+
+test1 : Integer;
+test1 = let i : Integer = 0 in id i;
+
+test2 : Integer;
+test2 = let 1 i : Integer = 0 in id i;
+

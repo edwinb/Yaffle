@@ -84,3 +84,8 @@ branchOne yes no rig = if isLinear rig then yes else no
 export
 branchVal : Lazy b -> Lazy b -> RigCount -> b
 branchVal yes no rig = if isRigOther rig then yes else no
+
+export
+relevance : RigCount -> RigCount
+relevance Rig0 = Rig0
+relevance _ = Rig1

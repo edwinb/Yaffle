@@ -42,7 +42,7 @@ data RawData : Type where
 public export
 data RawDecl : Type where
      RData   : FC -> RawData -> RawDecl
-     RTyDecl : FC -> Name -> RawC -> RawDecl
+     RTyDecl : FC -> RigCount -> Name -> RawC -> RawDecl
      RDef    : FC -> Name -> RawC -> RawDecl
 
 -- Top level commands at the TT shell
@@ -52,6 +52,16 @@ data Command : Type where
      Eval : RawI -> Command
      HNF : RawI -> Command
      Quit : Command
+
+prefixRig : RigCount -> String
+prefixRig Rig0 = "0 "
+prefixRig Rig1 = "1 "
+prefixRig RigW = ""
+
+prefixRig01 : RigCount -> String
+prefixRig01 Rig0 = "0 "
+prefixRig01 Rig1 = ""
+prefixRig01 RigW = ""
 
 mutual -- grr
   -- I just threw these together. It'd be nice if the results paid
@@ -64,11 +74,11 @@ mutual -- grr
     show (RApp fc f a)
         = assert_total $ "(" ++ show f ++ " " ++ show a ++ ")"
     show (RLet fc c n ty val sc)
-        = assert_total $ "let " ++ show n ++ " : " ++ show ty ++
+        = assert_total $ "let " ++ prefixRig c ++ show n ++ " : " ++ show ty ++
                          " = " ++ show val ++ " in "
                          ++ show sc
     show (RPi fc c n argty retty)
-        = assert_total $ "pi " ++ show n ++ " : " ++ show argty ++ " . "
+        = assert_total $ "pi " ++ prefixRig c ++ show n ++ " : " ++ show argty ++ " . "
                          ++ show retty
     show (RPrimVal fc c) = show c
     show (RType fc) = "Type"
@@ -109,7 +119,7 @@ Show RawData where
 export
 Show RawDecl where
   show (RData _ d) = show d
-  show (RTyDecl _ n d) = show n ++ " : " ++ show d ++ ";"
+  show (RTyDecl _ c n d) = prefixRig01 c ++ show n ++ " : " ++ show d ++ ";"
   show (RDef _ n d) = show n ++ " = " ++ show d ++ ";"
 
 export
