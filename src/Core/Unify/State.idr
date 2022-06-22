@@ -144,3 +144,12 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
             Env Term vars -> Name -> Term vars -> Def ->
             Core (Int, Term vars)
   newMeta fc r env n ty def = newMetaLets fc r env n ty def False
+
+  export
+  addConstraint : Constraint -> Core Int
+  addConstraint constr
+      = do ust <- get UST
+           let cid = nextConstraint ust
+           put UST ({ constraints $= insert cid constr,
+                      nextConstraint := cid+1 } ust)
+           pure cid

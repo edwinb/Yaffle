@@ -13,7 +13,8 @@ import Core.Evaluate.Convert
 import Core.Syntax.Raw
 import Core.TT
 import Core.TT.Universes
-import Core.Unify.State -- just for adding metavariables
+import Core.Unify.State
+import Core.Unify.Unify
 
 parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   export
@@ -43,6 +44,18 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   check : {vars : _} ->
           RigCount -> Env Term vars -> RawC -> Term vars -> Core (Term vars)
 
+  -- Check that the result's type converts/unifies with the expected type
+  checkResult : {vars : _} ->
+                FC -> RigCount ->
+                Env Term vars -> (tm : Term vars) ->
+                (got : Term vars) -> (exp : Term vars) ->
+                Core (Term vars)
+  checkResult fc rig env tm got exp
+      = do cs <- unify fc env got exp
+           case constraints cs of
+                [] => pure tm
+                cs => ?todoUnifyConstraints
+
   -- Infer a type for a raw term. Return a pair of the checked term and
   -- its type
   export
@@ -51,7 +64,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   infer rig env (RAnnot fc tm ty)
       = do (ty', tyty) <- infer erased env ty
            lvl <- uniVar fc
-           chkConvert fc env tyty (TType fc lvl)
+           tyChk <- checkResult fc erased env ty' tyty (TType fc lvl)
            tm' <- check rig env tm ty'
            pure (tm', ty')
   infer rigc env (RVar fc n)
@@ -197,8 +210,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   --         RigCount -> Env Term vars -> RawC -> Term vars -> Core (Term vars)
   check rig env (RInf fc tm) exp
       = do (tm', ty') <- infer rig env tm
-           chkConvert fc env ty' exp
-           pure tm'
+           checkResult fc rig env tm' ty' exp
   check {vars} rig env (RLam fc n scope) ty
       = do tnf <- nf env ty
            case !(quote env tnf) of
