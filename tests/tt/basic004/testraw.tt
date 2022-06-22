@@ -19,7 +19,7 @@ not False;
 plus : pi x : Nat . pi y : Nat . Nat;
 plus = lam x. lam y . 
            case x of
-              Z => y
+              Z => False
             | S k => S (plus k y);
 
 plus (S (S Z)) (S (S (S Z)));

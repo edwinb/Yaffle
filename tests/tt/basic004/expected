@@ -1,0 +1,3 @@
+False : Bool
+True : Bool
+Uncaught error: Main:22:20--23:13:Can't convert Bool with Nat
