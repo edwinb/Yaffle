@@ -51,7 +51,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                 (got : Term vars) -> (exp : Term vars) ->
                 Core (Term vars)
   checkResult fc rig env tm got exp
-      = do cs <- unify fc env got exp
+      = do cs <- unify inTerm fc env got exp
            case constraints cs of
                 [] => pure tm
                 cs => ?todoUnifyConstraints

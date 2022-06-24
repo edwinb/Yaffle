@@ -34,11 +34,12 @@ TODOs throughout for which I would welcome some help. Currently these are:
 edwinb's next steps:
 
 * Implement unification
+* Implement auto-implicit search
+* Check TTCs work
 * Add universe constraints when adding data definitions
   - Find parameters + other properties we need to know elsewhere
 * Universe level solver
-* Check TTCs work
 * ???
 * PROFIT
 
-(Last updated 10th June 2022)
+(Last updated 23rd June 2022)

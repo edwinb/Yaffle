@@ -7,6 +7,8 @@ import Data.SnocList.Operations
 import Data.Nat
 import Data.Vect
 
+import Libraries.Data.NameMap
+
 public export
 reverseOnto : SnocList a -> SnocList a -> SnocList a
 reverseOnto acc [<] = acc
@@ -612,6 +614,118 @@ withPiInfo Explicit tm = "(" ++ tm ++ ")"
 withPiInfo Implicit tm = "{" ++ tm ++ "}"
 withPiInfo AutoImplicit tm = "{auto " ++ tm ++ "}"
 withPiInfo (DefImplicit t) tm = "{default " ++ show t ++ " " ++ tm ++ "}"
+
+export
+addMetas : (usingResolved : Bool) -> NameMap Bool -> Term vars -> NameMap Bool
+addMetas res ns (Local fc x idx y) = ns
+addMetas res ns (Ref fc x name) = ns
+addMetas res ns (Meta fc n i xs)
+  = addMetaArgs (insert (ifThenElse res (Resolved i) n) False ns) (map snd xs)
+  where
+    addMetaArgs : NameMap Bool -> List (Term vars) -> NameMap Bool
+    addMetaArgs ns [] = ns
+    addMetaArgs ns (t :: ts) = addMetaArgs (addMetas res ns t) ts
+addMetas res ns (Bind fc x (Let _ c val ty) scope)
+    = addMetas res (addMetas res (addMetas res ns val) ty) scope
+addMetas res ns (Bind fc x b scope)
+    = addMetas res (addMetas res ns (binderType b)) scope
+addMetas res ns (App fc fn c arg)
+    = addMetas res (addMetas res ns fn) arg
+addMetas res ns (As fc s as tm) = addMetas res ns tm
+addMetas res ns (Case fc c sc scty alts)
+    = addMetaAlts (addMetas res (addMetas res ns sc) scty) alts
+  where
+    addMetaScope : forall vars . NameMap Bool -> CaseScope vars -> NameMap Bool
+    addMetaScope ns (RHS tm) = addMetas res ns tm
+    addMetaScope ns (Arg c x sc) = addMetaScope ns sc
+
+    addMetaAlt : NameMap Bool -> CaseAlt vars -> NameMap Bool
+    addMetaAlt ns (ConCase fc n t sc) = addMetaScope ns sc
+    addMetaAlt ns (DelayCase fc ty arg tm) = addMetas res ns tm
+    addMetaAlt ns (ConstCase fc c tm) = addMetas res ns tm
+    addMetaAlt ns (DefaultCase fc tm) = addMetas res ns tm
+
+    addMetaAlts : NameMap Bool -> List (CaseAlt vars) -> NameMap Bool
+    addMetaAlts ns [] = ns
+    addMetaAlts ns (t :: ts) = addMetaAlts (addMetaAlt ns t) ts
+addMetas res ns (TDelayed fc x y) = addMetas res ns y
+addMetas res ns (TDelay fc x t y)
+    = addMetas res (addMetas res ns t) y
+addMetas res ns (TForce fc r x) = addMetas res ns x
+addMetas res ns (PrimVal fc c) = ns
+addMetas res ns (PrimOp fc op args) = addMetaArgs ns args
+  where
+    addMetaArgs : NameMap Bool -> Vect n (Term vars) -> NameMap Bool
+    addMetaArgs ns [] = ns
+    addMetaArgs ns (t :: ts) = addMetaArgs (addMetas res ns t) ts
+addMetas res ns (Erased fc i) = ns
+addMetas res ns (Unmatched fc str) = ns
+addMetas res ns (Impossible fc) = ns
+addMetas res ns (TType fc u) = ns
+
+-- Get the metavariable names in a term
+export
+getMetas : Term vars -> NameMap Bool
+getMetas tm = addMetas False empty tm
+
+export
+addRefs : (underAssert : Bool) -> (aTotal : Name) ->
+          NameMap Bool -> Term vars -> NameMap Bool
+addRefs ua at ns (Local fc x idx y) = ns
+addRefs ua at ns (Ref fc x name) = insert name ua ns
+addRefs ua at ns (Meta fc n i xs) = addRefArgs ns (map snd xs)
+  where
+    addRefArgs : NameMap Bool -> List (Term vars) -> NameMap Bool
+    addRefArgs ns [] = ns
+    addRefArgs ns (t :: ts) = addRefArgs (addRefs ua at ns t) ts
+addRefs ua at ns (Bind fc x (Let _ c val ty) scope)
+    = addRefs ua at (addRefs ua at (addRefs ua at ns val) ty) scope
+addRefs ua at ns (Bind fc x b scope)
+    = addRefs ua at (addRefs ua at ns (binderType b)) scope
+addRefs ua at ns (App _ (App _ (Ref fc _ name) _ x) _ y)
+    = if name == at
+         then addRefs True at (insert name True ns) y
+         else addRefs ua at (addRefs ua at (insert name ua ns) x) y
+addRefs ua at ns (App fc fn c arg)
+    = addRefs ua at (addRefs ua at ns fn) arg
+addRefs ua at ns (As fc s as tm) = addRefs ua at ns tm
+addRefs ua at ns (Case fc c sc scty alts)
+    = addRefAlts (addRefs ua at (addRefs ua at ns sc) scty) alts
+  where
+    addRefScope : forall vars . NameMap Bool -> CaseScope vars -> NameMap Bool
+    addRefScope ns (RHS tm) = addRefs ua at ns tm
+    addRefScope ns (Arg c x sc) = addRefScope ns sc
+
+    addRefAlt : NameMap Bool -> CaseAlt vars -> NameMap Bool
+    addRefAlt ns (ConCase fc n t sc) = addRefScope ns sc
+    addRefAlt ns (DelayCase fc ty arg tm) = addRefs ua at ns tm
+    addRefAlt ns (ConstCase fc c tm) = addRefs ua at ns tm
+    addRefAlt ns (DefaultCase fc tm) = addRefs ua at ns tm
+
+    addRefAlts : NameMap Bool -> List (CaseAlt vars) -> NameMap Bool
+    addRefAlts ns [] = ns
+    addRefAlts ns (t :: ts) = addRefAlts (addRefAlt ns t) ts
+addRefs ua at ns (TDelayed fc x y) = addRefs ua at ns y
+addRefs ua at ns (TDelay fc x t y)
+    = addRefs ua at (addRefs ua at ns t) y
+addRefs ua at ns (TForce fc r x) = addRefs ua at ns x
+addRefs ua at ns (PrimVal fc c) = ns
+addRefs ua at ns (PrimOp fc op args) = addRefArgs ns args
+  where
+    addRefArgs : NameMap Bool -> Vect n (Term vars) -> NameMap Bool
+    addRefArgs ns [] = ns
+    addRefArgs ns (t :: ts) = addRefArgs (addRefs ua at ns t) ts
+addRefs ua at ns (Erased fc i) = ns
+addRefs ua at ns (Unmatched fc str) = ns
+addRefs ua at ns (Impossible fc) = ns
+addRefs ua at ns (TType fc u) = ns
+
+-- As above, but for references. Also flag whether a name is under an
+-- 'assert_total' because we may need to know that in coverage/totality
+-- checking
+export
+getRefs : (aTotal : Name) -> Term vars -> NameMap Bool
+getRefs at tm = addRefs False at empty tm
 
 {vars : _} -> Show (AsName vars) where
   show (AsLoc _ _ p) = show (nameAt p)

@@ -3,12 +3,60 @@ module Core.Unify.Unify
 import Core.Core
 import Core.Context
 import Core.TT
-import Core.Evaluate.Convert
-import Core.Evaluate.Value
+import Core.Evaluate
 
 import Data.List
 
 import Libraries.Data.IntMap
+
+public export
+data UnifyMode = InLHS
+               | InTerm
+               | InMatch
+               | InSearch
+
+-- Need to record if we're at the top level or not, because top level things
+-- can have Force and Delay inserted, and may have been postponed.
+public export
+record UnifyInfo where
+  constructor MkUnifyInfo
+  atTop : Bool
+  umode : UnifyMode
+
+export
+inTerm : UnifyInfo
+inTerm = MkUnifyInfo True InTerm
+
+export
+inLHS : UnifyInfo
+inLHS = MkUnifyInfo True InLHS
+
+export
+inMatch : UnifyInfo
+inMatch = MkUnifyInfo True InMatch
+
+export
+inSearch : UnifyInfo
+inSearch = MkUnifyInfo True InSearch
+
+lower : UnifyInfo -> UnifyInfo
+lower = { atTop := False }
+
+Eq UnifyMode where
+   InLHS == InLHS = True
+   InTerm == InTerm = True
+   InMatch == InMatch = True
+   InSearch == InSearch = True
+   _ == _ = False
+
+Eq UnifyInfo where
+  x == y = atTop x == atTop y && umode x == umode y
+
+Show UnifyMode where
+  show InLHS = "InLHS"
+  show InTerm = "InTerm"
+  show InMatch = "InMatch"
+  show InSearch = "InSearch"
 
 -- If we're unifying a Lazy type with a non-lazy type, we need to add an
 -- explicit force or delay to the first argument to unification. This says
@@ -44,21 +92,44 @@ success = MkUnifyResult [] False [] NoLazy
 solvedHole : Int -> UnifyResult
 solvedHole n = MkUnifyResult [] True [n] NoLazy
 
+ufail : FC -> String -> Core a
+ufail loc msg = throw (GenericMsg loc msg)
+
+
+
 parameters {auto c : Ref Ctxt Defs}
   namespace Value
     export
     unify : {vars : _} ->
-            FC -> Env Term vars -> Value vars -> Value vars -> Core UnifyResult
+            UnifyInfo -> FC -> Env Term vars ->
+            Value vars -> Value vars -> Core UnifyResult
 
   namespace Term
     export
     unify : {vars : _} ->
-            FC -> Env Term vars -> Term vars -> Term vars -> Core UnifyResult
+            UnifyInfo -> FC -> Env Term vars ->
+            Term vars -> Term vars -> Core UnifyResult
 
-  -- tmo catch all cases
-  Core.Unify.Unify.Value.unify fc env x y
+  convertError : {vars : _} ->
+            FC -> Env Term vars -> Value vars -> Value vars -> Core a
+  convertError loc env x y
+      = do defs <- get Ctxt
+           throw (CantConvert loc defs env !(quote env x) !(quote env y))
+
+  convertErrorS : {vars : _} ->
+            Bool -> FC -> Env Term vars -> Value vars -> Value vars ->
+            Core a
+  convertErrorS s loc env x y
+      = if s then convertError loc env y x
+             else convertError loc env x y
+
+
+  -- tmp catch all cases
+  Core.Unify.Unify.Value.unify umode fc env x y
      = do chkConvert fc env x y
           pure success
-  Core.Unify.Unify.Term.unify fc env x y
-     = do chkConvert fc env x y
-          pure success
+
+  Core.Unify.Unify.Term.unify umode fc env x y
+     = do x' <- nf env x
+          y' <- nf env y
+          unify umode fc env x' y'
