@@ -90,6 +90,13 @@ parameters {auto c : Ref Ctxt Defs}
            Just x <- val  | Nothing => pure False
            Just y <- val' | Nothing => pure False
            convGen Reduce env x y
+  -- If one is an App and the other isn't, try to reduce the App first
+  convGen s env (VApp _ _ _ _ val) y
+      = do Just x <- val | Nothing => pure False
+           convGen s env x y
+  convGen s env x (VApp _ _ _ _ val)
+      = do Just y <- val | Nothing => pure False
+           convGen s env x y
   convGen s env (VLocal _ _ i _ sp) (VLocal _ _ i' _ sp')
       = if i == i'
            then convSpine s env sp sp'

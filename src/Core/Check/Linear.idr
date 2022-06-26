@@ -57,7 +57,7 @@ localPrf {n} {vars} {later = (xs :< x)}
 parameters {auto c : Ref Ctxt Defs}
 
   -- Look for holes in the scope. On finding one, update its type so that
-  -- the variable in question's usage is set appropriate. If 'useVar' is
+  -- the variable in question's usage is set appropriately. If 'useVar' is
   -- set, then leave its multiplicity alone, otherwise set its multiplicity
   -- to zero.
   -- This is so that, in interactive editing, a user can see whether a variable
@@ -364,8 +364,8 @@ parameters {auto c : Ref Ctxt Defs}
   lcheck rig env (As fc s var pat)
       = lcheck rig env pat
   lcheck rig env (Case fc scrig sc ty alts)
-      = do usc <- lcheck rig env sc
-           ualts <- lcheckAlts scrig rig env alts
+      = do usc <- lcheck scrig env sc
+           ualts <- lcheckAlts rig rig env alts
            pure (usc ++ ualts)
   lcheck rig env (TDelayed fc r tm) = lcheck rig env tm
   lcheck rig env (TDelay fc r ty arg) = lcheck rig env arg
