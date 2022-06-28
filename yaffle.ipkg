@@ -41,7 +41,9 @@ modules
     Core.TT.TT, -- typechecked core language lives here
     Core.TT.Universes,
 
+    Core.Unify.SolveMeta,
     Core.Unify.State,
+    Core.Unify.Unify,
 
     -- The input language and elaborator
     TTImp.TTImp,

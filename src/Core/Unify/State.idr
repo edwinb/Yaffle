@@ -95,6 +95,103 @@ initUState = MkUState
 export
 data UST : Type where
 
+-- Unification mode and results
+public export
+data UnifyMode = InLHS
+               | InTerm
+               | InMatch
+               | InSearch
+
+-- Need to record if we're at the top level or not, because top level things
+-- can have Force and Delay inserted, and may have been postponed.
+public export
+record UnifyInfo where
+  constructor MkUnifyInfo
+  atTop : Bool
+  umode : UnifyMode
+
+export
+inTerm : UnifyInfo
+inTerm = MkUnifyInfo True InTerm
+
+export
+inLHS : UnifyInfo
+inLHS = MkUnifyInfo True InLHS
+
+export
+inMatch : UnifyInfo
+inMatch = MkUnifyInfo True InMatch
+
+export
+inSearch : UnifyInfo
+inSearch = MkUnifyInfo True InSearch
+
+export
+lower : UnifyInfo -> UnifyInfo
+lower = { atTop := False }
+
+export
+Eq UnifyMode where
+   InLHS == InLHS = True
+   InTerm == InTerm = True
+   InMatch == InMatch = True
+   InSearch == InSearch = True
+   _ == _ = False
+
+export
+Eq UnifyInfo where
+  x == y = atTop x == atTop y && umode x == umode y
+
+export
+Show UnifyMode where
+  show InLHS = "InLHS"
+  show InTerm = "InTerm"
+  show InMatch = "InMatch"
+  show InSearch = "InSearch"
+
+-- If we're unifying a Lazy type with a non-lazy type, we need to add an
+-- explicit force or delay to the first argument to unification. This says
+-- which to add, if any. Can only added at the very top level.
+public export
+data AddLazy = NoLazy | AddForce LazyReason | AddDelay LazyReason
+
+public export
+record UnifyResult where
+  constructor MkUnifyResult
+  constraints : List Int -- constraints generated, as index into UState IntMap
+  holesSolved : Bool -- did we solve any holes?
+  namesSolved : List Int -- which ones did we solve (as name indices)
+  addLazy : AddLazy
+
+export
+union : UnifyResult -> UnifyResult -> UnifyResult
+union u1 u2 = MkUnifyResult (union (constraints u1) (constraints u2))
+                            (holesSolved u1 || holesSolved u2)
+                            (namesSolved u1 ++ namesSolved u2)
+                            NoLazy -- only top level, so assume no annotation
+
+export
+unionAll : List UnifyResult -> UnifyResult
+unionAll [] = MkUnifyResult [] False [] NoLazy
+unionAll [c] = c
+unionAll (c :: cs) = union c (unionAll cs)
+
+export
+constrain : Int -> UnifyResult
+constrain c = MkUnifyResult [c] False [] NoLazy
+
+export
+success : UnifyResult
+success = MkUnifyResult [] False [] NoLazy
+
+export
+solvedHole : Int -> UnifyResult
+solvedHole n = MkUnifyResult [] True [n] NoLazy
+
+export
+ufail : FC -> String -> Core a
+ufail loc msg = throw (GenericMsg loc msg)
+
 mkConstantAppArgs : {vars : _} ->
                     Bool -> FC -> Env Term vars ->
                     (wkns : SnocList Name) ->
