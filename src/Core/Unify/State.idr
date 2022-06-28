@@ -153,3 +153,15 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            put UST ({ constraints $= insert cid constr,
                       nextConstraint := cid+1 } ust)
            pure cid
+
+  export
+  removeHole : Int -> Core ()
+  removeHole n = update UST { holes $= delete n,
+                              currentHoles $= delete n,
+                              delayedHoles $= delete n }
+
+  export
+  removeHoleName : Name -> Core ()
+  removeHoleName n
+      = do defs <- get Ctxt
+           whenJust (getNameID n defs.gamma) removeHole

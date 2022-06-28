@@ -301,6 +301,42 @@ commitCtxt ctxt
         = do writeArray arr idx val
              commitStaged rest arr
 
+-- Specific lookup functions
+export
+lookupExactBy : (GlobalDef -> a) -> Name -> Context ->
+              Core (Maybe a)
+lookupExactBy fn n gam
+  = do Just gdef <- lookupCtxtExact n gam
+            | Nothing => pure Nothing
+       pure (Just (fn gdef))
+
+export
+lookupNameBy : (GlobalDef -> a) -> Name -> Context ->
+             Core (List (Name, Int, a))
+lookupNameBy fn n gam
+  = do gdef <- lookupCtxtName n gam
+       pure (map (\ (n, i, gd) => (n, i, fn gd)) gdef)
+
+export
+lookupDefExact : Name -> Context -> Core (Maybe Def)
+lookupDefExact = lookupExactBy definition
+
+export
+lookupDefName : Name -> Context -> Core (List (Name, Int, Def))
+lookupDefName = lookupNameBy definition
+
+export
+lookupTyExact : Name -> Context -> Core (Maybe (Term [<]))
+lookupTyExact = lookupExactBy type
+
+export
+lookupTyName : Name -> Context -> Core (List (Name, Int, Term [<]))
+lookupTyName = lookupNameBy type
+
+export
+lookupDefTyExact : Name -> Context -> Core (Maybe (Def, Term [<]))
+lookupDefTyExact = lookupExactBy (\g => (definition g, type g))
+
 export
 newDef : FC -> Name -> RigCount ->
          Term [<] -> Visibility -> Def -> GlobalDef
@@ -695,6 +731,11 @@ HasNames Error where
   full gam (CantConvert fc defs env t1 t2)
       = pure $ CantConvert fc defs env
                            !(full (gamma defs) t1) !(full (gamma defs) t2)
+  full gam (PatternVariableUnifies fc fct env n tm)
+      = pure $ PatternVariableUnifies fc fct env !(full gam n) !(full gam tm)
+  full gam (CyclicMeta fc env n tm)
+      = pure $ CyclicMeta fc env
+                           !(full gam n) !(full gam tm)
   full gam (AlreadyDefined fc n) = pure $ AlreadyDefined fc !(full gam n)
   full gam (NotFunctionType fc defs env t1)
       = pure $ NotFunctionType fc defs env !(full (gamma defs) t1)
@@ -712,6 +753,11 @@ HasNames Error where
   resolved gam (CantConvert fc defs env t1 t2)
       = pure $ CantConvert fc defs env
                            !(resolved (gamma defs) t1) !(resolved (gamma defs) t2)
+  resolved gam (PatternVariableUnifies fc fct env n tm)
+      = pure $ PatternVariableUnifies fc fct env !(resolved gam n) !(resolved gam tm)
+  resolved gam (CyclicMeta fc env n tm)
+      = pure $ CyclicMeta fc env
+                           !(resolved gam n) !(resolved gam tm)
   resolved gam (AlreadyDefined fc n) = pure $ AlreadyDefined fc !(resolved gam n)
   resolved gam (NotFunctionType fc defs env t1)
       = pure $ NotFunctionType fc defs env !(resolved (gamma defs) t1)

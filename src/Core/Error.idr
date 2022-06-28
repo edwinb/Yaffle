@@ -34,6 +34,12 @@ data Error : Type where
      CantConvert : {vars : _} ->
                    FC -> Defs -> Env Term vars ->
                    Term vars -> Term vars -> Error
+
+     PatternVariableUnifies : {vars : _} ->
+                              FC -> FC -> Env Term vars -> Name -> Term vars -> Error
+     CyclicMeta : {vars : _} ->
+                  FC -> Env Term vars -> Name -> Term vars -> Error
+
      AlreadyDefined : FC -> Name -> Error
      NotFunctionType : {vars : _} ->
                    FC -> Defs -> Env Term vars ->
@@ -64,6 +70,13 @@ Show Error where
 
   show (CantConvert fc defs env x y)
       = show fc ++ ":Can't convert " ++ show x ++ " with " ++ show y
+
+  show (PatternVariableUnifies fc fct env n x)
+      = show fc ++ ":Pattern variable " ++ show n ++ " unifies with " ++ show x
+  show (CyclicMeta fc env n tm)
+      = show fc ++ ":Cycle detected in metavariable solution " ++ show n
+             ++ " = " ++ show tm
+
   show (AlreadyDefined fc n) = show fc ++ ":" ++ show n ++ " is already defined"
   show (NotFunctionType fc defs env t)
       = show fc ++ ":" ++ show t ++ " is not a function type"

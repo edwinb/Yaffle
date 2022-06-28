@@ -117,7 +117,7 @@ simpleRawi fname
          pure (RAnnot (MkFC fname start end) val ty)
   <|> do start <- location
          keyword "pi"
-         c <- option RigW rig01
+         c <- option top rig01
          n <- name
          symbol ":"
          arg <- rawc fname
@@ -127,7 +127,7 @@ simpleRawi fname
          pure (RPi (MkFC fname start end) c n arg ret)
   <|> do start <- location
          keyword "let"
-         c <- option RigW rig01
+         c <- option top rig01
          n <- name
          symbol ":"
          ty <- rawc fname
@@ -168,11 +168,12 @@ simpleRawc fname
 rawc fname
     = do start <- location
          keyword "case"
+         c <- option top rig01
          scr <- rawi fname
          keyword "of"
          alts <- sepBy (symbol "|") (caseAlt fname)
          end <- location
-         pure (RCase (MkFC fname start end) top scr alts)
+         pure (RCase (MkFC fname start end) c scr alts)
   <|> do start <- location
          keyword "lam"
          n <- name

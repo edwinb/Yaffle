@@ -6,9 +6,17 @@ module Core.Context.Def
 import Core.TT
 
 public export
+data HoleInfo
+        = NotHole
+        | SolvedHole Nat
+
+public export
 record FnInfo where
   constructor MkFnInfo
-  alwaysReduce : Bool -- Always reduce - typically for inlinable metavar sulutions
+  holeInfo : HoleInfo -- data if it comes from a solved hole
+  alwaysReduce : Bool -- always reduce - typically for inlinable metavariable solutions
+  externalDecl : Bool -- declared in another module, which may affect how it
+                      -- is compiled
 
 public export
 record DataConInfo where

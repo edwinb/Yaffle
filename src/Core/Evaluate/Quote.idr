@@ -21,6 +21,7 @@ genName n
 data Strategy
   = NF -- full normal form
   | HNF -- head normal form (block under constructors)
+  | Binders -- block after going under all the binders
   | BlockApp -- block all applications
 
 {-
@@ -168,14 +169,26 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
               | Nothing =>
                   do sp' <- quoteSpine s bounds env sp
                      pure $ applySpine (Ref fc nt n) sp'
-           -- If the result is blocked by a then just give back the application,
-           -- for readability. Otherwise, keep quoting
-           if !(blockedApp v)
-              then
-                  do sp' <- quoteSpine s bounds env sp
-                     pure $ applySpine (Ref fc nt n) sp'
-              else quoteGen s bounds env v
+           case s of
+             -- If the result is a binder, and we're in Binder mode, then
+             -- keep going, otherwise just give back the application
+                Binders =>
+                    if !(isBinder v)
+                       then quoteGen s bounds env v
+                       else do sp' <- quoteSpine s bounds env sp
+                               pure $ applySpine (Ref fc nt n) sp'
+             -- If the result is blocked by a case/lambda then just give back
+             -- the application for readability. Otherwise, keep quoting
+                _ => if !(blockedApp v)
+                        then do sp' <- quoteSpine s bounds env sp
+                                pure $ applySpine (Ref fc nt n) sp'
+                        else quoteGen s bounds env v
     where
+      isBinder : Value vars -> Core Bool
+      isBinder (VLam fc _ _ _ _ sc) = pure True
+      isBinder (VBind{}) = pure True
+      isBinder _ = pure False
+
       blockedApp : Value vars -> Core Bool
       blockedApp (VLam fc _ _ _ _ sc)
           = blockedApp !(sc (VErased fc False))
@@ -276,6 +289,12 @@ parameters {auto c : Ref Ctxt Defs}
   quoteHNF : {vars : _} ->
           Env Term vars -> Value vars -> Core (Term vars)
   quoteHNF = quoteStrategy HNF
+
+  -- Keep quoting while we're still going under binders
+  export
+  quoteBinders : {vars : _} ->
+          Env Term vars -> Value vars -> Core (Term vars)
+  quoteBinders = quoteStrategy Binders
 
   export
   quote : {vars : _} ->

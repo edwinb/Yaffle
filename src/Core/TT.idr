@@ -78,10 +78,10 @@ varIdx : Var xs -> Nat
 varIdx (MkVar {i} _) = i
 
 export
-dropFirst : List (Var (vs :< v)) -> List (Var vs)
-dropFirst [] = []
-dropFirst (MkVar First :: vs) = dropFirst vs
-dropFirst (MkVar (Later p) :: vs) = MkVar p :: dropFirst vs
+dropFirst : SnocList (Var (vs :< v)) -> SnocList (Var vs)
+dropFirst [<] = [<]
+dropFirst (vs :< MkVar First) = dropFirst vs
+dropFirst (vs :< MkVar (Later p)) = dropFirst vs :< MkVar p
 
 export
 Show (Var ns) where

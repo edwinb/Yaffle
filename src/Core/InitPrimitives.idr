@@ -32,7 +32,7 @@ addPrim : Ref Ctxt Defs =>
 addPrim p
     = do let primdef = newDef EmptyFC (opName (fn p)) RigW
                               (type p) Public
-                              (Function (MkFnInfo False)
+                              (Function (MkFnInfo NotHole False False)
                                         (mkPrim (arity p) (fn p)))
          ignore $ addDef (opName (fn p)) primdef
 

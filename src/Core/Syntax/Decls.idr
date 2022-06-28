@@ -69,7 +69,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                 | _ => throw (AlreadyDefined fc n)
            tm <- check (multiplicity def) [<] rtm (type def)
            linearCheck fc (multiplicity def) [<] tm
-           updateDef n (const (Just (Function (MkFnInfo False) tm)))
+           updateDef n (const (Just (Function (MkFnInfo NotHole False False) tm)))
 
   export
   processDecl : RawDecl -> Core ()
