@@ -92,6 +92,9 @@ record Context where
     -- visible
     visibleNS : List Namespace
     inlineOnly : Bool -- only return things with the 'alwaysReduce' flag
+                      -- FIXME: We shouldn't need this any more due to new
+                      -- glued representation, so remove it after implemeting
+                      -- unification
     hidden : NameMap () -- Never return these
 
 public export

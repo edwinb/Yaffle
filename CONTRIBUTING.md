@@ -34,6 +34,8 @@ TODOs throughout for which I would welcome some help. Currently these are:
 edwinb's next steps:
 
 * Implement unification
+* We don't need 'inlineOnly' in the context any more, so remove once
+  unification works and inlining metavariables works as it should
 * Implement auto-implicit search
 * Check TTCs work
 * Add universe constraints when adding data definitions
@@ -42,4 +44,4 @@ edwinb's next steps:
 * ???
 * PROFIT
 
-(Last updated 23rd June 2022)
+(Last updated 28th June 2022)

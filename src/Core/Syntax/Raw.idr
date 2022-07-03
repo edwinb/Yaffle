@@ -51,6 +51,7 @@ data Command : Type where
      Decl : RawDecl -> Command
      Eval : RawI -> Command
      HNF : RawI -> Command
+     Unify : RawI -> RawI -> Command
      Quit : Command
 
 prefixRig : RigCount -> String
@@ -127,4 +128,5 @@ Show Command where
   show (Decl d) = "Decl " ++ show d
   show (Eval e) = "Eval " ++ show e
   show (HNF e) = "hnf " ++ show e
+  show (Unify x y) = "unify " ++ show x ++ " " ++ show y
   show Quit = "quit"

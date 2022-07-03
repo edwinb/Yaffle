@@ -255,6 +255,12 @@ command fname
          symbol ";"
          pure (HNF tm)
   <|> do symbol ":"
+         exactIdent "unify"
+         x <- simpleRawi fname
+         y <- simpleRawi fname
+         symbol ";"
+         pure (Unify x y)
+  <|> do symbol ":"
          exactIdent "q"
          symbol ";"
          pure Quit

@@ -8,6 +8,7 @@ import Core.Syntax.Decls
 import Core.Syntax.Raw
 import Core.Check.Typecheck
 import Core.Unify.State
+import Core.Unify
 
 parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   processEval : RawI -> Core ()
@@ -24,9 +25,20 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            coreLift $ putStrLn $ show !(toFullNames tmnf) ++ " : "
                                      ++ show !(toFullNames ty)
 
+  processUnify : RawI -> RawI -> Core ()
+  processUnify rawx rawy
+      = do (tmx, tyx) <- infer linear [<] rawx
+           (tmy, tyy) <- infer linear [<] rawy
+           chkConvert replFC [<] tyx tyy
+           ures <- unify inTerm replFC [<] tmx tmy
+           case constraints ures of
+                [] => coreLift $ putStrLn "Success"
+                _ => coreLift $ putStrLn "Constraints" -- TODO, print them
+
   export
   processCommand : Command -> Core ()
   processCommand (Decl d) = processDecl d
   processCommand (Eval tm) = processEval tm
   processCommand (HNF tm) = processHNF tm
+  processCommand (Unify x y) = processUnify x y
   processCommand Quit = pure ()
