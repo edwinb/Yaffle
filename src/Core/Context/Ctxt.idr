@@ -7,6 +7,7 @@ module Core.Context.Ctxt
 -- we look them up, we have to decode them
 
 import Core.Binary
+import Core.CompileExpr
 import public Core.Context.CtxtData
 import public Core.Context.Def
 import Core.Error
@@ -347,9 +348,16 @@ newDef fc n rig ty vis def
         , type = ty
         , definition = def
         , evaldef = Nothing
+        , multiplicity = rig
         , visibility = vis
         , totality = unchecked
-        , multiplicity = rig
+        , flags = []
+        , refersToM = Nothing
+        , refersToRuntimeM = Nothing
+        , invertible = False
+        , compexpr = Nothing
+        , namedcompexpr = Nothing
+        , sizeChange = []
         }
 
 ||| Types that are transformed into a faster representation
@@ -513,6 +521,21 @@ interface HasNames a where
   resolved : Context -> a -> Core a
 
 export
+HasNames a => HasNames (List a) where
+  full gam [] = pure []
+  full gam (x :: xs) = pure $ !(full gam x) :: !(full gam xs)
+
+  resolved gam [] = pure []
+  resolved gam (x :: xs) = pure $ !(resolved gam x) :: !(resolved gam xs)
+
+export
+HasNames a => HasNames (Maybe a) where
+  full gam Nothing = pure Nothing
+  full gam (Just x) = pure $ Just !(full gam x)
+  resolved gam Nothing = pure Nothing
+  resolved gam (Just x) = pure $ Just !(resolved gam x)
+
+export
 HasNames Name where
   full gam (Resolved i)
       = case lookup i (staging gam) of
@@ -527,6 +550,23 @@ HasNames Name where
       = do let Just i = getNameID n gam
                     | Nothing => pure n
            pure (Resolved i)
+
+HasNames (NameMap a) where
+  full gam nmap
+      = insertAll empty (toList nmap)
+    where
+      insertAll : NameMap a -> List (Name, a) -> Core (NameMap a)
+      insertAll ms [] = pure ms
+      insertAll ms ((k, v) :: ns)
+          = insertAll (insert !(full gam k) v ms) ns
+
+  resolved gam nmap
+      = insertAll empty (toList nmap)
+    where
+      insertAll : NameMap a -> List (Name, a) -> Core (NameMap a)
+      insertAll ms [] = pure ms
+      insertAll ms ((k, v) :: ns)
+          = insertAll (insert !(resolved gam k) v ms) ns
 
 export
 HasNames UConstraint where
@@ -580,14 +620,6 @@ mutual -- Bah, they are all mutual and we can't forward declare implementations 
         = pure (ConstCase fc c !(resolved gam x))
     resolved gam (DefaultCase fc x)
         = pure (DefaultCase fc !(resolved gam x))
-
-  export
-  HasNames a => HasNames (List a) where
-    full gam [] = pure []
-    full gam (x :: xs) = pure $ !(full gam x) :: !(full gam xs)
-
-    resolved gam [] = pure []
-    resolved gam (x :: xs) = pure $ !(resolved gam x) :: !(resolved gam xs)
 
   export
   HasNames (Term vars) where
@@ -710,15 +742,28 @@ HasNames Totality where
   resolved gam (MkTotality t c) = pure $ MkTotality !(resolved gam t) !(resolved gam c)
 
 export
+HasNames SCCall where
+  full gam sc = pure $ { fnCall := !(full gam (fnCall sc)) } sc
+  resolved gam sc = pure $ { fnCall := !(resolved gam (fnCall sc)) } sc
+
+export
 HasNames GlobalDef where
   full gam def
       = pure $ { type := !(full gam (type def)),
                  definition := !(full gam (definition def)),
-                 totality := !(full gam (totality def)) } def
+                 totality := !(full gam (totality def)),
+                 refersToM := !(full gam (refersToM def)),
+                 refersToRuntimeM := !(full gam (refersToRuntimeM def)),
+                 sizeChange := !(traverse (full gam) (sizeChange def))
+               } def
   resolved gam def
       = pure $ { type := !(resolved gam (type def)),
                  definition := !(resolved gam (definition def)),
-                 totality := !(resolved gam (totality def)) } def
+                 totality := !(resolved gam (totality def)),
+                 refersToM := !(resolved gam (refersToM def)),
+                 refersToRuntimeM := !(resolved gam (refersToRuntimeM def)),
+                 sizeChange := !(traverse (resolved gam) (sizeChange def))
+               } def
 
 export
 HasNames Error where

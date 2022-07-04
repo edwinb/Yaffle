@@ -9,6 +9,7 @@ module Core.Context.CtxtData
 
 import Core.Binary
 import public Core.Context.Def
+import Core.CompileExpr
 import Core.Core
 import Core.Options
 import Core.TT
@@ -27,6 +28,116 @@ record CompiledTerm where
   evalAll : SchemeObj Write -- for evaluation at the REPL, so compile all fully
 
 public export
+data NoMangleDirective : Type where
+    CommonName : String -> NoMangleDirective
+    BackendNames : List (String, String) -> NoMangleDirective
+
+public export
+data DefFlag
+    = Inline
+    | NoInline
+    | ||| A definition has been marked as deprecated
+      Deprecate
+    | Invertible -- assume safe to cancel arguments in unification
+    | Overloadable -- allow ad-hoc overloads
+    | TCInline -- always inline before totality checking
+         -- (in practice, this means it's reduced in 'normaliseHoles')
+         -- This means the function gets inlined when calculating the size
+         -- change graph, but otherwise not. It's only safe if the function
+         -- being inlined is terminating no matter what, and is really a bit
+         -- of a hack to make sure interface dictionaries are properly inlined
+         -- (otherwise they look potentially non terminating) so use with
+         -- care!
+    | SetTotal TotalReq
+    | BlockedHint -- a hint, but blocked for the moment (so don't use)
+    | Macro
+    | PartialEval (List (Name, Nat)) -- Partially evaluate on completing defintion.
+         -- This means the definition is standing for a specialisation so we
+         -- should evaluate the RHS, with reduction limits on the given names,
+         -- and ensure the name has made progress in doing so (i.e. has reduced
+         -- at least once)
+    | AllGuarded -- safe to treat as a constructor for the purposes of
+         -- productivity checking. All clauses are guarded by constructors,
+         -- and there are no other function applications
+    | ConType ConInfo
+         -- Is it a special type of constructor, e.g. a nil or cons shaped
+         -- thing, that can be compiled specially?
+    | Identity Nat
+         -- Is it the identity function at runtime?
+         -- The nat represents which argument the function evaluates to
+    | NoMangle NoMangleDirective
+         -- use the user provided name directly (backend, name)
+
+export
+Eq DefFlag where
+    (==) Inline Inline = True
+    (==) NoInline NoInline = True
+    (==) Deprecate Deprecate = True
+    (==) Invertible Invertible = True
+    (==) Overloadable Overloadable = True
+    (==) TCInline TCInline = True
+    (==) (SetTotal x) (SetTotal y) = x == y
+    (==) BlockedHint BlockedHint = True
+    (==) Macro Macro = True
+    (==) (PartialEval x) (PartialEval y) = x == y
+    (==) AllGuarded AllGuarded = True
+    (==) (ConType x) (ConType y) = x == y
+    (==) (Identity x) (Identity y) = x == y
+    (==) (NoMangle _) (NoMangle _) = True
+    (==) _ _ = False
+
+export
+Show DefFlag where
+  show Inline = "inline"
+  show NoInline = "noinline"
+  show Deprecate = "deprecate"
+  show Invertible = "invertible"
+  show Overloadable = "overloadable"
+  show TCInline = "tcinline"
+  show (SetTotal x) = show x
+  show BlockedHint = "blockedhint"
+  show Macro = "macro"
+  show (PartialEval _) = "partialeval"
+  show AllGuarded = "allguarded"
+  show (ConType ci) = "contype " ++ show ci
+  show (Identity x) = "identity " ++ show x
+  show (NoMangle _) = "nomangle"
+
+public export
+data SizeChange = Smaller | Same | Unknown
+
+export
+Show SizeChange where
+  show Smaller = "Smaller"
+  show Same = "Same"
+  show Unknown = "Unknown"
+
+export
+Eq SizeChange where
+  Smaller == Smaller = True
+  Same == Same = True
+  Unknown == Unknown = True
+  _ == _ = False
+
+public export
+record SCCall where
+     constructor MkSCCall
+     fnCall : Name -- Function called
+     fnArgs : List (Maybe (Nat, SizeChange))
+        -- relationship to arguments of calling function; argument position
+        -- (in the calling function), and how its size changed in the call.
+        -- 'Nothing' if it's not related to any of the calling function's
+        -- arguments
+
+export
+Show SCCall where
+  show c = show (fnCall c) ++ ": " ++ show (fnArgs c)
+
+export
+Eq SCCall where
+  x == y = fnCall x == fnCall y && fnArgs x == fnArgs y
+
+public export
 record GlobalDef where
   constructor MkGlobalDef
   location : FC
@@ -34,11 +145,16 @@ record GlobalDef where
   type : Term [<]
   definition : Def
   evaldef : Maybe CompiledTerm
+  multiplicity : RigCount
   visibility : Visibility
   totality : Totality
-  multiplicity : RigCount
-  -- Remember to check HasNames instances when adding fields (especially when
-  -- referring to other names)
+  flags : List DefFlag
+  refersToM : Maybe (NameMap Bool)
+  refersToRuntimeM : Maybe (NameMap Bool)
+  invertible : Bool -- for an ordinary definition, is it invertible in unification
+  compexpr : Maybe CDef
+  namedcompexpr : Maybe NamedDef
+  sizeChange : List SCCall
 
 export
 TTC GlobalDef where
