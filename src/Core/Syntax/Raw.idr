@@ -1,5 +1,6 @@
 module Core.Syntax.Raw
 
+import Core.Options.Log
 import Core.TT
 
 -- Raw terms, for typechecking the core
@@ -52,6 +53,7 @@ data Command : Type where
      Eval : RawI -> Command
      HNF : RawI -> Command
      Unify : RawI -> RawI -> Command
+     Logging : LogLevel -> Command
      Quit : Command
 
 prefixRig : RigCount -> String
@@ -129,4 +131,5 @@ Show Command where
   show (Eval e) = "Eval " ++ show e
   show (HNF e) = "hnf " ++ show e
   show (Unify x y) = "unify " ++ show x ++ " " ++ show y
+  show (Logging i) = "logging " ++ show i
   show Quit = "quit"

@@ -6,6 +6,7 @@ module Core.Syntax.Parser
 
 import Core.Error
 import Core.FC
+import Core.Options.Log
 import Core.Syntax.Lexer
 import Core.Syntax.Raw
 import public Core.Syntax.Support
@@ -260,6 +261,11 @@ command fname
          y <- simpleRawi fname
          symbol ";"
          pure (Unify x y)
+  <|> do symbol ":"
+         exactIdent "logging"
+         x <- intLit -- TODO: full logging categories
+         symbol ";"
+         pure (Logging (mkLogLevel' Nothing (fromInteger x)))
   <|> do symbol ":"
          exactIdent "q"
          symbol ";"

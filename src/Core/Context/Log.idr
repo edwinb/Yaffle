@@ -7,6 +7,7 @@ import Core.TT
 
 import Libraries.Data.StringMap
 
+import Data.String
 import System.Clock
 
 %default covering
@@ -128,8 +129,8 @@ logTimeOver nsecs str act
 
 export
 logTimeWhen : {auto c : Ref Ctxt Defs} ->
-              Bool -> Lazy String -> CoreE err a -> CoreE err a
-logTimeWhen p str act
+              Bool -> Nat -> Lazy String -> Core a -> Core a
+logTimeWhen p lvl str act
     = if p
          then do clock <- coreLift (clockTime Process)
                  let t = seconds clock * nano + nanoseconds clock
@@ -138,7 +139,9 @@ logTimeWhen p str act
                  let t' = seconds clock * nano + nanoseconds clock
                  let time = t' - t
                  assert_total $ -- We're not dividing by 0
-                    coreLift $ putStrLn $ "TIMING " ++ str ++ ": " ++
+                    coreLift $ do
+                      let header = "TIMING " ++ replicate lvl '+' ++ ifThenElse (0 < lvl) " " ""
+                      putStrLn $ header ++ str ++ ": " ++
                              show (time `div` nano) ++ "." ++
                              addZeros (unpack (show ((time `mod` nano) `div` micro))) ++
                              "s"
@@ -153,7 +156,7 @@ logTimeWhen p str act
 
 export
 logTime : {auto c : Ref Ctxt Defs} ->
-          Lazy String -> CoreE err a -> CoreE err a
-logTime str act
+          Nat -> Lazy String -> Core a -> Core a
+logTime lvl str act
     = do opts <- getSession
-         logTimeWhen (logTimings opts) str act
+         logTimeWhen (maybe False (lvl <=) (logTimings opts)) lvl str act

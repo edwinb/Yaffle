@@ -15,16 +15,33 @@ import Data.Vect
 import Libraries.Data.IntMap
 import Libraries.Data.NameMap
 
+parameters {auto c : Ref Ctxt Defs}
+  export
+  setInvertible : FC -> Name -> Core ()
+  setInvertible fc n
+      = do defs <- get Ctxt
+           Just gdef <- lookupCtxtExact n (gamma defs)
+                | Nothing => undefinedName fc n
+           ignore $ addDef n ({ invertible := True } gdef)
+
 parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   namespace Value
     export
     unify : {vars : _} ->
             UnifyInfo -> FC -> Env Term vars ->
             Value vars -> Value vars -> Core UnifyResult
+    export
+    unifyWithLazy : {vars : _} ->
+            UnifyInfo -> FC -> Env Term vars ->
+            Value vars -> Value vars -> Core UnifyResult
 
   namespace Term
     export
     unify : {vars : _} ->
+            UnifyInfo -> FC -> Env Term vars ->
+            Term vars -> Term vars -> Core UnifyResult
+    export
+    unifyWithLazy : {vars : _} ->
             UnifyInfo -> FC -> Env Term vars ->
             Term vars -> Term vars -> Core UnifyResult
 
@@ -101,12 +118,57 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
            pure (union res cs)
   unifyArgs mode loc env _ _ = ufail loc ""
 
-  -- tmp catch all cases
-  Core.Unify.Unify.Value.unify umode fc env x y
-     = do chkConvert fc env x y
-          pure success
+  unifyIfEq : {vars : _} ->
+              (postpone : Bool) ->
+              FC -> UnifyInfo -> Env Term vars -> Value vars -> Value vars ->
+              Core UnifyResult
+  unifyIfEq post loc mode env x y
+        = if !(convert env x y)
+             then pure success
+             else if post
+                     then postpone loc mode ("Postponing unifyIfEq " ++
+                                                 show (atTop mode)) env x y
+                     else convertError loc env x y
+
+  unifyNoEta : {vars : _} ->
+          UnifyInfo -> FC -> Env Term vars ->
+          Value vars -> Value vars -> Core UnifyResult
+  unifyNoEta mode fc env x y
+      = unifyIfEq (isDelay x || isDelay y) fc mode env x y
+    where
+      -- If one of them is a delay, and they're not equal, we'd better
+      -- postpone and come back to it so we can insert the implicit
+      -- Force/Delay later
+      isDelay : Value vars -> Bool
+      isDelay (VDelayed{}) = True
+      isDelay _ = False
+
+  unifyVal : {vars : _} ->
+          UnifyInfo -> FC -> Env Term vars ->
+          Value vars -> Value vars -> Core UnifyResult
+  unifyVal mode fc env x y = unifyNoEta mode fc env x y
+
+  unifyValLazy : {vars : _} ->
+          UnifyInfo -> FC -> Env Term vars ->
+          Value vars -> Value vars -> Core UnifyResult
+  -- TODO: Details of coercions
+  unifyValLazy mode fc env x y = unifyVal mode fc env x y
+
+  -- The interesting top level case, for unifying values
+  Core.Unify.Unify.Value.unify mode fc env x y
+     = unifyVal mode fc env x y
+
+  -- The interesting top level case, for unifying values and inserting laziness
+  -- coercions if appropriate
+  Core.Unify.Unify.Value.unifyWithLazy mode fc env x y
+     = unifyValLazy mode fc env x y
 
   Core.Unify.Unify.Term.unify umode fc env x y
      = do x' <- nf env x
           y' <- nf env y
           unify umode fc env x' y'
+
+  Core.Unify.Unify.Term.unifyWithLazy umode fc env x y
+     = do x' <- nf env x
+          y' <- nf env y
+          unifyWithLazy umode fc env x' y'

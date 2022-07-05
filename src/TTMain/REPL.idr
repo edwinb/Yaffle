@@ -32,7 +32,7 @@ parameters {auto c: Ref Ctxt Defs} {auto u : Ref UST UState}
                      case cmd of
                           Quit => coreLift_ $ putStrLn "Bye for now!"
                           _ => catch
-                                 (do logTimeWhen True "" $ processCommand cmd
+                                 (do logTimeWhen True 0 "" $ processCommand cmd
                                      repl)
                                  (\err => do coreLift $ printLn !(toFullNames err)
                                              repl)

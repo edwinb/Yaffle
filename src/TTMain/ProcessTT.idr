@@ -35,10 +35,15 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                 [] => coreLift $ putStrLn "Success"
                 _ => coreLift $ putStrLn "Constraints" -- TODO, print them
 
+  processLogging : LogLevel -> Core ()
+  processLogging lvl
+      = addLogLevel (Just lvl)
+
   export
   processCommand : Command -> Core ()
   processCommand (Decl d) = processDecl d
   processCommand (Eval tm) = processEval tm
   processCommand (HNF tm) = processHNF tm
   processCommand (Unify x y) = processUnify x y
+  processCommand (Logging x) = processLogging x
   processCommand Quit = pure ()

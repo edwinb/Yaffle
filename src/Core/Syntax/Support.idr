@@ -217,3 +217,11 @@ constant
                              \case WorldType => Nothing
                                    c         => Just $ c
         _            => Nothing
+
+export
+intLit : Rule Integer
+intLit
+    = terminal "Expected integer literal" $
+               \case
+                 IntegerLit i => Just i
+                 _ => Nothing

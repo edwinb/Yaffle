@@ -134,6 +134,26 @@ parameters {auto c : Ref Ctxt Defs}
 -- Dealing with various options
 
   export
+  addLogLevel : Maybe LogLevel -> Core ()
+  addLogLevel Nothing  = update Ctxt { options->session->logEnabled := False, options->session->logLevel := defaultLogLevel }
+  addLogLevel (Just l) = update Ctxt { options->session->logEnabled := True, options->session->logLevel $= insertLogLevel l }
+
+  export
+  withLogLevel : LogLevel -> Core a -> Core a
+  withLogLevel l comp = do
+    defs <- get Ctxt
+    let logs = logLevel (session (options defs))
+    put Ctxt ({ options->session->logLevel := insertLogLevel l logs } defs)
+    r <- comp
+    defs <- get Ctxt
+    put Ctxt ({ options->session->logLevel := logs } defs)
+    pure r
+
+  export
+  setLogTimings : Nat -> Core ()
+  setLogTimings n = update Ctxt { options->session->logTimings := Just n }
+
+  export
   getSession : CoreE err Session
   getSession
       = do defs <- get Ctxt
