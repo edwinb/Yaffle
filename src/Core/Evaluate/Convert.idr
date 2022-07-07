@@ -119,6 +119,13 @@ parameters {auto c : Ref Ctxt Defs}
            Just x <- val  | Nothing => pure False
            Just y <- val' | Nothing => pure False
            convGen Reduce env x y
+  -- If one is a Metavar and the other isn't, try to reduce the Metavar first
+  convGen s env (VMeta _ _ _ _ _ val) y
+      = do Just x <- val | Nothing => pure False
+           convGen s env x y
+  convGen s env x (VMeta _ _ _ _ _ val)
+      = do Just y <- val | Nothing => pure False
+           convGen s env x y
   convGen s env (VDCon _ n t a sp) (VDCon _ n' t' a' sp')
       = if t == t'
            then convSpine s env sp sp'

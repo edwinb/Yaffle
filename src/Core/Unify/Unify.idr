@@ -24,6 +24,16 @@ parameters {auto c : Ref Ctxt Defs}
                 | Nothing => undefinedName fc n
            ignore $ addDef n ({ invertible := True } gdef)
 
+  isDefInvertible : FC -> Int -> Core Bool
+  isDefInvertible fc i
+      = do defs <- get Ctxt
+           Just gdef <- lookupCtxtExact (Resolved i) (gamma defs)
+                | Nothing => throw (UndefinedName fc (Resolved i))
+           pure (invertible gdef)
+
+third : (s, t, u) -> u
+third (x, y, z) = z
+
 parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   namespace Value
     export
@@ -105,6 +115,21 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       = if s then postpone loc (lower mode) logstr env y x
              else postpone loc mode logstr env x y
 
+  postponePatVar : {vars : _} ->
+                   (swaporder : Bool) ->
+                   UnifyInfo -> FC -> Env Term vars ->
+                   (metaname : Name) -> (metaref : Int) ->
+                   (margs : List (RigCount, Value vars)) ->
+                   (margs' : Spine vars) ->
+                   (soln : Value vars) ->
+                   Core UnifyResult
+  postponePatVar swap mode fc env mname mref margs margs' tm
+      = do let x = VMeta fc mname mref margs margs' (pure Nothing)
+           if !(convert env x tm)
+              then pure success
+              else postponeS swap fc mode "Not in pattern fragment" env
+                             x tm
+
   unifyArgs : {vars : _} ->
               UnifyInfo -> FC -> Env Term vars ->
               List (Value vars) -> List (Value vars) ->
@@ -130,9 +155,153 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                                                  show (atTop mode)) env x y
                      else convertError loc env x y
 
+  spineToValues : Spine vars -> List (Value vars)
+  spineToValues sp = toList (map third sp)
+
+  -- Unify a hole application - we have already checked that the hole is
+  -- invertible (i.e. it's a determining argument to a proof search where
+  -- it is a constructor or something else invertible in each case)
+  unifyHoleApp : {vars : _} ->
+                 (swaporder : Bool) ->
+                 UnifyInfo -> FC -> Env Term vars ->
+                 (metaname : Name) -> (metaref : Int) ->
+                 (args : List (RigCount, Value vars)) ->
+                 (sp : Spine vars) ->
+                 Value vars ->
+                 Core UnifyResult
+
+  solveHole : {newvars, vars : _} ->
+              FC -> UnifyInfo -> Env Term vars ->
+              (metaname : Name) -> (metaref : Int) ->
+              (args : List (RigCount, Value vars)) ->
+              (sp : Spine vars) ->
+              SnocList (Var newvars) ->
+              SubVars newvars vars ->
+              (solfull : Term vars) -> -- Original solution
+              (soln : Term newvars) -> -- Solution with shrunk environment
+              (solnf : Value vars) ->
+              Core (Maybe UnifyResult)
+  solveHole fc mode env mname mref margs margs' locs submv solfull stm solnf
+      = do defs <- get Ctxt
+           ust <- get UST
+           -- if the terms are the same, this isn't a solution
+           -- but they are already unifying, so just return
+           if solutionHeadSame solnf || inNoSolve mref (noSolve ust)
+              then pure $ Just success
+              else do Just hdef <- lookupCtxtExact (Resolved mref) (gamma defs)
+                           | Nothing => throw (InternalError ("Can't happen: Lost hole " ++ show mname))
+                      progress <- tryInstantiate fc mode env mname mref (length margs) hdef (toList locs) solfull stm
+                      pure $ toMaybe progress (solvedHole mref)
+    where
+      inNoSolve : Int -> IntMap () -> Bool
+      inNoSolve i ns
+          = case lookup i ns of
+                 Nothing => False
+                 Just _ => True
+
+      -- Only need to check the head metavar is the same, we've already
+      -- checked the rest if they are the same (and we couldn't instantiate it
+      -- anyway...)
+      solutionHeadSame : Value vars -> Bool
+      solutionHeadSame (VMeta _ _ shead _ _ _) = shead == mref
+      solutionHeadSame _ = False
+
+  -- Try to solve 'metaname' applied to all the arguments with the
+  -- given solution
+  unifyHole : {vars : _} ->
+              (swaporder : Bool) ->
+              UnifyInfo -> FC -> Env Term vars ->
+              FC -> (metaname : Name) -> (metaref : Int) ->
+              (args : List (RigCount, Value vars)) ->
+              (sp : Spine vars) ->
+              (soln : Value vars) ->
+              Core UnifyResult
+  unifyHole swap mode fc env nfc mname mref args sp tmnf
+      = do let margs = cast (map snd args)
+           let margs' = map third sp
+           let pargs = if isLin margs' then margs else margs ++ margs'
+           defs <- get Ctxt
+           case !(patternEnv env pargs) of
+                Nothing =>
+                  do Just hdef <- lookupCtxtExact (Resolved mref) (gamma defs)
+                        | _ => postponePatVar swap mode fc env mname mref args sp tmnf
+                     let Hole _ = definition hdef
+                        | _ => postponePatVar swap mode fc env mname mref args sp tmnf
+                     if invertible hdef
+                        then unifyHoleApp swap mode fc env mname mref args sp tmnf
+                        else postponePatVar swap mode fc env mname mref args sp tmnf
+                Just (newvars ** (locs, submv)) =>
+                  do Just hdef <- lookupCtxtExact (Resolved mref) (gamma defs)
+                         | _ => postponePatVar swap mode fc env mname mref args sp tmnf
+                     let Hole _ = definition hdef
+                         | _ => postponeS swap fc mode "Delayed hole" env
+                                          (VMeta fc mname mref args sp (pure Nothing))
+                                          tmnf
+                     tm <- quote env tmnf
+                     Just tm <- occursCheck fc env mode mname tm
+                         | _ => postponeS swap fc mode "Occurs check failed" env
+                                          (VMeta fc mname mref args sp (pure Nothing))
+                                          tmnf
+                     let solveOrElsePostpone : Term newvars -> Core UnifyResult
+                         solveOrElsePostpone stm = do
+                           mbResult <- solveHole fc mode env mname mref
+                                            args sp locs submv
+                                            tm stm tmnf
+                           flip fromMaybe (pure <$> mbResult) $
+                             postponeS swap fc mode "Can't instantiate" env
+                                       (VMeta fc mname mref args sp (pure Nothing))
+                                       tmnf
+                     case shrinkTerm tm submv of
+                          Just stm => solveOrElsePostpone stm
+                          Nothing =>
+                            do tm' <- quote env tmnf
+                               case shrinkTerm tm' submv of
+                                    Nothing => postponeS swap fc mode "Can't shrink" env
+                                                 (VMeta fc mname mref args sp (pure Nothing))
+                                                 tmnf
+                                    Just stm => solveOrElsePostpone stm
+
   unifyNoEta : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
           Value vars -> Value vars -> Core UnifyResult
+  -- Deal with metavariable cases first
+  -- If they're both holes, solve the one with the bigger context
+  unifyNoEta mode fc env x@(VMeta fcx nx ix margsx argsx _) y@(VMeta fcy ny iy margsy argsy _)
+      = do invx <- isDefInvertible fc ix
+           if ix == iy && (invx || umode mode == InSearch)
+                               -- Invertible, (from auto implicit search)
+                               -- so we can also unify the arguments.
+              then unifyArgs mode fc env
+                             (map snd margsx ++ spineToValues argsx)
+                             (map snd margsy ++ spineToValues argsy)
+              else do xvs <- traverse expand (map snd margsx)
+                      yvs <- traverse expand (map snd margsy)
+                      let xlocs = localsIn xvs
+                      let ylocs = localsIn yvs
+                      -- Solve the one with the bigger context, and if they're
+                      -- equal, the one that's applied to fewest things (because
+                      -- then the arguments get substituted in)
+                      let xbigger = xlocs > ylocs
+                                      || (xlocs == ylocs &&
+                                           length argsx <= length argsy)
+                      if (xbigger || umode mode == InMatch) && not (pv nx)
+                         then unifyHole False mode fc env fcx nx ix margsx argsx y
+                         else unifyHole True mode fc env fcy ny iy margsy argsy x
+    where
+      pv : Name -> Bool
+      pv (PV _ _) = True
+      pv _ = False
+
+      localsIn : List (Value vars) -> Nat
+      localsIn [] = 0
+      localsIn (VLocal{} :: xs) = 1 + localsIn xs
+      localsIn (_ :: xs) = localsIn xs
+  unifyNoEta mode fc env (VMeta fcm n i margs args _) tm
+      = unifyHole False mode fc env fcm n i margs args tm
+  unifyNoEta mode fc env tm (VMeta fcm n i margs args _)
+      = unifyHole True mode fc env fcm n i margs args tm
+  -- Now the cases where we're decomposing into smaller problems
+  -- (TODO)
   unifyNoEta mode fc env x y
       = unifyIfEq (isDelay x || isDelay y) fc mode env x y
     where
@@ -143,10 +312,56 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       isDelay (VDelayed{}) = True
       isDelay _ = False
 
+  -- At this point, we know that 'VApp' and 'VMeta' don't reduce further
+  unifyWithEta : {vars : _} ->
+          UnifyInfo -> FC -> Env Term vars ->
+          Value vars -> Value vars -> Core UnifyResult
+  -- TODO: eta rules
+  unifyWithEta mode fc env x y
+      = unifyNoEta mode fc env x y
+
+  -- First, see if we need to evaluate VApp a bit more
+  -- Also, if we have two VApps that immediately convert without reduction,
+  -- take advantage of that
+  unifyExpandApps : {vars : _} ->
+          UnifyInfo -> FC -> Env Term vars ->
+          Value vars -> Value vars -> Core UnifyResult
+  -- If the values convert already, we're done
+  unifyExpandApps mode fc env x@(VApp fcx ntx nx spx valx) y@(VApp fcy nty ny spy valy)
+      = if nx == ny
+           then ?checkArgs
+           else do valx' <- expand x
+                   valy' <- expand y
+                   unifyWithEta mode fc env valx' valy'
+  -- If one is an App, expand just that one and try again
+  unifyExpandApps mode fc env x@(VApp _ _ _ _ valx) y
+      = do Just valx' <- valx
+                | Nothing => unifyWithEta mode fc env x y
+           unifyWithEta mode fc env valx' y
+  unifyExpandApps mode fc env x y@(VApp _ _ _ _ valy)
+      = do Just valy' <- valy
+                | Nothing => unifyWithEta mode fc env x y
+           unifyWithEta mode fc env x valy'
+  -- Same for metavariables
+  unifyExpandApps mode fc env x@(VMeta{}) y@(VMeta{})
+      = do valx' <- expand x
+           valy' <- expand y
+           unifyWithEta mode fc env valx' valy'
+  unifyExpandApps mode fc env x@(VMeta _ _ _ _ _ valx) y
+      = do Just valx' <- valx
+                | Nothing => unifyWithEta mode fc env x y
+           unifyWithEta mode fc env valx' y
+  unifyExpandApps mode fc env x y@(VMeta _ _ _ _ _ valy)
+      = do Just valy' <- valy
+                | Nothing => unifyWithEta mode fc env x y
+           unifyWithEta mode fc env x valy'
+  unifyExpandApps mode fc env valx valy
+      = unifyWithEta mode fc env valx valy
+
   unifyVal : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
           Value vars -> Value vars -> Core UnifyResult
-  unifyVal mode fc env x y = unifyNoEta mode fc env x y
+  unifyVal mode fc env x y = unifyExpandApps mode fc env x y
 
   unifyValLazy : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->

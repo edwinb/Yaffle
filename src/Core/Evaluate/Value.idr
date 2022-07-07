@@ -61,6 +61,14 @@ data Value : SnocList Name -> Type where
      VImpossible : FC -> Value vars
      VType    : FC -> Name -> Value vars
 
+export
+expand : Value vars -> Core (Value vars)
+expand v@(VApp fc nt n sp val)
+    = do Just val' <- val
+              | Nothing => pure v
+         expand val'
+expand val = pure val
+
 public export
 VCaseScope : SnocList (RigCount, Name) -> SnocList Name -> Type
 VCaseScope [<] vars = Core (Value vars)

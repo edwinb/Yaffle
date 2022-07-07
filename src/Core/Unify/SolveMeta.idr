@@ -111,6 +111,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
      Also, return the list of arguments the metavariable was applied to, to
      make sure we use them in the right order when we build the solution.
   -}
+  export
   patternEnv : {vars : _} ->
                Env Term vars -> SnocList (Value vars) ->
                Core (Maybe (newvars ** (SnocList (Var newvars),
@@ -145,6 +146,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
 
   -- Check that the metavariable name doesn't occur in the solution.
   -- If it does, normalising might help. If it still does, that's an error.
+  export
   occursCheck : {vars : _} ->
                 FC -> Env Term vars -> UnifyInfo ->
                 Name -> Term vars -> Core (Maybe (Term vars))
@@ -180,6 +182,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   -- and returning the term
   -- If the type of the metavariable doesn't have enough arguments, fail, because
   -- this wasn't valid for pattern unification
+  export
   tryInstantiate : {vars, newvars : _} ->
                 FC -> UnifyInfo -> Env Term vars ->
                 (metavar : Name) -> (mref : Int) -> (numargs : Nat) ->
