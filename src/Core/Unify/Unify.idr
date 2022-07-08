@@ -349,7 +349,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
            then unifySpine mode fc env spx spy
            else convertError fc env x y
   unifyNoEta mode fc env x@(VTCon fcx nx ax spx) y@(VTCon fcy ny ay spy)
-      = if ax == ay
+      = if nx == ny
            then unifySpine mode fc env spx spy
            else convertError fc env x y
   unifyNoEta mode fc env x y

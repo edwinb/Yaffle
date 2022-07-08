@@ -1,0 +1,6 @@
+:unify (Vect ?n ?a) (Vect (S (S Z)) Char)
+:hnf n
+:hnf a
+:unify (S ?x) (plus (intToNat 10000000) (intToNat 1000000000000000))
+:hnf x
+:q

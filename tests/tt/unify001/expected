@@ -1,0 +1,11 @@
+Yaffle> Success
+TIMING : 0.000s
+Yaffle> (S (S Z)) : Nat
+TIMING : 0.000s
+Yaffle> Char : Type
+TIMING : 0.000s
+Yaffle> Success
+TIMING : 0.000s
+Yaffle> (S (plus (intToNat (prim__sub_Integer 9999999 1)) (intToNat 1000000000000000))) : Nat
+TIMING : 0.000s
+Yaffle> Bye for now!
