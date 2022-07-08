@@ -143,6 +143,28 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
            pure (union res cs)
   unifyArgs mode loc env _ _ = ufail loc ""
 
+  unifySpine : {vars : _} ->
+              UnifyInfo -> FC -> Env Term vars ->
+              Spine vars -> Spine vars ->
+              Core UnifyResult
+  unifySpine mode fc env [<] [<] = pure success
+  unifySpine mode fc env (cxs :< (_, _, cx)) (cys :< (_, _, cy))
+      = do cs <- unify (lower mode) fc env cx cy
+           res <- unifySpine mode fc env cxs cys
+           pure (union cs res)
+  unifySpine mode fc env _ _ = ufail fc ""
+
+  convertSpine : {vars : _} ->
+              FC -> Env Term vars ->
+              Spine vars -> Spine vars ->
+              Core Bool
+  convertSpine fc env [<] [<] = pure True
+  convertSpine fc env (cxs :< (_, _, cx)) (cys :< (_, _, cy))
+      = if !(convert env cx cy)
+           then convertSpine fc env cxs cys
+           else pure False
+  convertSpine fc env _ _ = pure False
+
   unifyIfEq : {vars : _} ->
               (postpone : Bool) ->
               FC -> UnifyInfo -> Env Term vars -> Value vars -> Value vars ->
@@ -264,6 +286,8 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                                                  tmnf
                                     Just stm => solveOrElsePostpone stm
 
+  -- Main bit of unification, decomposing unification problems into
+  -- sub-problems and solving metavariables where appropriate
   unifyNoEta : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
           Value vars -> Value vars -> Core UnifyResult
@@ -303,8 +327,31 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       = unifyHole False mode fc env fcm n i margs args tm
   unifyNoEta mode fc env tm (VMeta fcm n i margs args _)
       = unifyHole True mode fc env fcm n i margs args tm
+  -- Unifying applications means we're stuck and need to postpone, since we've
+  -- already checked convertibility
+  -- In 'match' or 'search'  mode, we can nevertheless unify the arguments
+  -- if the names match.
+  unifyNoEta mode@(MkUnifyInfo p InSearch) fc env x@(VApp _ _ nx spx _) y@(VApp _ _ ny spy _)
+      = if nx == ny
+           then unifySpine mode fc env spx spy
+           else postpone fc mode "Postponing application (search)" env x y
+  unifyNoEta mode@(MkUnifyInfo p InMatch) fc env x@(VApp _ _ nx spx _) y@(VApp _ _ ny spy _)
+      = if nx == ny
+           then unifySpine mode fc env spx spy
+           else postpone fc mode "Postponing application (match)" env x y
+  unifyNoEta mode fc env x@(VApp{}) y
+      = postpone fc mode "Postponing application (left)" env x y
+  unifyNoEta mode fc env x y@(VApp{})
+      = postpone fc mode "Postponing application (right)" env x y
   -- Now the cases where we're decomposing into smaller problems
-  -- (TODO)
+  unifyNoEta mode fc env x@(VDCon fcx nx tx ax spx) y@(VDCon fcy ny ty ay spy)
+      = if tx == ty
+           then unifySpine mode fc env spx spy
+           else convertError fc env x y
+  unifyNoEta mode fc env x@(VTCon fcx nx ax spx) y@(VTCon fcy ny ay spy)
+      = if ax == ay
+           then unifySpine mode fc env spx spy
+           else convertError fc env x y
   unifyNoEta mode fc env x y
       = unifyIfEq (isDelay x || isDelay y) fc mode env x y
     where
@@ -332,7 +379,11 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   -- If the values convert already, we're done
   unifyExpandApps mode fc env x@(VApp fcx ntx nx spx valx) y@(VApp fcy nty ny spy valy)
       = if nx == ny
-           then ?checkArgs
+           then do c <- convertSpine fc env spx spy
+                   if c
+                      then pure success
+                      else postpone fc mode "Postponing application"
+                                    env x y
            else do valx' <- expand x
                    valy' <- expand y
                    unifyWithEta mode fc env valx' valy'
