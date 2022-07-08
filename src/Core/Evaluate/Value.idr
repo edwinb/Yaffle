@@ -61,9 +61,15 @@ data Value : SnocList Name -> Type where
      VImpossible : FC -> Value vars
      VType    : FC -> Name -> Value vars
 
+-- If a value is an App or Meta node, then it might be reducible. Expand it
+-- just enough that we have the right top level node.
 export
 expand : Value vars -> Core (Value vars)
 expand v@(VApp fc nt n sp val)
+    = do Just val' <- val
+              | Nothing => pure v
+         expand val'
+expand v@(VMeta fc n i args sp val)
     = do Just val' <- val
               | Nothing => pure v
          expand val'

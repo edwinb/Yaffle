@@ -170,6 +170,10 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                  Value vars ->
                  Core UnifyResult
 
+  -- Solve a metavariable application (that is, the name applied the to
+  -- args and spine) with the given solution.
+  -- Also given the results we got from 'patternEnv' that tells us how to
+  -- instantiate the environment in the solution
   solveHole : {newvars, vars : _} ->
               FC -> UnifyInfo -> Env Term vars ->
               (metaname : Name) -> (metaref : Int) ->
@@ -184,8 +188,6 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   solveHole fc mode env mname mref margs margs' locs submv solfull stm solnf
       = do defs <- get Ctxt
            ust <- get UST
-           -- if the terms are the same, this isn't a solution
-           -- but they are already unifying, so just return
            if solutionHeadSame solnf || inNoSolve mref (noSolve ust)
               then pure $ Just success
               else do Just hdef <- lookupCtxtExact (Resolved mref) (gamma defs)
@@ -202,6 +204,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       -- Only need to check the head metavar is the same, we've already
       -- checked the rest if they are the same (and we couldn't instantiate it
       -- anyway...)
+      -- Also the solution is expanded by now (via Evaluate.Value.expand)
       solutionHeadSame : Value vars -> Bool
       solutionHeadSame (VMeta _ _ shead _ _ _) = shead == mref
       solutionHeadSame _ = False
@@ -333,30 +336,12 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
            else do valx' <- expand x
                    valy' <- expand y
                    unifyWithEta mode fc env valx' valy'
-  -- If one is an App, expand just that one and try again
-  unifyExpandApps mode fc env x@(VApp _ _ _ _ valx) y
-      = do Just valx' <- valx
-                | Nothing => unifyWithEta mode fc env x y
-           unifyWithEta mode fc env valx' y
-  unifyExpandApps mode fc env x y@(VApp _ _ _ _ valy)
-      = do Just valy' <- valy
-                | Nothing => unifyWithEta mode fc env x y
-           unifyWithEta mode fc env x valy'
-  -- Same for metavariables
-  unifyExpandApps mode fc env x@(VMeta{}) y@(VMeta{})
-      = do valx' <- expand x
-           valy' <- expand y
-           unifyWithEta mode fc env valx' valy'
-  unifyExpandApps mode fc env x@(VMeta _ _ _ _ _ valx) y
-      = do Just valx' <- valx
-                | Nothing => unifyWithEta mode fc env x y
-           unifyWithEta mode fc env valx' y
-  unifyExpandApps mode fc env x y@(VMeta _ _ _ _ _ valy)
-      = do Just valy' <- valy
-                | Nothing => unifyWithEta mode fc env x y
-           unifyWithEta mode fc env x valy'
-  unifyExpandApps mode fc env valx valy
-      = unifyWithEta mode fc env valx valy
+  -- Otherwise, make sure the top level thing is expanded (so not a reducible
+  -- VApp or VMeta node) then move on
+  unifyExpandApps mode fc env x y
+      = do x' <- expand x
+           y' <- expand y
+           unifyWithEta mode fc env x' y'
 
   unifyVal : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
