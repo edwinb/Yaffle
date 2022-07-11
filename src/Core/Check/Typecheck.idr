@@ -228,3 +228,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = do let n = UN (mkUserName str)
            (idx, meta) <- newMeta fc rig env n exp (Hole (length env))
            pure meta
+  check rig env (RImplicit fc) exp
+      = do n <- genName "_"
+           (idx, meta) <- newMeta fc rig env n exp (Hole (length env))
+           pure meta

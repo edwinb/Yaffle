@@ -1,0 +1,21 @@
+data Nat : Type where {
+   Z : Nat
+ | S : pi k : Nat . Nat
+}
+
+plus : pi x : Nat . pi y : Nat . Nat;
+plus = lam x. lam y . 
+           case x of
+              Z => y
+            | S k => S (plus k y);
+
+intToNat : pi x : Integer . Nat;
+intToNat = lam x . case x of
+                        0 => Z
+                      | _ => S (intToNat (prim__sub_Integer x 1));
+
+data Vect : pi n : Nat . pi a : Type . Type where {
+     Nil : pi a : Type . Vect Z a
+   | Cons : pi a : Type . pi k : Nat .
+            pi x : a . pi xs : Vect k a . Vect (S k) a
+}

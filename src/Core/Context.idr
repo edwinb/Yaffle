@@ -234,6 +234,169 @@ parameters {auto c : Ref Ctxt Defs}
       = do defs <- get Ctxt
            resolved (gamma defs) t
 
+  -- Set the default namespace for new definitions
+  export
+  setNS : Namespace -> Core ()
+  setNS ns = update Ctxt { currentNS := ns }
+
+  -- Set the nested namespaces we're allowed to look inside
+  export
+  setNestedNS : List Namespace -> Core ()
+  setNestedNS ns = update Ctxt { nestedNS := ns }
+
+  -- Get the default namespace for new definitions
+  export
+  getNS : Core Namespace
+  getNS
+      = do defs <- get Ctxt
+           pure (currentNS defs)
+
+  -- Get the nested namespaces we're allowed to look inside
+  export
+  getNestedNS : Core (List Namespace)
+  getNestedNS
+      = do defs <- get Ctxt
+           pure (nestedNS defs)
+
+  -- Add the module name, and namespace, of an imported module
+  -- (i.e. for "import X as Y", it's (X, Y)
+  -- "import public X" is, when rexported, the same as
+  -- "import X as [current namespace]")
+  export
+  addImported : (ModuleIdent, Bool, Namespace) -> Core ()
+  addImported mod = update Ctxt { imported $= (mod ::) }
+
+  export
+  getImported : Core (List (ModuleIdent, Bool, Namespace))
+  getImported
+      = do defs <- get Ctxt
+           pure (imported defs)
+
+  export
+  addDirective : String -> String -> Core ()
+  addDirective c str
+      = do defs <- get Ctxt
+           case getCG (options defs) c of
+                Nothing => -- warn, rather than fail, because the CG may exist
+                           -- but be unknown to this particular instance
+                           coreLift $ putStrLn $ "Unknown code generator " ++ c
+                Just cg => put Ctxt ({ cgdirectives $= ((cg, str) ::) } defs)
+
+  export
+  getDirectives : CG -> Core (List String)
+  getDirectives cg
+      = do defs <- get Ctxt
+           pure $ defs.options.session.directives ++
+                   mapMaybe getDir (cgdirectives defs)
+    where
+      getDir : (CG, String) -> Maybe String
+      getDir (x', str) = if cg == x' then Just str else Nothing
+
+  export
+  getNextTypeTag : Core Int
+  getNextTypeTag
+      = do defs <- get Ctxt
+           put Ctxt ({ nextTag $= (+1) } defs)
+           pure (nextTag defs)
+
+  -- Add a new nested namespace to the current namespace for new definitions
+  -- e.g. extendNS ["Data"] when namespace is "Prelude.List" leads to
+  -- current namespace of "Prelude.List.Data"
+  -- Inner namespaces go first, for ease of name lookup
+  export
+  extendNS : Namespace -> Core ()
+  extendNS ns = update Ctxt { currentNS $= (<.> ns) }
+
+  export
+  withExtendedNS : Namespace -> Core a -> Core a
+  withExtendedNS ns act
+      = do defs <- get Ctxt
+           let cns = currentNS defs
+           put Ctxt ({ currentNS := cns <.> ns } defs)
+           ma <- catch (Right <$> act) (pure . Left)
+           defs <- get Ctxt
+           put Ctxt ({ currentNS := cns } defs)
+           case ma of
+             Left err => throw err
+             Right a  => pure a
+
+  -- Get the name as it would be defined in the current namespace
+  -- i.e. if it doesn't have an explicit namespace already, add it,
+  -- otherwise leave it alone
+  export
+  inCurrentNS : Name -> Core Name
+  inCurrentNS (UN n)
+      = do defs <- get Ctxt
+           pure (NS (currentNS defs) (UN n))
+  inCurrentNS n@(WithBlock _ _)
+      = do defs <- get Ctxt
+           pure (NS (currentNS defs) n)
+  inCurrentNS n@(Nested _ _)
+      = do defs <- get Ctxt
+           pure (NS (currentNS defs) n)
+  inCurrentNS n@(MN _ _)
+      = do defs <- get Ctxt
+           pure (NS (currentNS defs) n)
+  inCurrentNS n@(DN _ _)
+      = do defs <- get Ctxt
+           pure (NS (currentNS defs) n)
+  inCurrentNS n = pure n
+
+  export
+  setVisible : Namespace -> Core ()
+  setVisible nspace = update Ctxt { gamma->visibleNS $= (nspace ::) }
+
+  export
+  getVisible : Core (List Namespace)
+  getVisible
+      = do defs <- get Ctxt
+           pure (visibleNS (gamma defs))
+
+  -- Return True if the given namespace is visible in the context (meaning
+  -- the namespace itself, and any namespace it's nested inside)
+  export
+  isVisible : Namespace -> Core Bool
+  isVisible nspace
+      = do defs <- get Ctxt
+           pure (any visible (allParents (currentNS defs) ++
+                              nestedNS defs ++
+                              visibleNS (gamma defs)))
+
+    where
+      -- Visible if any visible namespace is a parent of the namespace we're
+      -- asking about
+      visible : Namespace -> Bool
+      visible visns = isParentOf visns nspace
+
+  -- Get the next entry id in the context (this is for recording where to go
+  -- back to when backtracking in the elaborator)
+  export
+  getNextEntry : Core Int
+  getNextEntry
+      = do defs <- get Ctxt
+           pure (nextEntry (gamma defs))
+
+  export
+  setNextEntry : Int -> Core ()
+  setNextEntry i = update Ctxt { gamma->nextEntry := i }
+
+  -- Set the 'first entry' index (i.e. the first entry in the current file)
+  -- to the place we currently are in the context
+  export
+  resetFirstEntry : Core ()
+  resetFirstEntry
+      = do defs <- get Ctxt
+           put Ctxt ({ gamma->firstEntry := nextEntry (gamma defs) } defs)
+
+  export
+  getFullName : Name -> Core Name
+  getFullName (Resolved i)
+      = do defs <- get Ctxt
+           Just gdef <- lookupCtxtExact (Resolved i) (gamma defs)
+                | Nothing => pure (Resolved i)
+           pure (fullname gdef)
+  getFullName n = pure n
+
 reducibleIn : Namespace -> Name -> Visibility -> Bool
 reducibleIn nspace (NS ns (UN n)) Export = isParentOf ns nspace
 reducibleIn nspace (NS ns (UN n)) Private = isParentOf ns nspace

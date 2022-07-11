@@ -254,6 +254,20 @@ record Defs where
      -- ^ all imported filenames/namespaces, just to avoid loading something
      -- twice unnecessarily (this is a record of all the things we've
      -- called 'readFromTTC' with, in practice)
+  cgdirectives : List (CG, String)
+     -- ^ Code generator directives, which are free form text and thus to
+     -- be interpreted however the specific code generator requires
+  toCompileCase : List Name
+     -- ^ Names which need to be compiled to run time case trees
+  incData : List (CG, String, List String)
+     -- ^ What we've compiled incrementally for this module: codegen,
+     -- object file, any additional CG dependent data (e.g. linker flags)
+  allIncData : List (CG, List String, List String)
+     -- ^ Incrementally compiled files for all imports. Only lists CGs for
+     -- while all modules have associated incremental compile data
+  toIR : NameMap ()
+     -- ^ Names which need to be compiled to IR at the end of processing
+     -- the current module
   userHoles : NameMap Bool
      -- ^ Metavariables the user still has to fill in. In practice, that's
      -- everything with a user accessible name and a definition of Hole.

@@ -25,6 +25,7 @@ data RawC : Type where
      RLam : FC -> Name -> (scope : RawC) -> RawC
      RCase : FC -> RigCount -> (sc : RawI) -> List RawCaseAlt -> RawC
      RMeta : FC -> String -> RawC
+     RImplicit : FC -> RawC
 
 public export
 data RawCaseAlt : Type where
@@ -52,6 +53,7 @@ data Command : Type where
      Decl : RawDecl -> Command
      Eval : RawI -> Command
      HNF : RawI -> Command
+     Check : RawI -> Command
      Unify : RawI -> RawI -> Command
      Logging : LogLevel -> Command
      Quit : Command
@@ -96,6 +98,7 @@ mutual -- grr
           "(case " ++ show sc ++ " of " ++
               showSep " | " (map show alts) ++ ")"
     show (RMeta fc str) = "?" ++ str
+    show (RImplicit fc) = "_"
 
   export
   Show RawCaseAlt where
@@ -130,6 +133,7 @@ Show Command where
   show (Decl d) = "Decl " ++ show d
   show (Eval e) = "Eval " ++ show e
   show (HNF e) = "hnf " ++ show e
+  show (Check e) = "type " ++ show e
   show (Unify x y) = "unify " ++ show x ++ " " ++ show y
   show (Logging i) = "logging " ++ show i
   show Quit = "quit"

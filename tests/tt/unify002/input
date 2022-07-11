@@ -1,0 +1,3 @@
+Cons _ _ 5 (Nil _)
+:t Cons _ _ 5 (Nil _)
+:q

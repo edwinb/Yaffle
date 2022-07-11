@@ -39,6 +39,7 @@ schVarName (UN n) = "u--" ++ schVarUN n
 schVarName (MN n i) = schString n ++ "-" ++ show i
 schVarName (PV n d) = "pat--" ++ schVarName n
 schVarName (DN _ n) = schVarName n
+schVarName (Nested (i, x) n) = "n--" ++ show i ++ "-" ++ show x ++ "-" ++ schVarName n
 schVarName (WithBlock x y) = "with--" ++ schString x ++ "-" ++ show y
 schVarName (Resolved i) = "fn--" ++ show i
 

@@ -399,6 +399,11 @@ initDefs
            , importHashes = []
            , imported = []
            , allImported = []
+           , cgdirectives = []
+           , toCompileCase = []
+           , incData = []
+           , allIncData = []
+           , toIR = empty
            , userHoles = empty
            , schemeEvalLoaded = False
            }

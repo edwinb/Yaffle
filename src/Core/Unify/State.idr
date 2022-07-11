@@ -206,6 +206,44 @@ mkConstantAppArgs {done} {vars = xs :< x} lets fc (env :< b) wkns
              else rewrite sym $ appendAssociative (done ++ xs) [<x] wkns in rec
 
 parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
+  export
+  resetNextVar : Core ()
+  resetNextVar = update UST { nextName := 0 }
+
+  -- Generate a global name based on the given root, in the current namespace
+  export
+  genName : String -> Core Name
+  genName str
+      = do ust <- get UST
+           put UST ({ nextName $= (+1) } ust)
+           n <- inCurrentNS (MN str (nextName ust))
+           pure n
+
+  -- Generate a global name based on the given name, in the current namespace
+  export
+  genMVName : Name -> Core Name
+  genMVName (UN str) = genName (displayUserName str)
+  genMVName (MN str _) = genName str
+  genMVName n
+      = do ust <- get UST
+           put UST ({ nextName $= (+1) } ust)
+           mn <- inCurrentNS (MN (show n) (nextName ust))
+           pure mn
+
+  -- Generate a unique variable name based on the given root
+  export
+  genVarName : String -> Core Name
+  genVarName str
+      = do ust <- get UST
+           put UST ({ nextName $= (+1) } ust)
+           pure (MN str (nextName ust))
+
+  export
+  genWithName : String -> Core Name
+  genWithName root
+      = do ust <- get UST
+           put UST ({ nextName $= (+1) } ust)
+           inCurrentNS (WithBlock root (nextName ust))
 
   addHoleName : FC -> Name -> Int -> Core ()
   addHoleName fc n i = update UST { holes $= insert i (fc, n),

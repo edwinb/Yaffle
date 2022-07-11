@@ -33,7 +33,7 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
-* Implement main part of unification
+* Implement the rest of the unification rules
 * Unification details:
   - Inlining things with linear quantities in the context
   - Eta

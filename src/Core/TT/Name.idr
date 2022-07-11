@@ -34,6 +34,7 @@ data Name : Type where
      MN : String -> Int -> Name -- machine generated name
      PV : Name -> Int -> Name -- pattern variable name; int is the resolved function id
      DN : String -> Name -> Name -- a name and how to display it
+     Nested : (Int, Int) -> Name -> Name -- nested function name
      WithBlock : String -> Int -> Name -- with block nested in (resolved) name
      Resolved : Int -> Name -- resolved, index into context
 
@@ -121,6 +122,7 @@ isSourceName (MN _ _) = False
 isSourceName (PV n _) = isSourceName n
 isSourceName (DN _ n) = isSourceName n
 isSourceName (WithBlock _ _) = False
+isSourceName (Nested _ n) = isSourceName n
 isSourceName (Resolved _) = False
 
 export
@@ -153,6 +155,7 @@ nameRoot (UN n) = displayUserName n
 nameRoot (MN n _) = n
 nameRoot (PV n _) = nameRoot n
 nameRoot (DN _ n) = nameRoot n
+nameRoot (Nested _ inner) = nameRoot inner
 nameRoot (WithBlock n _) = "$" ++ show n
 nameRoot (Resolved i) = "$" ++ show i
 
@@ -163,6 +166,7 @@ displayName (UN n) = (Nothing, displayUserName n)
 displayName (MN n _) = (Nothing, n)
 displayName (PV n _) = displayName n
 displayName (DN n _) = (Nothing, n)
+displayName (Nested _ n) = displayName n
 displayName (WithBlock outer _) = (Nothing, "with block in " ++ show outer)
 displayName (Resolved i) = (Nothing, "$resolved" ++ show i)
 
@@ -215,25 +219,62 @@ Show Name where
   show (MN x y) = "{" ++ x ++ ":" ++ show y ++ "}"
   show (PV n d) = "{P:" ++ show n ++ ":" ++ show d ++ "}"
   show (DN str n) = str
+  show (Nested (outer, idx) inner)
+      = show outer ++ ":" ++ show idx ++ ":" ++ show inner
   show (WithBlock outer i) = "with block in " ++ outer
   show (Resolved x) = "$resolved" ++ show x
 
 export
-Pretty ann UserName where
-  pretty (Basic n) = pretty0 n
-  pretty (Field n) = "." <+> pretty0 n
+[RawUN] Show UserName where
+  showPrec d (Basic n) = showCon d "Basic " n
+  showPrec d (Field n) = showCon d "Field " n
+  showPrec d Underscore = "Underscore"
+
+export
+covering
+[Raw] Show Name where
+  showPrec d (NS ns n) = showCon d "NS" $ showArg ns ++ showArg n
+  showPrec d (UN x) = showCon d "UN" $ showArg @{RawUN} x
+  showPrec d (MN x y) = showCon d "MN" $ showArg x ++ showArg y
+  showPrec d (PV n i) = showCon d "PV" $ showArg n ++ showArg i
+  showPrec d (DN str n) = showCon d "DN" $ showArg str ++ showArg n
+  showPrec d (Nested ij n) = showCon d "Nested" $ showArg ij ++ showArg n
+  showPrec d (WithBlock str i) = showCon d "WithBlock" $ showArg str ++ showArg i
+  showPrec d (Resolved i) = showCon d "Resolved" $ showArg i
+
+export
+Pretty Void UserName where
+  pretty (Basic n) = pretty n
+  pretty (Field n) = "." <+> pretty n
   pretty Underscore = "_"
 
 export
-Pretty ann Name where
-  pretty (NS ns n@(UN (Field _))) = pretty ns <+> dot <+> parens (pretty n)
-  pretty (NS ns n) = pretty ns <+> dot <+> pretty n
-  pretty (UN x) = pretty x
-  pretty (MN x y) = braces (pretty0 x <+> colon <+> pretty0 (show y))
-  pretty (PV n d) = braces (pretty0 'P' <+> colon <+> pretty n <+> colon <+> pretty0 (show d))
-  pretty (DN str _) = pretty0 str
-  pretty (WithBlock outer _) = reflow "with block in" <++> pretty0 outer
-  pretty (Resolved x) = pretty0 "$resolved" <+> pretty0 (show x)
+||| Will it be an operation once prettily displayed?
+||| The first boolean states whether the operator is prefixed.
+isPrettyOp : Bool -> Name -> Bool
+isPrettyOp b (UN nm@(Field _)) = b -- prefixed fields need to be parenthesised
+isPrettyOp b (UN nm@(Basic _)) = isOpUserName nm
+isPrettyOp b (DN str _) = isOpUserName (Basic str)
+isPrettyOp b nm = False
+
+mutual
+  export
+  covering
+  prettyOp : Bool -> Name -> Doc Void
+  prettyOp b nm = parenthesise (isPrettyOp b nm) (pretty nm)
+
+  export
+  covering
+  Pretty Void Name where
+    pretty (NS ns n) = pretty ns <+> dot <+> prettyOp True n
+    pretty (UN x) = pretty x
+    pretty (MN x y) = braces (pretty x <+> colon <+> byShow y)
+    pretty (PV n d) = braces (pretty 'P' <+> colon <+> pretty n <+> colon <+> byShow d)
+    pretty (DN str _) = pretty str
+    pretty (Nested (outer, idx) inner)
+      = byShow outer <+> colon <+> byShow idx <+> colon <+> pretty inner
+    pretty (WithBlock outer _) = reflow "with block in" <++> pretty outer
+    pretty (Resolved x) = pretty "$resolved" <+> pretty (show x)
 
 export
 Eq UserName where
@@ -250,6 +291,7 @@ Eq Name where
     (==) (MN x y) (MN x' y') = y == y' && x == x'
     (==) (PV x y) (PV x' y') = x == x' && y == y'
     (==) (DN _ n) (DN _ n') = n == n'
+    (==) (Nested x y) (Nested x' y') = x == x' && y == y'
     (==) (WithBlock x y) (WithBlock x' y') = y == y' && x == x'
     (==) (Resolved x) (Resolved x') = x == x'
     (==) _ _ = False
@@ -272,8 +314,9 @@ nameTag (UN _) = 1
 nameTag (MN _ _) = 2
 nameTag (PV _ _) = 3
 nameTag (DN _ _) = 4
-nameTag (WithBlock _ _) = 5
-nameTag (Resolved _) = 6
+nameTag (Nested _ _) = 5
+nameTag (WithBlock _ _) = 6
+nameTag (Resolved _) = 7
 
 export
 Ord Name where
@@ -296,6 +339,11 @@ Ord Name where
                GT => GT
                LT => LT
     compare (DN _ n) (DN _ n') = compare n n'
+    compare (Nested x y) (Nested x' y')
+        = case compare y y' of
+               EQ => compare x x'
+               GT => GT
+               LT => LT
     compare (WithBlock x y) (WithBlock x' y')
         = case compare y y' of
                EQ => compare x x'
@@ -341,6 +389,11 @@ nameEq (DN x t) (DN y t') with (decEq x y)
     nameEq (DN y t) (DN y t) | (Yes Refl) | (Just Refl) = Just Refl
     nameEq (DN y t) (DN y t') | (Yes Refl) | Nothing = Nothing
   nameEq (DN x t) (DN y t') | (No p) = Nothing
+nameEq (Nested x y) (Nested x' y') with (decEq x x')
+  nameEq (Nested x y) (Nested x' y') | (No p) = Nothing
+  nameEq (Nested x y) (Nested x y') | (Yes Refl) with (nameEq y y')
+    nameEq (Nested x y) (Nested x y') | (Yes Refl) | Nothing = Nothing
+    nameEq (Nested x y) (Nested x y) | (Yes Refl) | (Just Refl) = Just Refl
 nameEq (WithBlock x y) (WithBlock x' y') with (decEq x x')
   nameEq (WithBlock x y) (WithBlock x' y') | (No p) = Nothing
   nameEq (WithBlock x y) (WithBlock x y') | (Yes Refl) with (decEq y y')

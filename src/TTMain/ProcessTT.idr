@@ -25,6 +25,13 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            coreLift $ putStrLn $ show !(toFullNames tmnf) ++ " : "
                                      ++ show !(toFullNames ty)
 
+  processCheck : RawI -> Core ()
+  processCheck rawtm
+      = do (tm, ty) <- infer linear [<] rawtm
+           tynf <- normalise [<] tm
+           coreLift $ putStrLn $ show !(toFullNames tm) ++ " : "
+                                     ++ show !(toFullNames tynf)
+
   processUnify : RawI -> RawI -> Core ()
   processUnify rawx rawy
       = do (tmx, tyx) <- infer linear [<] rawx
@@ -44,6 +51,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   processCommand (Decl d) = processDecl d
   processCommand (Eval tm) = processEval tm
   processCommand (HNF tm) = processHNF tm
+  processCommand (Check tm) = processCheck tm
   processCommand (Unify x y) = processUnify x y
   processCommand (Logging x) = processLogging x
   processCommand Quit = pure ()

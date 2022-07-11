@@ -161,6 +161,10 @@ simpleRawc fname
          end <- location
          pure (RMeta (MkFC fname start end) n)
   <|> do start <- location
+         symbol "_"
+         end <- location
+         pure (RImplicit (MkFC fname start end))
+  <|> do start <- location
          i <- simpleRawi fname -- This breaks the totality checking of the parser!
                          -- I haven't worked out why...
          end <- location
@@ -255,6 +259,11 @@ command fname
          tm <- rawi fname
          symbol ";"
          pure (HNF tm)
+  <|> do symbol ":"
+         (exactIdent "t" <|> exactIdent "type")
+         tm <- rawi fname
+         symbol ";"
+         pure (Check tm)
   <|> do symbol ":"
          exactIdent "unify"
          x <- simpleRawi fname

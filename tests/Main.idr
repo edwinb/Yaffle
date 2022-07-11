@@ -16,7 +16,7 @@ ttTests = MkTestPool "TT" [] Nothing
      [ "basic001", "basic002", "basic003", "basic004",
        "linear001", "linear002", "linear003",
        "relevance001",
-       "unify001" ]
+       "unify001", "unify002" ]
 
 main : IO ()
 main

@@ -14,8 +14,8 @@ Scheme UserName where
   toScheme (Field str) = Vector 5 [toScheme str]
   toScheme Underscore = Vector 6 []
 
-  fromScheme (Vector 5 [x]) = pure $ Field !(fromScheme x)
-  fromScheme (Vector 6 []) = pure Underscore
+  fromScheme (Vector 6 [x]) = pure $ Field !(fromScheme x)
+  fromScheme (Vector 7 []) = pure Underscore
   fromScheme (StringVal x) = pure (Basic x)
   fromScheme _ = Nothing
 
@@ -26,7 +26,8 @@ Scheme Name where
   toScheme (MN x y) = Vector 1 [toScheme x, toScheme y]
   toScheme (PV x y) = Vector 2 [toScheme x, toScheme y]
   toScheme (DN x y) = Vector 3 [toScheme x, toScheme y]
-  toScheme (WithBlock x y) = Vector 4 [toScheme x, toScheme y]
+  toScheme (Nested x y) = Vector 4 [toScheme x, toScheme y]
+  toScheme (WithBlock x y) = Vector 5 [toScheme x, toScheme y]
   toScheme (Resolved x) = toScheme x -- we'll see this most often
 
   fromScheme (Vector 0 [x, y])
@@ -38,10 +39,12 @@ Scheme Name where
   fromScheme (Vector 3 [x, y])
       = pure $ DN !(fromScheme x) !(fromScheme y)
   fromScheme (Vector 4 [x, y])
-      = pure $ WithBlock !(fromScheme x) !(fromScheme y)
+      = pure $ Nested !(fromScheme x) !(fromScheme y)
   fromScheme (Vector 5 [x, y])
+      = pure $ WithBlock !(fromScheme x) !(fromScheme y)
+  fromScheme (Vector 6 [x, y])
       = pure $ UN (Field !(fromScheme x))
-  fromScheme (Vector 6 [])
+  fromScheme (Vector 7 [])
       = pure $ UN Underscore
   fromScheme (IntegerVal x)
       = pure $ Resolved (cast x)

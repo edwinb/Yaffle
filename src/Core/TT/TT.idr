@@ -642,7 +642,7 @@ Show PartialReason where
       = "possibly not terminating due to recursive path " ++ showSep " -> " (map show ns)
 
 export
-Pretty ann PartialReason where
+Pretty Void PartialReason where
   pretty NotStrictlyPositive = reflow "not strictly positive"
   pretty (BadCall [n])
     = reflow "possibly not terminating due to call to" <++> pretty n
@@ -664,7 +664,7 @@ Show Terminating where
   show (NotTerminating p) = show p
 
 export
-Pretty ann Terminating where
+Pretty Void Terminating where
   pretty Unchecked = reflow "not yet checked"
   pretty IsTerminating = pretty0 "terminating"
   pretty (NotTerminating p) = pretty p
@@ -685,7 +685,7 @@ Show Covering where
      = "not covering due to calls to functions " ++ showSep ", " (map show cs)
 
 export
-Pretty ann Covering where
+Pretty Void Covering where
   pretty IsCovering = pretty0 "covering"
   pretty (MissingCases c) = reflow "not covering all cases"
   pretty (NonCoveringCall [f])
@@ -715,7 +715,7 @@ Show Totality where
       showTot t c = show c ++ "; " ++ show t
 
 export
-Pretty ann Totality where
+Pretty Void Totality where
   pretty (MkTotality IsTerminating IsCovering) = pretty0 "total"
   pretty (MkTotality IsTerminating c) = pretty c
   pretty (MkTotality t IsCovering) = pretty t
