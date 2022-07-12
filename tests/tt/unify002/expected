@@ -1,5 +1,5 @@
 Yaffle> (Cons Integer Z 5 (Nil Integer)) : (Vect (S ?Main.{_:1}_[]) ?Main.{_:0}_[])
 TIMING : 0.000s
-Yaffle> (Cons ?Main.{_:3}_[] ?Main.{_:4}_[] 5 (Nil ?Main.{_:5}_[])) : (Cons Integer Z 5 (Nil Integer))
+Yaffle> (Cons ?Main.{_:3}_[] ?Main.{_:4}_[] 5 (Nil ?Main.{_:5}_[])) : (Vect (S Z) Integer)
 TIMING : 0.000s
 Yaffle> Bye for now!
