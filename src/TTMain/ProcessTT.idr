@@ -27,8 +27,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
 
   processCheck : RawI -> Core ()
   processCheck rawtm
-      = do (tm, ty) <- infer linear [<] rawtm
-           tynf <- normalise [<] tm
+      = do (tm, ty) <- infer erased [<] rawtm
+           tynf <- normalise [<] ty
            coreLift $ putStrLn $ show !(toFullNames tm) ++ " : "
                                      ++ show !(toFullNames tynf)
 

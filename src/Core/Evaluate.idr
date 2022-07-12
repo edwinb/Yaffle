@@ -1,6 +1,7 @@
 module Core.Evaluate
 
 import Core.Context
+import Core.Context.Log
 import Core.Env
 import Core.Error
 import public Core.Evaluate.Convert
@@ -158,3 +159,46 @@ parameters {auto c : Ref Ctxt Defs}
         (orig : Value vars) -> (new : Term vars) -> (tm : Value vars) ->
         Core (Term vars)
   replace = replace' 0
+
+  -- Log message with a term, reducing holes and translating back to human
+  -- readable names first
+  export
+  logTermNF' : {vars : _} ->
+               (s : String) ->
+               {auto 0 _ : KnownTopic s} ->
+               Nat -> Lazy String -> Env Term vars -> Term vars -> Core ()
+  logTermNF' str n msg env tm
+      = do defs <- get Ctxt
+           tmnf <- normalise env tm
+           tm' <- toFullNames tmnf
+           logString str n (msg ++ ": " ++ show tm')
+
+  export
+  logTermNF : {vars : _} ->
+              (s : String) ->
+              {auto 0 _ : KnownTopic s} ->
+              Nat -> Lazy String -> Env Term vars -> Term vars -> Core ()
+  logTermNF str n msg env tm
+      = when !(logging str n) $ logTermNF' str n msg env tm
+
+  export
+  logEnv : {vars : _} ->
+           (s : String) ->
+           {auto 0 _ : KnownTopic s} ->
+           Nat -> String -> Env Term vars -> Core ()
+  logEnv str n msg env
+      = when !(logging str n) $
+          do logString str n msg
+             dumpEnv env
+    where
+      dumpEnv : {vs : SnocList Name} -> Env Term vs -> Core ()
+      dumpEnv [<] = pure ()
+      dumpEnv {vs = _ :< x} (bs :< Let _ c val ty)
+          = do logTermNF' str n (msg ++ ": let " ++ show x) bs val
+               logTermNF' str n (msg ++ ":" ++ show c ++ " " ++ show x) bs ty
+               dumpEnv bs
+      dumpEnv {vs = _ :< x} (bs :< b)
+          = do logTermNF' str n (msg ++ ":" ++ show (multiplicity b) ++ " " ++
+                             show (piInfo b) ++ " " ++
+                             show x) bs (binderType b)
+               dumpEnv bs
