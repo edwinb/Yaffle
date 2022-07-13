@@ -532,6 +532,10 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                   (VBind fcx nx bx scx)
                   (VBind fcy ny by scy)
 
+  isHoleApp : Value vars -> Bool
+  isHoleApp (VMeta{}) = True
+  isHoleApp _ = False
+
   -- At this point, we know that 'VApp' and 'VMeta' don't reduce further
   unifyWithEta : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
@@ -555,7 +559,37 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                                (refsToLocals (Add nx x' None) tmx)
                                (refsToLocals (Add nx x' None) tmy)
                   pure (union ct cs')
-  -- TODO: eta rules
+  -- Eta rules
+  unifyWithEta mode fc env tmx@(VLam fcx x cx ix tx scx) tmy
+        = do logNF "unify" 10 "EtaR" env tmx
+             logNF "unify" 10 "...with" env tmy
+             if isHoleApp tmy
+                then if not !(convert env tmx tmy)
+                        then unifyNoEta (lower mode) fc env tmx tmy
+                        else pure success
+                else do domty <- quote env tx
+                        etay <- nf env
+                                  $ Bind fcx x (Lam fcx cx Explicit domty)
+                                  $ App fcx (weaken !(quote env tmy))
+                                            cx
+                                            (Local fcx Nothing 0 First)
+                        logNF "unify" 10 "Expand" env etay
+                        unify (lower mode) fc env tmx etay
+  unifyWithEta mode fc env tmx tmy@(VLam fcy y cy iy ty scy)
+        = do logNF "unify" 10 "EtaR" env tmx
+             logNF "unify" 10 "...with" env tmy
+             if isHoleApp tmy
+                then if not !(convert env tmx tmy)
+                        then unifyNoEta (lower mode) fc env tmx tmy
+                        else pure success
+                else do domty <- quote env ty
+                        etax <- nf env
+                                  $ Bind fcy y (Lam fcy cy Explicit domty)
+                                  $ App fcy (weaken !(quote env tmx))
+                                            cy
+                                            (Local fcy Nothing 0 First)
+                        logNF "unify" 10 "Expand" env etax
+                        unify (lower mode) fc env etax tmy
   unifyWithEta mode fc env x y
       = unifyNoEta mode fc env x y
 

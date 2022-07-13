@@ -1,0 +1,4 @@
+data Nat : Type where {
+   Z : Nat
+ | S : pi k : Nat . Nat
+}
