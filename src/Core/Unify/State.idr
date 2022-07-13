@@ -335,3 +335,30 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   removeHoleName n
       = do defs <- get Ctxt
            whenJust (getNameID n defs.gamma) removeHole
+
+  export
+  tryErrorUnify : Core a -> Core (Either Error a)
+  tryErrorUnify elab
+      = do ust <- get UST
+           defs <- branch
+           catch (do res <- elab
+                     commit
+                     pure (Right res))
+                 (\err => do put UST ust
+                             defs' <- get Ctxt
+                             put Ctxt defs
+                             pure (Left err))
+
+  export
+  tryUnify : Core a -> Core a -> Core a
+  tryUnify elab1 elab2
+      = do Right ok <- tryErrorUnify elab1
+                 | Left err => elab2
+           pure ok
+
+  export
+  handleUnify : Core a -> (Error -> Core a) -> Core a
+  handleUnify elab1 elab2
+      = do Right ok <- tryErrorUnify elab1
+                 | Left err => elab2 err
+           pure ok

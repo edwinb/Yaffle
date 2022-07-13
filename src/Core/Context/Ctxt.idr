@@ -279,9 +279,11 @@ hideName n ctxt = { hidden $= insert n () } ctxt
 unhideName : Name -> Context -> Context
 unhideName n ctxt = { hidden $= delete n } ctxt
 
+export
 branchCtxt : Context -> Core Context
 branchCtxt ctxt = pure ({ branchDepth $= S } ctxt)
 
+export
 commitCtxt : Context -> Core Context
 commitCtxt ctxt
     = case branchDepth ctxt of
@@ -500,6 +502,38 @@ parameters {auto c : Ref Ctxt Defs}
                | _ => pure () -- Don't add the alias if the name exists already
            gam' <- newAlias alias full (gamma defs)
            put Ctxt ({ gamma := gam' } defs)
+
+  export
+  setCtxt : Context -> Core ()
+  setCtxt gam = update Ctxt { gamma := gam }
+
+  -- Call this before trying alternative elaborations, so that updates to the
+  -- context are put in the staging area rather than writing over the mutable
+  -- array of definitions.
+  -- Returns the old context (the one we'll go back to if the branch fails)
+  export
+  branch : Core Defs
+  branch
+    = do ctxt <- get Ctxt
+         gam' <- branchCtxt (gamma ctxt)
+         setCtxt gam'
+         pure ctxt
+
+  -- Call this after trying an elaboration to commit any changes to the mutable
+  -- array of definitions once we know they're correct. Only actually commits
+  -- when we're right back at the top level
+  export
+  commit : Core ()
+  commit
+    = do defs <- get Ctxt
+         gam' <- commitCtxt (gamma defs)
+         setCtxt gam'
+
+  export
+  depth : Core Nat
+  depth
+    = do defs <- get Ctxt
+         pure (branchDepth (gamma defs))
 
 export
 defNameType : Def -> Maybe NameType

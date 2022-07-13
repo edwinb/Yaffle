@@ -180,6 +180,91 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   spineToValues : Spine vars -> List (Value vars)
   spineToValues sp = toList (map third sp)
 
+  headsConvert : {vars : _} ->
+                 UnifyInfo ->
+                 FC -> Env Term vars ->
+                 Maybe (SnocList (Value vars)) -> Maybe (SnocList (Value vars)) ->
+                 Core Bool
+  headsConvert mode fc env (Just vs) (Just ns)
+      = case (vs, ns) of
+             (_ :< v, _ :< n) =>
+                do logNF "unify.head" 10 "Unifying head" env v
+                   logNF "unify.head" 10 ".........with" env n
+                   res <- unify mode fc env v n
+                   -- If there's constraints, we postpone the whole equation
+                   -- so no need to record them
+                   pure (isNil (constraints res))
+             _ => pure False
+  headsConvert mode fc env _ _
+      = do log "unify.head" 10 "Nothing to convert"
+           pure True
+
+  getArgTypes : {vars : _} ->
+                (fnType : Value vars) -> SnocList (Value vars) ->
+                Core (Maybe (SnocList (Value vars)))
+  getArgTypes (VBind _ n (Pi _ _ _ ty) sc) (as :< a)
+     = do Just scTys <- getArgTypes !(expand !(sc a)) as
+               | Nothing => pure Nothing
+          pure (Just (scTys :< ty))
+  getArgTypes _ [<] = pure (Just [<])
+  getArgTypes _ _ = pure Nothing
+
+  unifyInvertible : {vars : _} ->
+                    (swaporder : Bool) ->
+                    UnifyInfo -> FC -> Env Term vars ->
+                    (metaname : Name) -> (metaref : Int) ->
+                    (args : List (RigCount, Value vars)) ->
+                    (sp : Spine vars) ->
+                    Maybe (Term [<]) ->
+                    (Spine vars -> Value vars) ->
+                    Spine vars ->
+                    Core UnifyResult
+  unifyInvertible swap mode fc env mname mref args sp nty con args'
+      = do defs <- get Ctxt
+           -- Get the types of the arguments to ensure that the rightmost
+           -- argument types match up
+           Just vty <- lookupTyExact (Resolved mref) (gamma defs)
+                | Nothing => ufail fc ("No such metavariable " ++ show mname)
+           vargTys <- getArgTypes !(expand !(nf env (embed vty)))
+                                  (cast (map snd args) ++ map third sp) --  ++ sp)
+           nargTys <- maybe (pure Nothing)
+                            (\ty => getArgTypes !(expand !(nf env (embed ty)))
+                                                $ map third args')
+                            nty
+--            -- If the rightmost arguments have the same type, or we don't
+--            -- know the types of the arguments, we'll get on with it.
+           if !(headsConvert mode fc env vargTys nargTys)
+              then
+                -- Unify the rightmost arguments, with the goal of turning the
+                -- hole application into a pattern form
+                case (sp, args') of
+                     (hargs :< h, fargs :< f) =>
+                        tryUnify
+                          (if not swap then
+                              do ures <- unify mode fc env (third h) (third f)
+                                 log "unify.invertible" 10 $ "Constraints " ++ show (constraints ures)
+                                 uargs <- unify mode fc env
+                                                (VMeta fc mname mref args hargs (pure Nothing))
+                                                (con fargs)
+                                 pure (union ures uargs)
+                             else
+                              do log "unify.invertible" 10 "Unifying invertible"
+                                 ures <- unify mode fc env (third f) (third h)
+                                 log "unify.invertible" 10 $ "Constraints " ++ show (constraints ures)
+                                 uargs <- unify mode fc env
+                                                (con fargs)
+                                                (VMeta fc mname mref args hargs (pure Nothing))
+                                 pure (union ures uargs))
+                          (postponeS swap fc mode "Postponing hole application [1]" env
+                                (VMeta fc mname mref args sp (pure Nothing))
+                                (con args'))
+                     _ => postponeS swap fc mode "Postponing hole application [2]" env
+                                (VMeta fc mname mref args sp (pure Nothing))
+                                (con args')
+              else -- TODO: Cancellable function applications
+                   postpone fc mode "Postponing hole application [3]" env
+                            (VMeta fc mname mref args sp (pure Nothing)) (con args')
+
   -- Unify a hole application - we have already checked that the hole is
   -- invertible (i.e. it's a determining argument to a proof search where
   -- it is a constructor or something else invertible in each case)
@@ -191,6 +276,37 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                  (sp : Spine vars) ->
                  Value vars ->
                  Core UnifyResult
+  unifyHoleApp swap mode fc env mname mref args sp (VTCon nfc n a args')
+      = do defs <- get Ctxt
+           mty <- lookupTyExact n (gamma defs)
+           unifyInvertible swap (lower mode) fc env
+                           mname mref args sp mty (VTCon nfc n a) args'
+  unifyHoleApp swap mode fc env mname mref args sp (VDCon nfc n t a args')
+      = do defs <- get Ctxt
+           mty <- lookupTyExact n (gamma defs)
+           unifyInvertible swap (lower mode) fc env
+                           mname mref args sp mty (VDCon nfc n t a) args'
+  unifyHoleApp swap mode loc env mname mref args sp (VLocal nfc r idx p args')
+      = unifyInvertible swap (lower mode) loc env
+                        mname mref args sp Nothing (VLocal nfc r idx p) args'
+  unifyHoleApp swap mode fc env mname mref args sp tm@(VMeta nfc n i margs2 args2' val)
+      = do defs <- get Ctxt
+           Just mdef <- lookupCtxtExact (Resolved i) (gamma defs)
+                | Nothing => undefinedName nfc mname
+           let inv = isPatName n || invertible mdef
+           if inv
+              then unifyInvertible swap (lower mode) fc env
+                                   mname mref args sp Nothing
+                                   (\t => VMeta nfc n i margs2 t val) args2'
+              else postponeS swap fc mode "Postponing hole application" env
+                             (VMeta fc mname mref args sp (pure Nothing)) tm
+    where
+      isPatName : Name -> Bool
+      isPatName (PV _ _) = True
+      isPatName _ = False
+  unifyHoleApp swap mode fc env mname mref args sp tm
+      = postponeS swap fc mode "Postponing hole application" env
+                 (VMeta fc mname mref args sp (pure Nothing)) tm
 
   -- Solve a metavariable application (that is, the name applied the to
   -- args and spine) with the given solution.
@@ -439,7 +555,6 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                                (refsToLocals (Add nx x' None) tmx)
                                (refsToLocals (Add nx x' None) tmy)
                   pure (union ct cs')
-
   -- TODO: eta rules
   unifyWithEta mode fc env x y
       = unifyNoEta mode fc env x y

@@ -160,6 +160,18 @@ parameters {auto c : Ref Ctxt Defs}
         Core (Term vars)
   replace = replace' 0
 
+  -- Log message with a value, translating back to human readable names first
+  export
+  logNF : {vars : _} ->
+          (s : String) ->
+          {auto 0 _ : KnownTopic s} ->
+          Nat -> Lazy String -> Env Term vars -> Value vars -> Core ()
+  logNF str n msg env tmnf
+      = when !(logging str n) $
+          do tm <- quote env tmnf
+             tm' <- toFullNames tm
+             logString str n (msg ++ ": " ++ show tm')
+
   -- Log message with a term, reducing holes and translating back to human
   -- readable names first
   export
