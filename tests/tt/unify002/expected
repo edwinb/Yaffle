@@ -6,4 +6,8 @@ Yaffle> Success
 TIMING : 0.000s
 Yaffle> \(y : [__]) => y[0] : ((y : Nat) -> Nat)
 TIMING : 0.000s
+Yaffle> Success
+TIMING : 0.000s
+Yaffle> \(x : [__]) => x[0] : ((x : Nat) -> Nat)
+TIMING : 0.000s
 Yaffle> Bye for now!

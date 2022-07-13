@@ -423,6 +423,23 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   -- Pair of binders or lambdas
   unifyWithEta mode fc env (VBind fcx nx bx scx) (VBind fcy ny by scy)
       = unifyBothBinders mode fc env fcx nx bx scx fcy ny by scy
+  unifyWithEta mode fc env x@(VLam fcx nx cx ix tx scx) y@(VLam fcy ny cy iy ty scy)
+      = if cx /= cy
+          then convertError fc env x y
+          else do ct <- unify (lower mode) fc env tx ty
+                  x' <- genVarName "x"
+                  txtm <- quote env tx
+                  let env' : Env Term (_ :< nx)
+                           = env :< Lam fcx cx Explicit txtm
+                  tscx <- scx (mkArg fc x')
+                  tscy <- scy (mkArg fc x')
+                  tmx <- quote env tscx
+                  tmy <- quote env tscy
+                  cs' <- unify (lower mode) fc env'
+                               (refsToLocals (Add nx x' None) tmx)
+                               (refsToLocals (Add nx x' None) tmy)
+                  pure (union ct cs')
+
   -- TODO: eta rules
   unifyWithEta mode fc env x y
       = unifyNoEta mode fc env x y
