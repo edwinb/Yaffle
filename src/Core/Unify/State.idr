@@ -249,6 +249,9 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   addHoleName fc n i = update UST { holes $= insert i (fc, n),
                                     currentHoles $= insert i (fc, n) }
 
+  addGuessName : FC -> Name -> Int -> Core ()
+  addGuessName fc n i = update UST { guesses $= insert i (fc, n) }
+
   -- Create a new metavariable with the given name and return type,
   -- and return a term which is the metavariable applied to the environment
   -- (and which has the given type)
@@ -279,6 +282,38 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
             Env Term vars -> Name -> Term vars -> Def ->
             Core (Int, Term vars)
   newMeta fc r env n ty def = newMetaLets fc r env n ty def False
+
+  mkConstant : {vars : _} ->
+               FC -> Env Term vars -> Term vars -> Term [<]
+  mkConstant fc [<] tm = tm
+  mkConstant {vars = _ :< x} fc (env :< b) tm
+      = let ty = binderType b in
+            mkConstant fc env (Bind fc x (Lam fc (multiplicity b) Explicit ty) tm)
+
+  -- Given a term and a type, add a new guarded constant to the global context
+  -- by applying the term to the current environment
+  -- Return the replacement term (the name applied to the environment)
+  export
+  newConstant : {vars : _} ->
+                FC -> RigCount -> Env Term vars ->
+                (tm : Term vars) -> (ty : Term vars) ->
+                (constrs : List Int) ->
+                Core (Term vars)
+  newConstant {vars} fc rig env tm ty constrs
+      = do let def = mkConstant fc env tm
+           let defty = abstractFullEnvType fc env ty
+           cn <- genName "postpone"
+           let guess = newDef fc cn rig defty Public
+                              (Guess def (length env) constrs)
+           log "unify.constant" 5 $ "Adding new constant " ++ show (cn, fc, rig)
+           logTerm "unify.constant" 10 ("New constant type " ++ show cn) defty
+           idx <- addDef cn guess
+           addGuessName fc cn idx
+           pure (Meta fc cn idx envArgs)
+    where
+      envArgs : List (RigCount, Term vars)
+      envArgs = let args = reverse (mkConstantAppArgs {done = [<]} True fc env [<]) in
+                    rewrite sym (appendLinLeftNeutral vars) in args
 
   export
   addConstraint : Constraint -> Core Int

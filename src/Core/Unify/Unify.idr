@@ -294,7 +294,11 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   -- Deal with metavariable cases first
   -- If they're both holes, solve the one with the bigger context
   unifyNoEta mode fc env x@(VMeta fcx nx ix margsx argsx _) y@(VMeta fcy ny iy margsy argsy _)
-      = do invx <- isDefInvertible fc ix
+      = do -- First check if they're convertible already, in which case
+           -- we've won already
+           False <- convert env x y
+                | _ => pure success
+           invx <- isDefInvertible fc ix
            if ix == iy && (invx || umode mode == InSearch)
                                -- Invertible, (from auto implicit search)
                                -- so we can also unify the arguments.
@@ -362,10 +366,63 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       isDelay (VDelayed{}) = True
       isDelay _ = False
 
+  mkArg : FC -> Name -> Value vars
+  mkArg fc var = VApp fc Bound var [<] (pure Nothing)
+
+  -- In practice, just Pi
+  unifyBothBinders : {vars : _} ->
+          UnifyInfo -> FC -> Env Term vars ->
+          FC -> Name -> Binder (Value vars) -> (Value vars -> Core (Value vars)) ->
+          FC -> Name -> Binder (Value vars) -> (Value vars -> Core (Value vars)) ->
+          Core UnifyResult
+  unifyBothBinders mode fc env fcx nx bx@(Pi bfcx cx ix tx) scx fcy ny by@(Pi bfcy cy iy ty) scy
+      = if cx /= cy
+          then convertError fc env
+                 (VBind fcx nx bx scx)
+                 (VBind fcy ny by scy)
+          else do csarg <- unify (lower mode) fc env tx ty
+                  tx' <- quote env tx
+                  x' <- genVarName "x"
+                  let env' : Env Term (_ :< nx)
+                           = env :< Pi fcy cy Explicit tx'
+                  case constraints csarg of
+                      [] => -- No constraints, check the scope
+                         do tscx <- scx (mkArg fc x')
+                            tscy <- scy (mkArg fc x')
+                            tmx <- quote env tscx
+                            tmy <- quote env tscy
+                            logTerm "unify.binder" 10 "Unifying scope" tmx
+                            logTerm "unify.binder" 10 "..........with" tmy
+                            unify (lower mode) fc env'
+                              (refsToLocals (Add nx x' None) tmx)
+                              (refsToLocals (Add nx x' None) tmy)
+                      cs => -- Constraints, make new constant
+                         do txtm <- quote env tx
+                            tytm <- quote env ty
+                            c <- newConstant fc erased env
+                                   (Bind fcx nx (Lam fcy cy Explicit txtm) (Local fcx Nothing _ First))
+                                   (Bind fcx nx (Pi fcy cy Explicit txtm)
+                                       (weaken tytm)) cs
+                            tscx <- scx (mkArg fc x')
+                            tscy <- scy (mkArg fc x')
+                            tmx <- quote env tscx
+                            tmy <- quote env tscy
+                            cs' <- unify (lower mode) fc env'
+                                     (refsToLocals (Add nx x' None) tmx)
+                                     (refsToLocals (Add nx x' None) tmy)
+                            pure (union csarg cs')
+  unifyBothBinders mode fc env fcx nx bx scx fcy ny by scy
+      = convertError fc env
+                  (VBind fcx nx bx scx)
+                  (VBind fcy ny by scy)
+
   -- At this point, we know that 'VApp' and 'VMeta' don't reduce further
   unifyWithEta : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
           Value vars -> Value vars -> Core UnifyResult
+  -- Pair of binders or lambdas
+  unifyWithEta mode fc env (VBind fcx nx bx scx) (VBind fcy ny by scy)
+      = unifyBothBinders mode fc env fcx nx bx scx fcy ny by scy
   -- TODO: eta rules
   unifyWithEta mode fc env x y
       = unifyNoEta mode fc env x y

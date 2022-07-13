@@ -1,3 +1,5 @@
 Cons _ _ 5 (Nil _)
 :t Cons _ _ 5 (Nil _)
+:unify (pi x : Nat . Vect x Integer) (pi y : Nat . Vect ?help Integer)
+help
 :q

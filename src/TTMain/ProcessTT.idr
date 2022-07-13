@@ -11,16 +11,19 @@ import Core.Unify.State
 import Core.Unify
 
 parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
+-- At this stage, it's handy to do these at erased mulitiplicity,
+-- then we don't need to faff about with options to set evaluation multiplicity
+-- in order to test unification etc properly.
   processEval : RawI -> Core ()
   processEval rawtm
-      = do (tm, ty) <- infer linear [<] rawtm
+      = do (tm, ty) <- infer erased [<] rawtm
            tmnf <- normalise [<] tm
            coreLift $ putStrLn $ show !(toFullNames tmnf) ++ " : "
                                      ++ show !(toFullNames ty)
 
   processHNF : RawI -> Core ()
   processHNF rawtm
-      = do (tm, ty) <- infer linear [<] rawtm
+      = do (tm, ty) <- infer erased [<] rawtm
            tmnf <- normaliseHNF [<] tm
            coreLift $ putStrLn $ show !(toFullNames tmnf) ++ " : "
                                      ++ show !(toFullNames ty)
