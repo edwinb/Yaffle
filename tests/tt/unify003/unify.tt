@@ -2,3 +2,6 @@ data Nat : Type where {
    Z : Nat
  | S : pi k : Nat . Nat
 }
+
+fn : pi x : Nat . Nat;
+fn = lam x. S x;

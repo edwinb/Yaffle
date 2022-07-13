@@ -1,6 +1,9 @@
 :unify (lam x . S x : pi x : Nat . Nat) S
 :unify S (lam x . S x : pi x : Nat . Nat)
 :unify S (lam x . S ?val : pi x : Nat . Nat)
+:unify S fn
 val
+:unify (lam x . S ?val2 : pi k : Nat . Nat) fn
+val2
 :unify S (lam x . S (S ?val) : pi x : Nat . Nat)
 :q

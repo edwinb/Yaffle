@@ -4,6 +4,12 @@ Yaffle> Success
 TIMING : 0.000s
 Yaffle> Success
 TIMING : 0.000s
+Yaffle> Success
+TIMING : 0.000s
+Yaffle> \(x : [__]) => x[0] : ((x : Nat) -> Nat)
+TIMING : 0.000s
+Yaffle> Success
+TIMING : 0.000s
 Yaffle> \(x : [__]) => x[0] : ((x : Nat) -> Nat)
 TIMING : 0.000s
 Yaffle> (Interactive):1:1--1:1:Can't convert x[0] with (S ?val_[(, x[0])])
