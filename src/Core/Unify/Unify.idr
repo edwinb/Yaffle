@@ -472,6 +472,18 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       = if nx == ny
            then unifySpine mode fc env spx spy
            else convertError fc env x y
+  -- Something surprising has happened if we need to strip as patterns,
+  -- but we'll include this for completeness.
+  unifyNoEta mode fc env (VAs _ _ _ x) y = unifyNoEta mode fc env x y
+  unifyNoEta mode fc env x (VAs _ _ _ y) = unifyNoEta mode fc env x y
+  unifyNoEta mode fc env (VDelayed _ _ x) (VDelayed _ _ y)
+      = unify (lower mode) fc env x y
+  unifyNoEta mode fc env (VDelay _ _ tx ax) (VDelay _ _ ty ay)
+      = unifyArgs (lower mode) fc env [tx,ax] [ty,ay]
+  unifyNoEta mode fc env (VForce _ _ vx spx) (VForce _ _ vy spy)
+      = do cs <- unify (lower mode) fc env vx vy
+           cs' <- unifySpine (lower mode) fc env spx spy
+           pure (union cs cs')
   unifyNoEta mode fc env x y
       = unifyIfEq (isDelay x || isDelay y) fc mode env x y
     where
@@ -593,14 +605,31 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   unifyWithEta mode fc env x y
       = unifyNoEta mode fc env x y
 
+  -- At this point, we know that 'VApp' and 'VMeta' don't reduce further
+  unifyLazy : {vars : _} ->
+          UnifyInfo -> FC -> Env Term vars ->
+          Value vars -> Value vars -> Core UnifyResult
+  unifyLazy mode fc env (VDelayed _ _ x) (VDelayed _ _ y)
+      = unifyWithEta (lower mode) fc env x y
+  unifyLazy mode fc env x@(VDelayed _ r tmx) tmy
+      = if isHoleApp tmy && not (umode mode == InMatch)
+           then postpone fc mode "Postponing in lazy" env x tmy
+           else do vs <- unify (lower mode) fc env tmx tmy
+                   pure ({ addLazy := AddForce r } vs)
+  unifyLazy mode fc env tmx (VDelayed _ r tmy)
+      = do vs <- unify (lower mode) fc env tmx tmy
+           pure ({ addLazy := AddDelay r } vs)
+  unifyLazy mode fc env x y = unifyWithEta mode fc env x y
+
   -- First, see if we need to evaluate VApp a bit more
   -- Also, if we have two VApps that immediately convert without reduction,
   -- take advantage of that
   unifyExpandApps : {vars : _} ->
+          Bool ->
           UnifyInfo -> FC -> Env Term vars ->
           Value vars -> Value vars -> Core UnifyResult
   -- If the values convert already, we're done
-  unifyExpandApps mode fc env x@(VApp fcx ntx nx spx valx) y@(VApp fcy nty ny spy valy)
+  unifyExpandApps lazy mode fc env x@(VApp fcx ntx nx spx valx) y@(VApp fcy nty ny spy valy)
       = if nx == ny
            then do c <- convertSpine fc env spx spy
                    if c
@@ -609,24 +638,31 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                                     env x y
            else do valx' <- expand x
                    valy' <- expand y
-                   unifyWithEta mode fc env valx' valy'
+                   if lazy
+                      then unifyLazy mode fc env valx' valy'
+                      else unifyWithEta mode fc env valx' valy'
   -- Otherwise, make sure the top level thing is expanded (so not a reducible
   -- VApp or VMeta node) then move on
-  unifyExpandApps mode fc env x y
+  unifyExpandApps lazy mode fc env x y
       = do x' <- expand x
            y' <- expand y
-           unifyWithEta mode fc env x' y'
+           if lazy
+              then unifyLazy mode fc env x' y'
+              else unifyWithEta mode fc env x' y'
+
+  -- Start by expanding any top level Apps (if they don't convert already)
+  -- then invoke full unification, either inserting laziness coercions
+  -- or not.
 
   unifyVal : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
           Value vars -> Value vars -> Core UnifyResult
-  unifyVal mode fc env x y = unifyExpandApps mode fc env x y
+  unifyVal mode fc env x y = unifyExpandApps False mode fc env x y
 
   unifyValLazy : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
           Value vars -> Value vars -> Core UnifyResult
-  -- TODO: Details of coercions
-  unifyValLazy mode fc env x y = unifyVal mode fc env x y
+  unifyValLazy mode fc env x y = unifyExpandApps True mode fc env x y
 
   -- The interesting top level case, for unifying values
   Core.Unify.Unify.Value.unify mode fc env x y

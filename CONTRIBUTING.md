@@ -33,12 +33,8 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
-* Implement the rest of the unification rules
-  - InMatch and InSearch for applications
 * Unification details:
   - Inlining things with linear quantities in the context
-  - Eta
-  - Laziness coercions
   - Implement 'retry'
 * We don't need 'inlineOnly' in the context any more, so remove once
   unification works and inlining metavariables works as it should
