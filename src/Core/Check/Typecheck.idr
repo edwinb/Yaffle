@@ -54,7 +54,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = do cs <- unify inTerm fc env got exp
            case constraints cs of
                 [] => pure tm
-                cs => ?todoUnifyConstraints
+                cs => newConstant fc rig env tm exp cs
 
   -- Infer a type for a raw term. Return a pair of the checked term and
   -- its type
