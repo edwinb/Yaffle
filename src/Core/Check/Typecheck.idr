@@ -215,8 +215,9 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = do tnf <- nf env ty
            case !(quote env tnf) of
                 Bind _ x (Pi _ rigp p aty) rty =>
-                    do let env' = env :< Lam fc rigp p aty
-                       sc' <- check rig env' scope (renameTop n rty)
+                    do let (rigEnv', rig') = branchOne (rig, relevance rig) (relevance rig, rig) rigp
+                       let env' = divEnv env rigEnv' :< Lam fc rigp p aty
+                       sc' <- check rig' env' scope (renameTop n rty)
                        pure (Bind fc n (Lam fc rigp p aty) sc')
                 _ => throw (NotFunctionType fc !(get Ctxt) env ty)
   check rig env (RCase fc r sc alts) exp
