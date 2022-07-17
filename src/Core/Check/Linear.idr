@@ -297,14 +297,15 @@ parameters {auto c : Ref Ctxt Defs}
               else pure [<]
   lcheck rig_in env (Bind fc nm b sc)
       = do ub <- lcheckBinder rig env b
-           usc <- lcheck rig (env :< b) sc
-           let used_in = count 0 usc
 
            -- Anything linear can't be used in the scope of a lambda, if we're
            -- checking in general context
            let env' = case b of
                            Lam _ _ _ _ => divEnv env rig_in
                            _ => env
+
+           usc <- lcheck rig (env' :< b) sc
+           let used_in = count 0 usc
 
            -- Look for holes in the scope, if the variable is linearly bound.
            -- If the variable hasn't been used, we assume it is to be used in
