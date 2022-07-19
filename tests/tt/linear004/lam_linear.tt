@@ -1,0 +1,5 @@
+apply : pi f : (pi 1 x : Integer. Integer). Integer;
+apply = lam f. f 0;
+
+zero : Integer;
+zero = apply (lam x. x);
