@@ -14,7 +14,7 @@ import Test.Golden
 ttTests : TestPool
 ttTests = MkTestPool "TT" [] Nothing
      [ "basic001", "basic002", "basic003", "basic004",
-       "linear001", "linear002", "linear003",
+       "linear001", "linear002", "linear003", "linear004",
        "relevance001",
        "unify001", "unify002", "unify003" ]
 
