@@ -1,0 +1,2 @@
+id : pi x : Integer. Integer;
+id = lam y. y;
