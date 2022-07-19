@@ -18,6 +18,18 @@ rigMult a Rig1 = a
 rigMult _ _ = RigW
 
 export
+rigDivW : RigCount -> RigCount
+rigDivW Rig1 = Rig0
+rigDivW a = a
+
+-- rigDiv a b is largest c s.t c * b <= a
+export
+rigDiv : RigCount -> RigCount -> RigCount
+rigDiv a Rig0 = RigW
+rigDiv a Rig1 = a
+rigDiv a RigW = rigDivW a
+
+export
 Show RigCount where
   show Rig0 = "0"
   show Rig1 = "1"

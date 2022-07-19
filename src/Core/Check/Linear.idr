@@ -297,16 +297,15 @@ parameters {auto c : Ref Ctxt Defs}
               else pure [<]
   lcheck rig_in env (Bind fc nm b sc)
       = do ub <- lcheckBinder rig env b
-           usc <- lcheck rig (env :< b) sc
-           let used_in = count 0 usc
 
            -- Anything linear can't be used in the scope of a lambda, if we're
            -- checking in general context
-           let env' = if rig_in == top
-                         then case b of
-                              Lam _ _ _ _ => eraseLinear env
-                              _ => env
-                         else env
+           let env' = case b of
+                           Lam _ _ _ _ => divEnv env rig_in
+                           _ => env
+
+           usc <- lcheck rig (env' :< b) sc
+           let used_in = count 0 usc
 
            -- Look for holes in the scope, if the variable is linearly bound.
            -- If the variable hasn't been used, we assume it is to be used in
@@ -349,13 +348,6 @@ parameters {auto c : Ref Ctxt Defs}
           = if isErased (multiplicity b)
                then MkVar First :: map weaken (getZeroes bs)
                else map weaken (getZeroes bs)
-
-      eraseLinear : Env Term vs -> Env Term vs
-      eraseLinear [<] = [<]
-      eraseLinear (bs :< b)
-          = if isLinear (multiplicity b)
-               then eraseLinear bs :< setMultiplicity b erased
-               else eraseLinear bs :< b
 
   lcheck rig env (App fc fn q arg)
       = do uf <- lcheck rig env fn
