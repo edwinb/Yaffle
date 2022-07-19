@@ -98,8 +98,9 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   infer rig env (RLet fc rigl n val ty sc)
       = do ty' <- check erased env ty (topType fc)
            val' <- check (rigMult rig rigl) env val ty'
-           let env' = env :< Let fc rigl val' ty'
-           (sc', scty) <- infer rig env' sc
+           let (rigEnv', rig') = branchOne (rig, relevance rig) (relevance rig, rig) rigl
+           let env' = divEnv env rigEnv' :< Let fc rigl val' ty'
+           (sc', scty) <- infer rig' env' sc
            let letTy = Bind fc n (Let fc rigl val' ty') scty
            pure (Bind fc n (Let fc rigl val' ty') sc', letTy)
   infer rig env (RPi fc rigp n argty retty)

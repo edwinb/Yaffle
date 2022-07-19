@@ -298,13 +298,13 @@ parameters {auto c : Ref Ctxt Defs}
   lcheck rig_in env (Bind fc nm b sc)
       = do ub <- lcheckBinder rig env b
 
-           -- Anything linear can't be used in the scope of a lambda, if we're
-           -- checking in general context
-           let env' = case b of
-                           Lam _ _ _ _ => divEnv env rig_in
-                           _ => env
+           -- Anything linear can't be used in the scope of a let/lambda, if
+           -- we're checking in general context
+           let (env', rig') = case b of
+                                   Pi _ _ _ _ => (env, rig)
+                                   _ => (divEnv env rig, relevance rig)
 
-           usc <- lcheck rig (env' :< b) sc
+           usc <- lcheck rig' (env' :< b) sc
            let used_in = count 0 usc
 
            -- Look for holes in the scope, if the variable is linearly bound.
@@ -323,12 +323,12 @@ parameters {auto c : Ref Ctxt Defs}
            -- The final usage count is always 1 if the bound variable is
            -- linear and there are holes. Otherwise, we take the count we
            -- found above.
-           let used = if isLinear (rigMult (multiplicity b) rig) &&
+           let used = if isLinear (rigMult (multiplicity b) rig') &&
                          holeFound && used_in == 0
                          then 1
                          else used_in
 
-           checkUsageOK fc used nm (rigMult (multiplicity b) rig)
+           checkUsageOK fc used nm (rigMult (multiplicity b) rig')
            pure (ub ++ doneScope usc)
     where
       rig : RigCount
@@ -337,10 +337,7 @@ parameters {auto c : Ref Ctxt Defs}
                       if isErased rig_in
                          then erased
                          else top -- checking as if an inspectable run-time type
-                 Let _ _ _ _ => rig_in
-                 _ => if isErased rig_in
-                         then erased
-                         else linear -- checking as if top level function declaration
+                 _ => rig_in
 
       getZeroes : {vs : _} -> Env Term vs -> List (Var vs)
       getZeroes [<] = []
