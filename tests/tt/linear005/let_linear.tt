@@ -1,0 +1,5 @@
+id : pi x : Integer. Integer;
+id = lam x. x;
+
+zero : Integer;
+zero = id (let 1 x : Integer = 0 in x);
