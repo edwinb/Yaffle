@@ -33,17 +33,19 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
+* Start TTImp elaborator
 * Unification details:
   - Inlining things with linear quantities in the context
   - Implement 'retry'
-* We don't need 'inlineOnly' in the context any more, so remove once
-  unification works and inlining metavariables works as it should
+  - We don't need 'inlineOnly' in the context any more, so remove once
+    unification works and inlining metavariables works as it should
 * Implement auto-implicit search
 * Check TTCs work
 * Add universe constraints when adding data definitions
   - Find parameters + other properties we need to know elsewhere
 * Universe level solver
+* Question: Should Errors use 'Value' rather than 'Term'?
 * ???
 * PROFIT
 
-(Last updated 28th June 2022)
+(Last updated 15th July 2022)

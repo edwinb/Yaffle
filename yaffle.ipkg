@@ -48,6 +48,20 @@ modules
     -- The input language and elaborator
     TTImp.TTImp,
 
+    -- Parsing support
+    Parser.Lexer.Common,
+    Parser.Lexer.Package,
+    Parser.Lexer.Source,
+
+    Parser.Rule.Package,
+    Parser.Rule.Source,
+
+    Parser.Package,
+    Parser.Source,
+    Parser.Support,
+    Parser.Unlit,
+
+
     Protocol.Hex,
 
     -- Things we'd expect in a base library, but since this project is the

@@ -608,12 +608,101 @@ nameAt : {vars : _} -> {idx : Nat} -> (0 p : IsVar n idx vars) -> Name
 nameAt {vars = ns :< n} First     = n
 nameAt {vars = ns :< n} (Later p) = nameAt p
 
-export
-withPiInfo : Show t => PiInfo t -> String -> String
-withPiInfo Explicit tm = "(" ++ tm ++ ")"
-withPiInfo Implicit tm = "{" ++ tm ++ "}"
-withPiInfo AutoImplicit tm = "{auto " ++ tm ++ "}"
-withPiInfo (DefImplicit t) tm = "{default " ++ show t ++ " " ++ tm ++ "}"
+-- Substitute some explicit terms for names in a term, and remove those
+-- names from the scope
+namespace SubstEnv
+  public export
+  data SubstEnv : SnocList Name -> SnocList Name -> Type where
+       Lin : SubstEnv [<] vars
+       (:<) : SubstEnv ds vars -> Term vars -> SubstEnv (ds :< d) vars
+
+  findDrop : FC -> Maybe Bool ->
+             Var (vars ++ dropped) ->
+             SubstEnv dropped vars ->
+             Term vars
+  findDrop fc r (MkVar var) [<] = Local fc r _ var
+  findDrop fc r (MkVar First) (env :< tm) = tm
+  findDrop fc r (MkVar (Later p)) (env :< tm)
+      = findDrop fc r (MkVar p) env
+
+  find : FC -> Maybe Bool ->
+         SizeOf outer ->
+         Var ((vars ++ dropped) ++ outer) ->
+         SubstEnv dropped vars ->
+         Term (vars ++ outer)
+  find fc r outer var env = case sizedView outer of
+    Z       => findDrop fc r var env
+    S outer => case var of
+      MkVar First     => Local fc r _ First
+      MkVar (Later p) => weaken (find fc r outer (MkVar p) env)
+       -- TODO: refactor to only weaken once?
+
+  substAlt : SizeOf outer ->
+             SubstEnv dropped vars ->
+             CaseAlt ((vars ++ dropped) ++ outer) ->
+             CaseAlt (vars ++ outer)
+
+  substEnv : SizeOf outer ->
+             SubstEnv dropped vars ->
+             Term ((vars ++ dropped) ++ outer) ->
+             Term (vars ++ outer)
+  substEnv outer env (Local fc r _ prf)
+      = find fc r outer (MkVar prf) env
+  substEnv outer env (Ref fc x name) = Ref fc x name
+  substEnv outer env (Meta fc n i xs)
+      = Meta fc n i (map (\ (c, t) => (c, substEnv outer env t)) xs)
+  substEnv outer env (Bind fc x b scope)
+      = Bind fc x (map (substEnv outer env) b)
+                  (substEnv (suc outer) env scope)
+  substEnv outer env (App fc fn c arg)
+      = App fc (substEnv outer env fn) c (substEnv outer env arg)
+  substEnv outer env (As fc s (AsLoc afc _ prf) pat)
+      -- Doesn't make sense if the local is resolved!
+      = case find fc Nothing outer (MkVar prf) env of
+             Local fc _ _ prf' =>
+                 As fc s (AsLoc afc _ prf') (substEnv outer env pat)
+             _ => substEnv outer env pat
+  substEnv outer env (As fc s (AsRef afc n) pat)
+      = As fc s (AsRef afc n) (substEnv outer env pat)
+  substEnv outer env (Case fc c sc scty alts)
+      = Case fc c (substEnv outer env sc)
+             (substEnv outer env scty)
+             (map (substAlt outer env) alts)
+  substEnv outer env (TDelayed fc x y) = TDelayed fc x (substEnv outer env y)
+  substEnv outer env (TDelay fc x t y)
+      = TDelay fc x (substEnv outer env t) (substEnv outer env y)
+  substEnv outer env (TForce fc r x) = TForce fc r (substEnv outer env x)
+  substEnv outer env (PrimVal fc c) = PrimVal fc c
+  substEnv outer env (PrimOp fc op args) = ?todoPrimOp
+  substEnv outer env (Erased fc i) = Erased fc i
+  substEnv outer env (Unmatched fc s) = Unmatched fc s
+  substEnv outer env (Impossible fc) = Impossible fc
+  substEnv outer env (TType fc u) = TType fc u
+
+  substCaseScope : SizeOf outer ->
+             SubstEnv dropped vars ->
+             CaseScope ((vars ++ dropped) ++ outer) ->
+             CaseScope (vars ++ outer)
+  substCaseScope outer env (RHS tm) = RHS (substEnv outer env tm)
+  substCaseScope outer env (Arg c x sc)
+      = Arg c x (substCaseScope (suc outer) env sc)
+
+  substAlt outer env (ConCase fc n t sc)
+      = ConCase fc n t (substCaseScope outer env sc)
+  substAlt outer env (DelayCase fc ty arg sc)
+      = DelayCase fc ty arg (substEnv (suc (suc outer)) env sc)
+  substAlt outer env (ConstCase fc c sc)
+      = ConstCase fc c (substEnv outer env sc)
+  substAlt outer env (DefaultCase fc sc)
+      = DefaultCase fc (substEnv outer env sc)
+
+  export
+  substs : SubstEnv dropped vars -> Term (vars ++ dropped) -> Term vars
+  substs env tm = substEnv zero env tm
+
+  export
+  subst : Term vars -> Term (vars :< x) -> Term vars
+  subst val tm = substs [<val] tm
 
 export
 addMetas : (usingResolved : Bool) -> NameMap Bool -> Term vars -> NameMap Bool
@@ -730,6 +819,13 @@ getRefs at tm = addRefs False at empty tm
 {vars : _} -> Show (AsName vars) where
   show (AsLoc _ _ p) = show (nameAt p)
   show (AsRef _ n) = show n
+
+export
+withPiInfo : Show t => PiInfo t -> String -> String
+withPiInfo Explicit tm = "(" ++ tm ++ ")"
+withPiInfo Implicit tm = "{" ++ tm ++ "}"
+withPiInfo AutoImplicit tm = "{auto " ++ tm ++ "}"
+withPiInfo (DefImplicit t) tm = "{default " ++ show t ++ " " ++ tm ++ "}"
 
 mutual
   export

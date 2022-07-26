@@ -60,6 +60,17 @@ defined {vars = xs :< x} n (env :< b)
                          pure (MkIsDefined rig (Later prf))
            Just Refl => Just (MkIsDefined (multiplicity b) First)
 
+-- Bind additional pattern variables in an LHS, when checking an LHS in an
+-- outer environment
+export
+bindEnv : {vars : _} -> FC -> Env Term vars -> (tm : Term vars) -> ClosedTerm
+bindEnv loc [<] tm = tm
+bindEnv loc (env :< b) tm
+    = bindEnv loc env (Bind loc _ (PVar (binderLoc b)
+                                        (multiplicity b)
+                                        Explicit
+                                        (binderType b)) tm)
+
 -- Make a type which abstracts over an environment
 -- Don't include 'let' bindings, since they have a concrete value and
 -- shouldn't be generalised

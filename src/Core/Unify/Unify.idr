@@ -612,6 +612,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   unifyLazy mode fc env (VDelayed _ _ x) (VDelayed _ _ y)
       = unifyWithEta (lower mode) fc env x y
   unifyLazy mode fc env x@(VDelayed _ r tmx) tmy
+        -- TODO: why 'isHoleApp'
       = if isHoleApp tmy && not (umode mode == InMatch)
            then postpone fc mode "Postponing in lazy" env x tmy
            else do vs <- unify (lower mode) fc env tmx tmy
@@ -636,6 +637,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                       then pure success
                       else postpone fc mode "Postponing application"
                                     env x y
+                           -- TODO: need to expand
            else do valx' <- expand x
                    valy' <- expand y
                    if lazy

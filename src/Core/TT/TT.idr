@@ -534,6 +534,10 @@ data Term : SnocList Name -> Type where
      TType : FC -> Name -> -- universe variable
              Term vars
 
+public export
+ClosedTerm : Type
+ClosedTerm = Term [<]
+
 -- Constraints between names representing universe levels. Record the
 -- origin of each name, for error message purposes
 public export
