@@ -141,7 +141,8 @@ public export
 data ImpClause' : Type -> Type where
      PatClause : FC -> (lhs : RawImp' nm) -> (rhs : RawImp' nm) -> ImpClause' nm
      WithClause : FC -> (lhs : RawImp' nm) ->
-                  (wval : RawImp' nm) -> (prf : Maybe Name) ->
+                  (rig : RigCount) -> (wval : RawImp' nm) -> -- with'd expression (& quantity)
+                  (prf : Maybe Name) -> -- optional name for the proof
                   (flags : List WithFlag) ->
                   List (ImpClause' nm) -> ImpClause' nm
      ImpossibleClause : FC -> (lhs : RawImp' nm) -> ImpClause' nm
@@ -169,6 +170,7 @@ data RawImp' : Type -> Type where
             (scope : RawImp' nm) -> RawImp' nm
      ICase : FC -> RawImp' nm -> (ty : RawImp' nm) ->
              List (ImpClause' nm) -> RawImp' nm
+     ILocal : FC -> List (ImpDecl' nm) -> RawImp' nm -> RawImp' nm
 
      IUpdate : FC -> List (IFieldUpdate' nm) -> RawImp' nm -> RawImp' nm
 
@@ -242,7 +244,7 @@ data ImpDecl' : Type -> Type where
      IClaim : FC -> RigCount -> Visibility -> List (FnOpt' nm) ->
               ImpTy' nm -> ImpDecl' nm
      IData : FC -> Visibility -> Maybe TotalReq -> ImpData' nm -> ImpDecl' nm
-     IDef : FC -> Name -> RawImp' nm -> ImpDecl' nm
+     IDef : FC -> Name -> List (ImpClause' nm) -> ImpDecl' nm
      IParameters : FC ->
                    List (ImpParameter' nm) ->
                    List (ImpDecl' nm) -> ImpDecl' nm
@@ -250,6 +252,7 @@ data ImpDecl' : Type -> Type where
                Maybe String -> -- nested namespace
                Visibility -> Maybe TotalReq ->
                ImpRecord' nm -> ImpDecl' nm
+     IFail : FC -> Maybe String -> List (ImpDecl' nm) -> ImpDecl' nm
      INamespace : FC -> Namespace -> List (ImpDecl' nm) -> ImpDecl' nm
      ITransform : FC -> Name -> RawImp' nm -> RawImp' nm -> ImpDecl' nm
      IRunElabDecl : FC -> RawImp' nm -> ImpDecl' nm
@@ -307,6 +310,8 @@ mutual
            " " ++ show val ++ " " ++ show sc ++ ")"
       show (ICase _ scr scrty alts)
          = "(%case (" ++ show scr ++ " : " ++ show scrty ++ ") " ++ show alts ++ ")"
+      show (ILocal _ def scope)
+         = "(%local (" ++ show def ++ ") " ++ show scope ++ ")"
       show (IUpdate _ flds rec)
          = "(%record " ++ showSep ", " (map show flds) ++ " " ++ show rec ++ ")"
       show (IApp fc f a)
@@ -433,9 +438,9 @@ mutual
   Show nm => Show (ImpClause' nm) where
     show (PatClause fc lhs rhs)
        = show lhs ++ " = " ++ show rhs
-    show (WithClause fc lhs wval prf flags block)
+    show (WithClause fc lhs rig wval prf flags block)
        = show lhs
-       ++ " with " ++ show wval
+       ++ " with (" ++ show rig ++ " " ++ show wval ++ ")"
        ++ maybe "" (\ nm => " proof " ++ show nm) prf
        ++ "\n\t" ++ show block
     show (ImpossibleClause fc lhs)
@@ -451,6 +456,9 @@ mutual
         = "parameters " ++ show ps ++ "\n\t" ++
           showSep "\n\t" (assert_total $ map show ds)
     show (IRecord _ _ _ _ d) = show d
+    show (IFail _ msg decls)
+        = "fail" ++ maybe "" ((" " ++) . show) msg ++ "\n" ++
+          showSep "\n" (assert_total $ map (("  " ++) . show) decls)
     show (INamespace _ ns decls)
         = "namespace " ++ show ns ++
           showSep "\n" (assert_total $ map show decls)
@@ -464,3 +472,16 @@ mutual
       [] => show lvl
       _  => concat (intersperse "." topic) ++ " " ++ show lvl
     show (IBuiltin _ type name) = "%builtin " ++ show type ++ " " ++ show name
+
+-- REPL commands for TTImp interaction
+public export
+data ImpREPL : Type where
+     Eval : RawImp -> ImpREPL
+     Check : RawImp -> ImpREPL
+     ProofSearch : Name -> ImpREPL
+     ExprSearch : Name -> ImpREPL
+     GenerateDef : Int -> Name -> ImpREPL
+     Missing : Name -> ImpREPL
+     CheckTotal : Name -> ImpREPL
+     DebugInfo : Name -> ImpREPL
+     Quit : ImpREPL
