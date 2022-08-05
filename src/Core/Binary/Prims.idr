@@ -42,18 +42,6 @@ public export
 CoreTTC : Type -> Type
 CoreTTC = CoreE TTCError
 
--- For more efficient reading/writing/sharing of strings, we store strings
--- in a string table, and look them up by int id
-public export
-record StringTable where
-  constructor MkStringTable
-  nextIndex : Int
-  stringIndex : StringMap Int
-
-export
-stInit : StringTable
-stInit = MkStringTable { nextIndex = 0, stringIndex = empty }
-
 public export
 interface TTC a where -- TTC = TT intermediate code/interface file
   -- Add binary data representing the value to the given buffer

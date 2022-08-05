@@ -3,6 +3,8 @@ module Libraries.Utils.Binary
 import Data.Buffer
 import Data.List
 
+import Libraries.Data.IntMap
+import Libraries.Data.StringMap
 import Libraries.System.File
 
 -- Serialising data as binary. Provides an interface TTC which allows
@@ -62,17 +64,29 @@ fromBuffer buf
     = do len <- rawSize buf
          pure (MkBin buf 0 len len)
 
-export
-writeToFile : (fname : String) -> Binary -> IO (Either FileError ())
-writeToFile fname c
-    = do Right ok <- writeBufferToFile fname (buf c) (used c)
-               | Left (err, size) => pure (Left err)
-         pure (Right ok)
+-- For more efficient reading/writing/sharing of strings, we store strings
+-- in a string table, and look them up by int id
+public export
+record StringTable where
+  constructor MkStringTable
+  nextIndex : Int
+  stringIndex : StringMap Int
 
 export
-readFromFile : (fname : String) -> IO (Either FileError Binary)
-readFromFile fname
-    = do Right b <- createBufferFromFile fname
-               | Left err => pure (Left err)
-         bsize <- rawSize b
-         pure (Right (MkBin b 0 bsize bsize))
+stInit : StringTable
+stInit = MkStringTable { nextIndex = 0, stringIndex = empty }
+
+export
+writeToFile : (fname : String) -> StringTable -> Binary -> IO (Either FileError ())
+-- writeToFile fname c
+--     = do Right ok <- writeBufferToFile fname (buf c) (used c)
+--                | Left (err, size) => pure (Left err)
+--          pure (Right ok)
+
+export
+readFromFile : (fname : String) -> IO (Either FileError (Binary, IntMap String))
+-- readFromFile fname
+--     = do Right b <- createBufferFromFile fname
+--                | Left err => pure (Left err)
+--          bsize <- rawSize b
+--          pure (Right (MkBin b 0 bsize bsize))

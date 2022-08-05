@@ -196,142 +196,111 @@ addLHS loc outerenvlen env tm
     toPat (bs :< b) = toPat bs :< b
     toPat [<] = [<]
 
-{-
-export
-addNameType : {vars : _} ->
-              {auto c : Ref Ctxt Defs} ->
-              {auto m : Ref MD Metadata} ->
-              FC -> Name -> Env Term vars -> Term vars -> Core ()
-addNameType loc n env tm
-    = do meta <- get MD
-         n' <- getFullName n
-
-         -- Add the name to the metadata if the file context is not empty
-         whenJust (isConcreteFC loc) $ \ neloc => do
-           put MD $ { names $= ((neloc, (n', 0, substEnv loc env tm)) ::) } meta
-           log "metadata.names" 7 $ show n' ++ " at line " ++ show (1 + startLine neloc)
-
-export
-addTyDecl : {vars : _} ->
-            {auto c : Ref Ctxt Defs} ->
-            {auto m : Ref MD Metadata} ->
-            FC -> Name -> Env Term vars -> Term vars -> Core ()
-addTyDecl loc n env tm
-    = do meta <- get MD
-         n' <- getFullName n
-
-         -- Add the type declaration to the metadata if the file context is not empty
-         whenJust (isNonEmptyFC loc) $ \ neloc =>
-           put MD $ { tydecls $= ( (neloc, (n', length env, bindEnv loc env tm)) ::) } meta
-
-export
-addNameLoc : {auto m : Ref MD Metadata} ->
-             {auto c : Ref Ctxt Defs} ->
-             FC -> Name -> Core ()
-addNameLoc loc n
-    = do meta <- get MD
-         n' <- getFullName n
-         whenJust (isConcreteFC loc) $ \neloc =>
-           put MD $ { nameLocMap $= insert (neloc, n') } meta
-
-export
-setHoleLHS : {auto m : Ref MD Metadata} -> ClosedTerm -> Core ()
-setHoleLHS tm = update MD { currentLHS := Just tm }
-
-export
-clearHoleLHS : {auto m : Ref MD Metadata} -> Core ()
-clearHoleLHS = update MD { currentLHS := Nothing }
-
-export
-withCurrentLHS : {auto c : Ref Ctxt Defs} ->
-                 {auto m : Ref MD Metadata} ->
-                 Name -> Core ()
-withCurrentLHS n
-    = do meta <- get MD
-         n' <- getFullName n
-         maybe (pure ())
-               (\lhs => put MD ({ holeLHS $= ((n', lhs) ::) } meta))
-               (currentLHS meta)
-
 findEntryWith : (NonEmptyFC -> a -> Bool) -> List (NonEmptyFC, a) -> Maybe (NonEmptyFC, a)
 findEntryWith = find . uncurry
 
-export
-findLHSAt : {auto m : Ref MD Metadata} ->
-            (NonEmptyFC -> ClosedTerm -> Bool) ->
-            Core (Maybe (NonEmptyFC, Nat, ClosedTerm))
-findLHSAt p
-    = do meta <- get MD
-         pure (findEntryWith (\ loc, tm => p loc (snd tm)) (lhsApps meta))
+parameters {c : Ref Ctxt Defs} {m : Ref MD Metadata}
 
-export
-findTypeAt : {auto m : Ref MD Metadata} ->
-             (NonEmptyFC -> (Name, Nat, ClosedTerm) -> Bool) ->
-             Core (Maybe (Name, Nat, ClosedTerm))
-findTypeAt p
-    = do meta <- get MD
-         pure (map snd (findEntryWith p (names meta)))
+  export
+  addNameType : {vars : _} ->
+                FC -> Name -> Env Term vars -> Term vars -> Core ()
+  addNameType loc n env tm
+      = do meta <- get MD
+           n' <- getFullName n
 
-export
-findTyDeclAt : {auto m : Ref MD Metadata} ->
-               (NonEmptyFC -> (Name, Nat, ClosedTerm) -> Bool) ->
-               Core (Maybe (NonEmptyFC, Name, Nat, ClosedTerm))
-findTyDeclAt p
-    = do meta <- get MD
-         pure (findEntryWith p (tydecls meta))
+           -- Add the name to the metadata if the file context is not empty
+           whenJust (isConcreteFC loc) $ \ neloc => do
+             put MD $ { names $= ((neloc, (n', 0, substEnv loc env tm)) ::) } meta
+             log "metadata.names" 7 $ show n' ++ " at line " ++ show (1 + startLine neloc)
 
-export
-findHoleLHS : {auto m : Ref MD Metadata} ->
-              Name -> Core (Maybe ClosedTerm)
-findHoleLHS hn
-    = do meta <- get MD
-         pure (lookupBy (\x, y => dropNS x == dropNS y) hn (holeLHS meta))
+  export
+  addTyDecl : {vars : _} ->
+              FC -> Name -> Env Term vars -> Term vars -> Core ()
+  addTyDecl loc n env tm
+      = do meta <- get MD
+           n' <- getFullName n
 
-export
-addSemanticDefault : {auto m : Ref MD Metadata} ->
-                     ASemanticDecoration -> Core ()
-addSemanticDefault asem = update MD { semanticDefaults $= insert asem }
+           -- Add the type declaration to the metadata if the file context is not empty
+           whenJust (isNonEmptyFC loc) $ \ neloc =>
+             put MD $ { tydecls $= ( (neloc, (n', length env, bindEnv loc env tm)) ::) } meta
 
-export
-addSemanticAlias : {auto m : Ref MD Metadata} ->
-                   NonEmptyFC -> NonEmptyFC -> Core ()
-addSemanticAlias from to = update MD { semanticAliases $= insert (from, to) }
+  export
+  addNameLoc : FC -> Name -> Core ()
+  addNameLoc loc n
+      = do meta <- get MD
+           n' <- getFullName n
+           whenJust (isConcreteFC loc) $ \neloc =>
+             put MD $ { nameLocMap $= insert (neloc, n') } meta
 
-export
-addSemanticDecorations : {auto m : Ref MD Metadata} ->
-                         {auto c : Ref Ctxt Defs} ->
-   SemanticDecorations -> Core ()
-addSemanticDecorations decors
-    = do meta <- get MD
-         let posmap = meta.semanticHighlighting
-         let (newDecors,droppedDecors) =
-               span
-                 ( (meta.sourceIdent ==)
-                 . Builtin.fst
-                 . Builtin.fst )
-                 decors
-         unless (isNil droppedDecors)
-           $ log "ide-mode.highlight" 19 $ "ignored adding decorations to "
-               ++ show meta.sourceIdent ++ ": " ++ show droppedDecors
-         put MD $ {semanticHighlighting
-                     := (fromList newDecors) `union` posmap} meta
+  export
+  withCurrentLHS : Name -> Core ()
+  withCurrentLHS n
+      = do meta <- get MD
+           n' <- getFullName n
+           maybe (pure ())
+                 (\lhs => put MD ({ holeLHS $= ((n', lhs) ::) } meta))
+                 (currentLHS meta)
 
+  export
+  addSemanticDecorations : SemanticDecorations -> Core ()
+  addSemanticDecorations decors
+      = do meta <- get MD
+           let posmap = meta.semanticHighlighting
+           let (newDecors,droppedDecors) =
+                 span
+                   ( (meta.sourceIdent ==)
+                   . Builtin.fst
+                   . Builtin.fst )
+                   decors
+           unless (isNil droppedDecors)
+             $ log "ide-mode.highlight" 19 $ "ignored adding decorations to "
+                 ++ show meta.sourceIdent ++ ": " ++ show droppedDecors
+           put MD $ {semanticHighlighting
+                       := (fromList newDecors) `union` posmap} meta
 
--- Normalise all the types of the names, since they might have had holes
--- when added and the holes won't necessarily get saved
-normaliseTypes : {auto m : Ref MD Metadata} ->
-                 {auto c : Ref Ctxt Defs} ->
-                 Core ()
-normaliseTypes
-    = do meta <- get MD
-         defs <- get Ctxt
-         ns' <- traverse (nfType defs) (names meta)
-         put MD ({ names := ns' } meta)
-  where
-    nfType : Defs -> (NonEmptyFC, (Name, Nat, ClosedTerm)) ->
-             Core (NonEmptyFC, (Name, Nat, ClosedTerm))
-    nfType defs (loc, (n, len, ty))
-       = pure (loc, (n, len, !(normaliseArgHoles defs [] ty)))
+parameters {m : Ref MD Metadata}
+  export
+  setHoleLHS : ClosedTerm -> Core ()
+  setHoleLHS tm = update MD { currentLHS := Just tm }
+
+  export
+  clearHoleLHS : Core ()
+  clearHoleLHS = update MD { currentLHS := Nothing }
+
+  export
+  findLHSAt : (NonEmptyFC -> ClosedTerm -> Bool) ->
+              Core (Maybe (NonEmptyFC, Nat, ClosedTerm))
+  findLHSAt p
+      = do meta <- get MD
+           pure (findEntryWith (\ loc, tm => p loc (snd tm)) (lhsApps meta))
+
+  export
+  findTypeAt : (NonEmptyFC -> (Name, Nat, ClosedTerm) -> Bool) ->
+               Core (Maybe (Name, Nat, ClosedTerm))
+  findTypeAt p
+      = do meta <- get MD
+           pure (map snd (findEntryWith p (names meta)))
+
+  export
+  findTyDeclAt : (NonEmptyFC -> (Name, Nat, ClosedTerm) -> Bool) ->
+                 Core (Maybe (NonEmptyFC, Name, Nat, ClosedTerm))
+  findTyDeclAt p
+      = do meta <- get MD
+           pure (findEntryWith p (tydecls meta))
+
+  export
+  findHoleLHS : Name -> Core (Maybe ClosedTerm)
+  findHoleLHS hn
+      = do meta <- get MD
+           pure (lookupBy (\x, y => dropNS x == dropNS y) hn (holeLHS meta))
+
+  export
+  addSemanticDefault : ASemanticDecoration -> Core ()
+  addSemanticDefault asem = update MD { semanticDefaults $= insert asem }
+
+  export
+  addSemanticAlias : NonEmptyFC -> NonEmptyFC -> Core ()
+  addSemanticAlias from to = update MD { semanticAliases $= insert (from, to) }
 
 record TTMFile where
   constructor MkTTMFile
@@ -407,12 +376,12 @@ writeToTTM : {auto c : Ref Ctxt Defs} ->
              (fname : String) ->
              Core ()
 writeToTTM fname
-    = do normaliseTypes
-         buf <- initBinary
+    = do buf <- ttc initBinary
          meta <- get MD
          defs <- get Ctxt
-         toBuf buf (MkTTMFile ttcVersion !(full (gamma defs) meta))
-         Right ok <- coreLift $ writeToFile fname !(get Bin)
+         strings <- newRef STable stInit
+         ttc $ toBuf (MkTTMFile ttcVersion !(full (gamma defs) meta))
+         Right ok <- coreLift $ writeToFile fname!(get STable)  !(get Bin)
              | Left err => throw (InternalError (fname ++ ": " ++ show err))
          pure ()
 
@@ -421,20 +390,22 @@ readFromTTM : {auto m : Ref MD Metadata} ->
               (fname : String) ->
               Core ()
 readFromTTM fname
-    = do Right buf <- coreLift $ readFromFile fname
+    = do Right (buf, stbl) <- coreLift $ readFromFile fname
              | Left err => throw (InternalError (fname ++ ": " ++ show err))
          bin <- newRef Bin buf
-         ttm <- fromBuf bin
+         strings <- newRef STable stbl
+         ttm <- ttc fromBuf
          put MD (metadata ttm)
 
 ||| Read Metadata from given file
 export
 readMetadata : (fname : String) -> Core Metadata
 readMetadata fname
-  = do Right buf <- coreLift $ readFromFile fname
+  = do Right (buf, stbl) <- coreLift $ readFromFile fname
              | Left err => throw (InternalError (fname ++ ": " ++ show err))
        bin <- newRef Bin buf
-       MkTTMFile _ md <- fromBuf bin
+       strings <- newRef STable empty
+       MkTTMFile _ md <- ttc fromBuf
        pure md
 
 ||| Dump content of a .ttm file in human-readable format
