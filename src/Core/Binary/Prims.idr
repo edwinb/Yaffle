@@ -27,6 +27,7 @@ data TTCError : Type where
      Format : String -> Int -> Int -> TTCError
      EndOfBuffer : String -> TTCError
      Corrupt : String -> TTCError
+     BadBinaryMode : BinaryMode -> TTCError
 
 export
 Show TTCError where
@@ -37,6 +38,7 @@ Show TTCError where
         "TTC data is in an " ++ age ++ " format, file: " ++ file ++ ", expected version: " ++ show exp ++ ", actual version: " ++ show ver
   show (EndOfBuffer when) = "End of buffer when reading " ++ when
   show (Corrupt ty) = "Corrupt TTC data for " ++ ty
+  show (BadBinaryMode b) = "Internal TTC error in binary mode " ++ show b
 
 public export
 CoreTTC : Type -> Type
@@ -45,49 +47,46 @@ CoreTTC = CoreE TTCError
 public export
 interface TTC a where -- TTC = TT intermediate code/interface file
   -- Add binary data representing the value to the given buffer
-  toBuf : Ref Bin Binary =>
-          Ref STable StringTable =>
+  toBuf : Ref Bin (Binary Write) =>
           a -> CoreTTC ()
   -- Return the data representing a thing of type 'a' from the given buffer.
   -- Throws if the data can't be parsed as an 'a'
-  fromBuf : (b : Ref Bin Binary) =>
-            (st : Ref STable (IntMap String)) =>
+  fromBuf : (b : Ref Bin (Binary Read)) =>
             CoreTTC a
 
 -- Create a new list of chunks, initialised with one 64k chunk
 export
-initBinary : CoreTTC (Ref Bin Binary)
-initBinary
+initBinary : StringTable -> CoreTTC (Ref Bin (Binary Write))
+initBinary st
     = do Just buf <- coreLift $ newBuffer blockSize
              | Nothing => throw CantCreateBuffer
-         newRef Bin (newBinary buf blockSize)
+         newRef Bin (newBinary buf st blockSize)
 
 export
-initBinaryS : Int -> CoreTTC (Ref Bin Binary)
-initBinaryS s
+initBinaryS : StringTable -> Int -> CoreTTC (Ref Bin (Binary Write))
+initBinaryS st s
     = do Just buf <- coreLift $ newBuffer s
              | Nothing => throw CantCreateBuffer
-         newRef Bin (newBinary buf s)
+         newRef Bin (newBinary buf st s)
 
-extendBinary : Int -> Binary -> CoreTTC Binary
-extendBinary need (MkBin buf l s u)
+extendBinary : Int -> Binary Write -> CoreTTC (Binary Write)
+extendBinary need (MkBin buf st l s u)
     = do let newsize = s * 2
          let s' = if (newsize - l) < need
                      then newsize + need
                      else newsize
          Just buf' <- coreLift $ resizeBuffer buf s'
              | Nothing => throw CantExpandBuffer
-         pure (MkBin buf' l s' u)
+         pure (MkBin buf' st l s' u)
 
 export
 corrupt : String -> CoreTTC a
 corrupt ty = throw (Corrupt ty)
 
-
 -- tag and getTag assume the Int is in the range 0-255 (we don't have
 -- Bits8 yet!)
 export
-tag : Ref Bin Binary => Int -> CoreTTC ()
+tag : Ref Bin (Binary Write) => Int -> CoreTTC ()
 tag val
     = do chunk <- get Bin
          if avail chunk >= 1
@@ -99,7 +98,7 @@ tag val
                     put Bin (appended 1 chunk')
 
 export
-getTag : Ref Bin Binary => CoreTTC Int
+getTag : Ref Bin (Binary Read) => CoreTTC Int
 getTag
     = do chunk <- get Bin
          if toRead chunk >= 1
@@ -192,24 +191,30 @@ export
 export
 TTC String where
   toBuf str
-      = do tbl <- get STable
+      = do b <- get Bin
+           let tbl = table b
            case lookup str (stringIndex tbl) of
                 Nothing => do let idx' = nextIndex tbl
                               let si' = insert str idx' (stringIndex tbl)
-                              put STable ({ nextIndex := idx' + 1,
-                                            stringIndex := si' } tbl)
+                              let tbl' : Table Write
+                                       = { nextIndex := idx' + 1,
+                                           stringIndex := si' } tbl
+                              put Bin ({ table := tbl' } b)
                               toBuf idx'
                 Just val => toBuf val
 
   fromBuf
-      = do tbl <- get STable
+      = do b <- get Bin
+           let tbl = table b
            idx <- fromBuf
            case lookup idx tbl of
                 Nothing => corrupt "StringTable"
                 Just str => pure str
 
+-- When reading/writing binary, we assume that the inner Binary inherits the
+-- string table of the outer binary
 export
-TTC Binary where
+TTC (Binary Write) where
   toBuf val
     = do let len = used val
          toBuf len
@@ -224,6 +229,12 @@ TTC Binary where
                                         (buf chunk') (loc chunk')
                     put Bin (appended len chunk')
 
+  fromBuf = throw (BadBinaryMode Write)
+
+export
+TTC (Binary Read) where
+  toBuf val = throw (BadBinaryMode Read)
+
   fromBuf
     = do len <- fromBuf
          chunk <- get Bin
@@ -234,7 +245,7 @@ TTC Binary where
                  coreLift $ copyData (buf chunk) (loc chunk) len
                                      newbuf 0
                  put Bin (incLoc len chunk)
-                 pure (MkBin newbuf 0 len len)
+                 pure (MkBin newbuf (table chunk) 0 len len)
             else throw (EndOfBuffer "Binary")
 
 export

@@ -34,12 +34,14 @@ TODOs throughout for which I would welcome some help. Currently these are:
 edwinb's next steps:
 
 * Start TTImp elaborator
-* Unification details:
+* Unification details (which will come up during elaboration...):
   - Inlining things with linear quantities in the context
   - Implement 'retry'
   - We don't need 'inlineOnly' in the context any more, so remove once
     unification works and inlining metavariables works as it should
-* Implement auto-implicit search
+  - Implement auto-implicit search
+* Deal with reading/writing String Table in Binary.Prims
+* Implement/port the missing interfaces for TTC/HasNames
 * Check TTCs work
 * Add universe constraints when adding data definitions
   - Find parameters + other properties we need to know elsewhere
@@ -48,4 +50,4 @@ edwinb's next steps:
 * ???
 * PROFIT
 
-(Last updated 15th July 2022)
+(Last updated 5th August 2022)

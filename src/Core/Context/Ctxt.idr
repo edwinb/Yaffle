@@ -23,6 +23,7 @@ import Libraries.Data.IOArray
 import Libraries.Data.NameMap
 import Libraries.Data.UserNameMap
 
+import Libraries.Utils.Binary
 import Libraries.Utils.Scheme
 
 initSize : Int
@@ -486,7 +487,7 @@ parameters {auto c : Ref Ctxt Defs}
 
   export
   addContextEntry : Ref STable (IntMap String) =>
-                    Name -> Binary -> CoreE err Int
+                    Name -> Binary Read -> CoreE err Int
   addContextEntry n def
       = do defs <- get Ctxt
            smap <- get STable

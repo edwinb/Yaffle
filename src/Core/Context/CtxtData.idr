@@ -169,7 +169,7 @@ data Arr : Type where
 -- binary blob yet, so decode it first time
 public export
 data ContextEntry : Type where
-     Coded : IntMap String -> Name -> Binary -> ContextEntry
+     Coded : IntMap String -> Name -> Binary Read -> ContextEntry
      Decoded : GlobalDef -> ContextEntry
 
 public export
