@@ -40,9 +40,13 @@ edwinb's next steps:
   - We don't need 'inlineOnly' in the context any more, so remove once
     unification works and inlining metavariables works as it should
   - Implement auto-implicit search
-* Deal with reading/writing String Table in Binary.Prims
 * Implement/port the missing interfaces for TTC/HasNames
 * Check TTCs work
+  - Note on string table: Sometimes we shortcut TTC loading (when all we're
+    interested in is which modules it imports), in which case we'd not actually
+    want to process the string table pointlessly. So it may be that we want to
+    process it lazily, and use the RawString instance for any Strings before
+    the actual program data
 * Add universe constraints when adding data definitions
   - Find parameters + other properties we need to know elsewhere
 * Universe level solver

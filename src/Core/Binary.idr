@@ -5,12 +5,6 @@ import Core.Core
 
 import System.File
 
-||| TTC files can only be compatible if the version number is the same
-||| (Increment this when changing anything in the data format)
-export
-ttcVersion : Int
-ttcVersion = 0
-
 ||| Get a file's modified time. If it doesn't exist, return 0 (UNIX Epoch)
 export
 modTime : String -> CoreE err Int

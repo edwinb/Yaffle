@@ -12,6 +12,16 @@ import Libraries.Data.PosMap
 import Libraries.Data.IntMap
 import Libraries.Data.StringMap
 import Libraries.System.File
+import Libraries.System.File.Buffer
+
+||| TTC files can only be compatible if the version number is the same
+||| (Update this when changing anything in the data format)
+export
+ttcVersion : Int
+ttcVersion
+  = 20220808 -- the date of the update
+    * 1000   -- so as to be bigger than Idris 2!
+    + 0      -- update number on given date
 
 -- Label for binary states
 export
@@ -125,20 +135,6 @@ nonEmptyRev : {xs : _} ->
 nonEmptyRev {xs = []} = IsNonEmpty
 nonEmptyRev {xs = (x :: xs)} = IsNonEmpty
 
-export
-writeToFile : (fname : String) -> Binary Write -> IO (Either FileError ())
--- writeToFile fname c
---     = do Right ok <- writeBufferToFile fname (buf c) (used c)
---                | Left (err, size) => pure (Left err)
---          pure (Right ok)
-
-export
-readFromFile : (fname : String) -> IO (Either FileError (Binary Read))
--- readFromFile fname
---     = do Right b <- createBufferFromFile fname
---                | Left err => pure (Left err)
---          bsize <- rawSize b
---          pure (Right (MkBin b 0 bsize bsize))
 public export
 interface TTC a where -- TTC = TT intermediate code/interface file
   -- Add binary data representing the value to the given buffer
@@ -580,3 +576,80 @@ TTC Nat where
   fromBuf
      = do val <- fromBuf
           pure (fromInteger val)
+
+-- Write out a string table, using 'RawString' TTC instance, because we can't
+-- refer to the string table here! It's convenient to use toBuf anyway.
+writeSTableData : Ref Bin (Binary Write) =>
+                  List (String, Int) -> CoreTTC ()
+writeSTableData xs
+    = do toBuf (length xs)
+         traverse_ addEntry xs
+  where
+    addEntry : (String, Int) -> CoreTTC ()
+    addEntry (s, i)
+        = do toBuf @{RawString} s
+             toBuf i
+
+readSTableData : Ref Bin (Binary Read) =>
+                 CoreTTC (List (Int, String))
+readSTableData
+    = do len <- fromBuf {a = Int}
+         readElems [] (integerToNat (cast len))
+  where
+    readElems : List (Int, String) -> Nat -> CoreTTC (List (Int, String))
+    readElems xs Z = pure xs -- no need to reverse, order doesn't matter
+    readElems xs (S k)
+        = do str <- fromBuf @{RawString}
+             i <- fromBuf
+             -- Keyed the other way when reading, so swap values
+             readElems ((i, str) :: xs) k
+
+export
+writeToFile : (headerID : String) -> -- TT2 or TTM
+              (fname : String) -> Binary Write -> CoreTTC (Either FileError ())
+writeToFile hdr fname bdata
+    -- We need to create a new buffer which holds:
+    -- * a header 'TTC [version]'
+    -- * The string table from 'bdata'
+    -- * The actual data in 'bdata'
+    -- Then that's the thing we write to disk
+    = do newbuf <- initBinaryS stInit (used bdata * 2)
+         toBuf @{RawString} hdr -- same as Idris 2, so the version error message works
+         toBuf @{Wasteful} ttcVersion
+         writeSTableData (toList (stringIndex (table bdata)))
+         toBuf bdata
+
+         outputData <- get Bin
+         Right ok <- coreLift $
+                       writeBufferToFile fname
+                                         (buf outputData) (used outputData)
+               | Left (err, size) => pure (Left err)
+         pure (Right ok)
+
+export
+readFromFile : (headerID : String) -> -- TTM or TT2
+               (fname : String) -> CoreTTC (Either FileError (Binary Read))
+readFromFile hdr fname
+    -- Inverse of above. We read:
+    -- * a header 'TTC [version]'
+    -- * The string table from 'bdata'
+    -- * The actual data in 'bdata'
+    -- Then create a new Binary Read with all of this data
+    = do Right b <- coreLift $ createBufferFromFile fname
+               | Left err => pure (Left err)
+         bsize <- coreLift $ rawSize b
+         let filebuf = MkBin b empty 0 bsize bsize
+         bin <- newRef Bin filebuf
+         -- Check header is okay
+         hdrR <- fromBuf @{RawString}
+         version <- fromBuf @{Wasteful}
+         -- Check format and version here
+         when (hdrR /= hdr) $
+              corrupt $ hdr ++ " header"
+         when (version /= ttcVersion) $
+              throw (Format fname version ttcVersion)
+
+         stData <- readSTableData
+         bdata <- fromBuf {a = Binary Read}
+         pure (Right (MkBin (buf bdata) (fromList stData)
+                            0 (used bdata) (used bdata)))

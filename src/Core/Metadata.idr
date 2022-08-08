@@ -379,7 +379,7 @@ writeToTTM fname
          defs <- get Ctxt
          buf <- ttc (initBinary (stringTable (gamma defs)))
          ttc $ toBuf (MkTTMFile ttcVersion !(full (gamma defs) meta))
-         Right ok <- coreLift $ writeToFile fname !(get Bin)
+         Right ok <- ttc $ writeToFile "TTM" fname !(get Bin)
              | Left err => throw (InternalError (fname ++ ": " ++ show err))
          pure ()
 
@@ -388,7 +388,7 @@ readFromTTM : {auto m : Ref MD Metadata} ->
               (fname : String) ->
               Core ()
 readFromTTM fname
-    = do Right buf <- coreLift $ readFromFile fname
+    = do Right buf <- ttc $ readFromFile "TTM" fname
              | Left err => throw (InternalError (fname ++ ": " ++ show err))
          bin <- newRef Bin buf
          ttm <- ttc fromBuf
@@ -398,7 +398,7 @@ readFromTTM fname
 export
 readMetadata : (fname : String) -> Core Metadata
 readMetadata fname
-  = do Right buf <- coreLift $ readFromFile fname
+  = do Right buf <- ttc $ readFromFile "TTM" fname
              | Left err => throw (InternalError (fname ++ ": " ++ show err))
        bin <- newRef Bin buf
        MkTTMFile _ md <- ttc fromBuf
