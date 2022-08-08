@@ -21,6 +21,7 @@ import Data.Maybe
 import Libraries.Data.IntMap
 import Libraries.Data.IOArray
 import Libraries.Data.NameMap
+import Libraries.Data.StringMap
 import Libraries.Data.UserNameMap
 
 import Libraries.Utils.Binary
@@ -535,6 +536,19 @@ parameters {auto c : Ref Ctxt Defs}
   depth
     = do defs <- get Ctxt
          pure (branchDepth (gamma defs))
+
+  -- Add a string to the string table, for when writing to TTC
+  -- It isn't strictly necessary to do this, since 'toBuf' for String will
+  -- also do it, but perhaps it will also be useful to preserve sharing of
+  -- Strings (FIXME: not that we currently do, but perhaps we should, hence
+  -- returning the String, which could in future be a pointer to a shared
+  -- String)
+  export
+  addString : String -> Core String
+  addString s
+      = do defs <- get Ctxt
+           put Ctxt ({ gamma.stringTable $= Binary.addString s } defs)
+           pure s
 
 export
 defNameType : Def -> Maybe NameType

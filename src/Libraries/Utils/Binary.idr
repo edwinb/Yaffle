@@ -25,6 +25,15 @@ export
 stInit : StringTable
 stInit = MkStringTable { nextIndex = 0, stringIndex = empty }
 
+export
+addString : String -> StringTable -> StringTable
+addString s tbl
+    = case lookup s (stringIndex tbl) of
+           Just _ => tbl
+           Nothing => let idx = tbl.nextIndex in
+                          { nextIndex := idx + 1,
+                            stringIndex $= insert s idx } tbl
+
 public export
 data BinaryMode = Read | Write
 
