@@ -24,7 +24,6 @@ import Libraries.Data.NameMap
 import Libraries.Data.StringMap
 import Libraries.Data.UserNameMap
 
-import Libraries.Utils.Binary
 import Libraries.Utils.Scheme
 
 initSize : Int
@@ -547,7 +546,7 @@ parameters {auto c : Ref Ctxt Defs}
   addString : String -> Core String
   addString s
       = do defs <- get Ctxt
-           put Ctxt ({ gamma.stringTable $= Binary.addString s } defs)
+           put Ctxt ({ gamma.stringTable $= Binary.Prims.addString s } defs)
            pure s
 
 export

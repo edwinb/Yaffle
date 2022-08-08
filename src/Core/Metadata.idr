@@ -13,7 +13,6 @@ import Data.List
 import System.File
 import Libraries.Data.PosMap
 import Libraries.Data.IntMap
-import Libraries.Utils.Binary
 
 import public Protocol.IDE.Decoration as Protocol.IDE
 

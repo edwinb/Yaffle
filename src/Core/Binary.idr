@@ -5,8 +5,6 @@ import Core.Core
 
 import System.File
 
-import public Libraries.Utils.Binary
-
 ||| TTC files can only be compatible if the version number is the same
 ||| (Increment this when changing anything in the data format)
 export

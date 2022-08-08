@@ -124,7 +124,6 @@ modules
     Libraries.Text.Quantity,
     Libraries.Text.Token,
 
-    Libraries.Utils.Binary,
     Libraries.Utils.Octal,
     Libraries.Utils.Path,
     Libraries.Utils.Scheme,
