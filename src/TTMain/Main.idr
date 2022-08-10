@@ -34,14 +34,24 @@ ttMain fname
          repl
 
 usage : String
-usage = "Usage: yaffle <input file>"
+usage = "Usage: yaffle [-tt] <input file>"
+
+runWith : List String -> IO ()
+runWith ["-tt", fname]
+    = coreRun (ttMain fname)
+              (\err : Error => putStrLn ("Uncaught error: " ++ show err))
+              (\res => pure ())
+runWith [fname]
+    = do putStrLn "TTImp not started"
+         exitWith (ExitFailure 1)
+runWith _
+    = do putStrLn usage
+         exitWith (ExitFailure 1)
 
 main : IO ()
 main
-    = do (_ :: fname :: []) <- getArgs
+    = do (_ :: opts) <- getArgs
              | _ => do putStrLn usage
                        exitWith (ExitFailure 1)
-         coreRun (ttMain fname)
-               (\err : Error => putStrLn ("Uncaught error: " ++ show err))
-               (\res => pure ())
+         runWith opts
 

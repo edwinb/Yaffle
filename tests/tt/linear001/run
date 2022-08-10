@@ -1,1 +1,1 @@
-$1 id_linear.tt < input
+$1 -tt id_linear.tt < input

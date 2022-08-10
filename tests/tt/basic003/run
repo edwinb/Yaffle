@@ -1,1 +1,1 @@
-$1 testmeta.tt < input
+$1 -tt testmeta.tt < input

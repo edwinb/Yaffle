@@ -1,1 +1,1 @@
-$1 id_irrelevant.tt < input
+$1 -tt id_irrelevant.tt < input
