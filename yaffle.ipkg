@@ -44,9 +44,13 @@ modules
     Core.Unify.SolveMeta,
     Core.Unify.State,
     Core.Unify.Unify,
+    Core.Warning,
 
     -- The input language and elaborator
+    TTImp.BindImplicits,
+    TTImp.ProcessFile,
     TTImp.TTImp,
+    TTImp.Utils,
 
     -- Parsing support
     Parser.Lexer.Common,

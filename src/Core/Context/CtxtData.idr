@@ -11,6 +11,7 @@ import Core.Binary
 import public Core.Context.Def
 import Core.CompileExpr
 import Core.Core
+import Core.Warning
 import Core.Options
 import Core.TT
 
@@ -272,6 +273,8 @@ record Defs where
      -- ^ Metavariables the user still has to fill in. In practice, that's
      -- everything with a user accessible name and a definition of Hole.
      -- The Bool says whether it was introduced in another module.
+  warnings : List Warning
+       -- ^ as yet unreported warnings
   schemeEvalLoaded : Bool
 
 -- Label for context references

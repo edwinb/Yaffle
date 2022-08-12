@@ -9,6 +9,8 @@ import Core.Syntax.Parser
 import Core.Syntax.Raw
 import Core.Unify.State
 
+import TTImp.ProcessFile
+
 import TTMain.ProcessTT
 import TTMain.REPL
 
@@ -42,8 +44,9 @@ runWith ["-tt", fname]
               (\err : Error => putStrLn ("Uncaught error: " ++ show err))
               (\res => pure ())
 runWith [fname]
-    = do putStrLn "TTImp not started"
-         exitWith (ExitFailure 1)
+    = coreRun (ttImpMain fname)
+              (\err : Error => putStrLn ("Uncaught error: " ++ show err))
+              (\res => pure ())
 runWith _
     = do putStrLn usage
          exitWith (ExitFailure 1)
@@ -54,4 +57,3 @@ main
              | _ => do putStrLn usage
                        exitWith (ExitFailure 1)
          runWith opts
-

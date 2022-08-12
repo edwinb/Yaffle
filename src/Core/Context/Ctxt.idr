@@ -408,6 +408,7 @@ initDefs
            , allIncData = []
            , toIR = empty
            , userHoles = empty
+           , warnings = []
            , schemeEvalLoaded = False
            }
 

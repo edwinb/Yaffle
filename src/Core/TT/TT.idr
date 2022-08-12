@@ -345,6 +345,16 @@ namespace PiInfo
   isImplicit Explicit = False
   isImplicit _ = True
 
+-- There's few places where we need the default - it's just when checking if
+-- there's a default during elaboration - so often it's easier just to erase it
+-- to a normal implicit
+export
+forgetDef : PiInfo t -> PiInfo t'
+forgetDef Explicit = Explicit
+forgetDef Implicit = Implicit
+forgetDef AutoImplicit = AutoImplicit
+forgetDef (DefImplicit t) = Implicit
+
 export
 Show t => Show (PiInfo t) where
   show Implicit = "Implicit"

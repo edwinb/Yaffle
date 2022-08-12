@@ -76,6 +76,17 @@ showSimilarNames ns nm str kept
       | _ => pure (full ++ adj)
     Nothing
 
+export
+isPrimName : List Name -> Name -> Bool
+isPrimName prims given = let (ns, nm) = splitNS given in go ns nm prims where
+
+  go : Namespace -> Name -> List Name -> Bool
+  go ns nm [] = False
+  go ns nm (p :: ps)
+    = let (ns', nm') = splitNS p in
+      (nm' == nm && (ns' `isApproximationOf` ns))
+      || go ns nm ps
+
 parameters {auto c : Ref Ctxt Defs}
   maybeMisspelling : Error -> Name -> Core a
   maybeMisspelling err nm = do
@@ -131,7 +142,294 @@ parameters {auto c : Ref Ctxt Defs}
                | _ => throw (AlreadyDefined fc n)
            pure ()
 
+  export
+  getNextTypeTag : Core Int
+  getNextTypeTag
+      = do defs <- get Ctxt
+           put Ctxt ({ nextTag $= (+1) } defs)
+           pure (nextTag defs)
+
+  -- Add a new nested namespace to the current namespace for new definitions
+  -- e.g. extendNS ["Data"] when namespace is "Prelude.List" leads to
+  -- current namespace of "Prelude.List.Data"
+  -- Inner namespaces go first, for ease of name lookup
+  export
+  extendNS : Namespace -> Core ()
+  extendNS ns = update Ctxt { currentNS $= (<.> ns) }
+
+  export
+  withExtendedNS : Namespace -> Core a -> Core a
+  withExtendedNS ns act
+      = do defs <- get Ctxt
+           let cns = currentNS defs
+           put Ctxt ({ currentNS := cns <.> ns } defs)
+           ma <- catch (Right <$> act) (pure . Left)
+           defs <- get Ctxt
+           put Ctxt ({ currentNS := cns } defs)
+           case ma of
+             Left err => throw err
+             Right a  => pure a
+
+  -- Get the name as it would be defined in the current namespace
+  -- i.e. if it doesn't have an explicit namespace already, add it,
+  -- otherwise leave it alone
+  export
+  inCurrentNS : Name -> Core Name
+  inCurrentNS (UN n)
+      = do defs <- get Ctxt
+           pure (NS (currentNS defs) (UN n))
+  inCurrentNS n@(WithBlock _ _)
+      = do defs <- get Ctxt
+           pure (NS (currentNS defs) n)
+  inCurrentNS n@(Nested _ _)
+      = do defs <- get Ctxt
+           pure (NS (currentNS defs) n)
+  inCurrentNS n@(MN _ _)
+      = do defs <- get Ctxt
+           pure (NS (currentNS defs) n)
+  inCurrentNS n@(DN _ _)
+      = do defs <- get Ctxt
+           pure (NS (currentNS defs) n)
+  inCurrentNS n = pure n
+
+  export
+  setVisible : Namespace -> Core ()
+  setVisible nspace = update Ctxt { gamma->visibleNS $= (nspace ::) }
+
+  export
+  getVisible : Core (List Namespace)
+  getVisible
+      = do defs <- get Ctxt
+           pure (visibleNS (gamma defs))
+
+  -- Return True if the given namespace is visible in the context (meaning
+  -- the namespace itself, and any namespace it's nested inside)
+  export
+  isVisible : Namespace -> Core Bool
+  isVisible nspace
+      = do defs <- get Ctxt
+           pure (any visible (allParents (currentNS defs) ++
+                              nestedNS defs ++
+                              visibleNS (gamma defs)))
+
+    where
+      -- Visible if any visible namespace is a parent of the namespace we're
+      -- asking about
+      visible : Namespace -> Bool
+      visible visns = isParentOf visns nspace
+
+  -- Get the next entry id in the context (this is for recording where to go
+  -- back to when backtracking in the elaborator)
+  export
+  getNextEntry : Core Int
+  getNextEntry
+      = do defs <- get Ctxt
+           pure (nextEntry (gamma defs))
+
+  export
+  setNextEntry : Int -> Core ()
+  setNextEntry i = update Ctxt { gamma->nextEntry := i }
+
+  -- Set the 'first entry' index (i.e. the first entry in the current file)
+  -- to the place we currently are in the context
+  export
+  resetFirstEntry : Core ()
+  resetFirstEntry
+      = do defs <- get Ctxt
+           put Ctxt ({ gamma->firstEntry := nextEntry (gamma defs) } defs)
+
+  export
+  getFullName : Name -> Core Name
+  getFullName (Resolved i)
+      = do defs <- get Ctxt
+           Just gdef <- lookupCtxtExact (Resolved i) (gamma defs)
+                | Nothing => pure (Resolved i)
+           pure (fullname gdef)
+  getFullName n = pure n
+
 -- Dealing with various options
+
+  export
+  checkUnambig : FC -> Name -> Core Name
+  checkUnambig fc n
+      = do defs <- get Ctxt
+           case !(lookupDefName n (gamma defs)) of
+                [(fulln, i, _)] => pure (Resolved i)
+                ns => ambiguousName fc n (map fst ns)
+
+  export
+  lazyActive : Bool -> Core ()
+  lazyActive a = update Ctxt { options->elabDirectives->lazyActive := a }
+
+  export
+  setUnboundImplicits : Bool -> Core ()
+  setUnboundImplicits a = update Ctxt { options->elabDirectives->unboundImplicits := a }
+
+  export
+  setPrefixRecordProjections : Bool -> Core ()
+  setPrefixRecordProjections b = update Ctxt { options->elabDirectives->prefixRecordProjections := b }
+
+  export
+  setDefaultTotalityOption : TotalReq -> Core ()
+  setDefaultTotalityOption tot = update Ctxt { options->elabDirectives->totality := tot }
+
+  export
+  setAmbigLimit : Nat -> Core ()
+  setAmbigLimit max = update Ctxt { options->elabDirectives->ambigLimit := max }
+
+  export
+  setAutoImplicitLimit : Nat -> Core ()
+  setAutoImplicitLimit max = update Ctxt { options->elabDirectives->autoImplicitLimit := max }
+
+  export
+  setNFThreshold : Nat -> Core ()
+  setNFThreshold max = update Ctxt { options->elabDirectives->nfThreshold := max }
+
+  export
+  setSearchTimeout : Integer -> Core ()
+  setSearchTimeout t = update Ctxt { options->session->searchTimeout := t }
+
+  export
+  isLazyActive : Core Bool
+  isLazyActive
+      = do defs <- get Ctxt
+           pure (lazyActive (elabDirectives (options defs)))
+
+  export
+  isUnboundImplicits : Core Bool
+  isUnboundImplicits
+      = do defs <- get Ctxt
+           pure (unboundImplicits (elabDirectives (options defs)))
+
+  export
+  isPrefixRecordProjections : Core Bool
+  isPrefixRecordProjections =
+    prefixRecordProjections . elabDirectives . options <$> get Ctxt
+
+  export
+  getDefaultTotalityOption : Core TotalReq
+  getDefaultTotalityOption
+      = do defs <- get Ctxt
+           pure (totality (elabDirectives (options defs)))
+
+  export
+  getAmbigLimit : Core Nat
+  getAmbigLimit
+      = do defs <- get Ctxt
+           pure (ambigLimit (elabDirectives (options defs)))
+
+  export
+  getAutoImplicitLimit : Core Nat
+  getAutoImplicitLimit
+      = do defs <- get Ctxt
+           pure (autoImplicitLimit (elabDirectives (options defs)))
+
+  export
+  setPair : FC -> (pairType : Name) -> (fstn : Name) -> (sndn : Name) ->
+            Core ()
+  setPair fc ty f s
+      = do ty' <- checkUnambig fc ty
+           f' <- checkUnambig fc f
+           s' <- checkUnambig fc s
+           update Ctxt { options $= setPair ty' f' s' }
+
+  export
+  setRewrite : FC -> (eq : Name) -> (rwlemma : Name) -> Core ()
+  setRewrite fc eq rw
+      = do rw' <- checkUnambig fc rw
+           eq' <- checkUnambig fc eq
+           update Ctxt { options $= setRewrite eq' rw' }
+
+  -- Don't check for ambiguity here; they're all meant to be overloadable
+  export
+  setFromInteger : Name -> Core ()
+  setFromInteger n = update Ctxt { options $= setFromInteger n }
+
+  export
+  setFromString : Name -> Core ()
+  setFromString n = update Ctxt { options $= setFromString n }
+
+  export
+  setFromChar : Name -> Core ()
+  setFromChar n = update Ctxt { options $= setFromChar n }
+
+  export
+  setFromDouble : Name -> Core ()
+  setFromDouble n = update Ctxt { options $= setFromDouble n }
+
+  export
+  addNameDirective : FC -> Name -> List String -> Core ()
+  addNameDirective fc n ns
+      = do n' <- checkUnambig fc n
+           update Ctxt { namedirectives $= insert n' ns  }
+
+  -- Checking special names from Options
+
+  export
+  isPairType : Name -> Core Bool
+  isPairType n
+      = do defs <- get Ctxt
+           case pairnames (options defs) of
+                Nothing => pure False
+                Just l => pure $ !(getFullName n) == !(getFullName (pairType l))
+
+  export
+  fstName : Core (Maybe Name)
+  fstName
+      = do defs <- get Ctxt
+           pure $ maybe Nothing (Just . fstName) (pairnames (options defs))
+
+  export
+  sndName : Core (Maybe Name)
+  sndName
+      = do defs <- get Ctxt
+           pure $ maybe Nothing (Just . sndName) (pairnames (options defs))
+
+  export
+  getRewrite : Core (Maybe Name)
+  getRewrite
+      = do defs <- get Ctxt
+           pure $ maybe Nothing (Just . rewriteName) (rewritenames (options defs))
+
+  export
+  isEqualTy : Name -> Core Bool
+  isEqualTy n
+      = do defs <- get Ctxt
+           case rewritenames (options defs) of
+                Nothing => pure False
+                Just r => pure $ !(getFullName n) == !(getFullName (equalType r))
+
+  export
+  fromIntegerName : Core (Maybe Name)
+  fromIntegerName
+      = do defs <- get Ctxt
+           pure $ fromIntegerName (primnames (options defs))
+
+  export
+  fromStringName : Core (Maybe Name)
+  fromStringName
+      = do defs <- get Ctxt
+           pure $ fromStringName (primnames (options defs))
+
+  export
+  fromCharName : Core (Maybe Name)
+  fromCharName
+      = do defs <- get Ctxt
+           pure $ fromCharName (primnames (options defs))
+
+  export
+  fromDoubleName : Core (Maybe Name)
+  fromDoubleName
+      = do defs <- get Ctxt
+           pure $ fromDoubleName (primnames (options defs))
+
+  export
+  getPrimNames : Core PrimNames
+  getPrimNames = [| MkPrimNs fromIntegerName fromStringName fromCharName fromDoubleName |]
+
+  export
+  getPrimitiveNames : Core (List Name)
+  getPrimitiveNames = primNamesToList <$> getPrimNames
 
   export
   addLogLevel : Maybe LogLevel -> Core ()
@@ -154,6 +452,10 @@ parameters {auto c : Ref Ctxt Defs}
   setLogTimings n = update Ctxt { options->session->logTimings := Just n }
 
   export
+  setDebugElabCheck : Bool -> Core ()
+  setDebugElabCheck b = update Ctxt { options->session->debugElabCheck := b }
+
+  export
   getSession : CoreE err Session
   getSession
       = do defs <- get Ctxt
@@ -166,6 +468,10 @@ parameters {auto c : Ref Ctxt Defs}
   export
   updateSession : (Session -> Session) -> CoreE err ()
   updateSession f = setSession (f !getSession)
+
+  export
+  recordWarning : Warning -> Core ()
+  recordWarning w = update Ctxt { warnings $= (w ::) }
 
   export
   getDirs : CoreE err Dirs
@@ -291,111 +597,6 @@ parameters {auto c : Ref Ctxt Defs}
     where
       getDir : (CG, String) -> Maybe String
       getDir (x', str) = if cg == x' then Just str else Nothing
-
-  export
-  getNextTypeTag : Core Int
-  getNextTypeTag
-      = do defs <- get Ctxt
-           put Ctxt ({ nextTag $= (+1) } defs)
-           pure (nextTag defs)
-
-  -- Add a new nested namespace to the current namespace for new definitions
-  -- e.g. extendNS ["Data"] when namespace is "Prelude.List" leads to
-  -- current namespace of "Prelude.List.Data"
-  -- Inner namespaces go first, for ease of name lookup
-  export
-  extendNS : Namespace -> Core ()
-  extendNS ns = update Ctxt { currentNS $= (<.> ns) }
-
-  export
-  withExtendedNS : Namespace -> Core a -> Core a
-  withExtendedNS ns act
-      = do defs <- get Ctxt
-           let cns = currentNS defs
-           put Ctxt ({ currentNS := cns <.> ns } defs)
-           ma <- catch (Right <$> act) (pure . Left)
-           defs <- get Ctxt
-           put Ctxt ({ currentNS := cns } defs)
-           case ma of
-             Left err => throw err
-             Right a  => pure a
-
-  -- Get the name as it would be defined in the current namespace
-  -- i.e. if it doesn't have an explicit namespace already, add it,
-  -- otherwise leave it alone
-  export
-  inCurrentNS : Name -> Core Name
-  inCurrentNS (UN n)
-      = do defs <- get Ctxt
-           pure (NS (currentNS defs) (UN n))
-  inCurrentNS n@(WithBlock _ _)
-      = do defs <- get Ctxt
-           pure (NS (currentNS defs) n)
-  inCurrentNS n@(Nested _ _)
-      = do defs <- get Ctxt
-           pure (NS (currentNS defs) n)
-  inCurrentNS n@(MN _ _)
-      = do defs <- get Ctxt
-           pure (NS (currentNS defs) n)
-  inCurrentNS n@(DN _ _)
-      = do defs <- get Ctxt
-           pure (NS (currentNS defs) n)
-  inCurrentNS n = pure n
-
-  export
-  setVisible : Namespace -> Core ()
-  setVisible nspace = update Ctxt { gamma->visibleNS $= (nspace ::) }
-
-  export
-  getVisible : Core (List Namespace)
-  getVisible
-      = do defs <- get Ctxt
-           pure (visibleNS (gamma defs))
-
-  -- Return True if the given namespace is visible in the context (meaning
-  -- the namespace itself, and any namespace it's nested inside)
-  export
-  isVisible : Namespace -> Core Bool
-  isVisible nspace
-      = do defs <- get Ctxt
-           pure (any visible (allParents (currentNS defs) ++
-                              nestedNS defs ++
-                              visibleNS (gamma defs)))
-
-    where
-      -- Visible if any visible namespace is a parent of the namespace we're
-      -- asking about
-      visible : Namespace -> Bool
-      visible visns = isParentOf visns nspace
-
-  -- Get the next entry id in the context (this is for recording where to go
-  -- back to when backtracking in the elaborator)
-  export
-  getNextEntry : Core Int
-  getNextEntry
-      = do defs <- get Ctxt
-           pure (nextEntry (gamma defs))
-
-  export
-  setNextEntry : Int -> Core ()
-  setNextEntry i = update Ctxt { gamma->nextEntry := i }
-
-  -- Set the 'first entry' index (i.e. the first entry in the current file)
-  -- to the place we currently are in the context
-  export
-  resetFirstEntry : Core ()
-  resetFirstEntry
-      = do defs <- get Ctxt
-           put Ctxt ({ gamma->firstEntry := nextEntry (gamma defs) } defs)
-
-  export
-  getFullName : Name -> Core Name
-  getFullName (Resolved i)
-      = do defs <- get Ctxt
-           Just gdef <- lookupCtxtExact (Resolved i) (gamma defs)
-                | Nothing => pure (Resolved i)
-           pure (fullname gdef)
-  getFullName n = pure n
 
 reducibleIn : Namespace -> Name -> Visibility -> Bool
 reducibleIn nspace (NS ns (UN n)) Export = isParentOf ns nspace
