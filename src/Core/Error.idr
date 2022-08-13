@@ -35,6 +35,8 @@ data Error : Type where
      CantConvert : {vars : _} ->
                    FC -> Defs -> Env Term vars ->
                    Term vars -> Term vars -> Error
+     CantSolveEq : {vars : _} ->
+                   FC -> Defs -> Env Term vars -> Term vars -> Term vars -> Error
 
      PatternVariableUnifies : {vars : _} ->
                               FC -> FC -> Env Term vars -> Name -> Term vars -> Error
@@ -47,6 +49,10 @@ data Error : Type where
                    Term vars -> Error
      LinearUsed : FC -> Nat -> Name -> Error
      LinearMisuse : FC -> Name -> RigCount -> RigCount -> Error
+     CantSolveGoal : {vars : _} ->
+                     FC -> Defs -> Env Term vars -> Term vars ->
+                     Maybe Error -> Error
+     UnsolvedHoles : List (FC, Name) -> Error
 
      MaybeMisspelling : Error -> List1 String -> Error
      ModuleNotFound : FC -> ModuleIdent -> Error
@@ -75,6 +81,8 @@ Show Error where
 
   show (CantConvert fc defs env x y)
       = show fc ++ ":Can't convert " ++ show x ++ " with " ++ show y
+  show (CantSolveEq fc _ env x y)
+      = show fc ++ ":" ++ show x ++ " and " ++ show y ++ " are not equal"
 
   show (PatternVariableUnifies fc fct env n x)
       = show fc ++ ":Pattern variable " ++ show n ++ " unifies with " ++ show x
@@ -102,7 +110,10 @@ Show Error where
          "irrelevant"
          "relevant"
          (const "non-linear")
+  show (CantSolveGoal fc gam env g cause)
+      = show fc ++ ":Can't solve goal " ++ assert_total (show g)
 
+  show (UnsolvedHoles hs) = "Unsolved holes " ++ show hs
   show (MaybeMisspelling err ns)
      = show err ++ "\nDid you mean" ++ case ns of
          (n ::: []) => ": " ++ n ++ "?"

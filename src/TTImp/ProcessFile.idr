@@ -4,6 +4,7 @@ import Core.Context
 import Core.Directory
 import Core.Error
 import Core.InitPrimitives
+import Core.Metadata
 import Core.Unify.State
 
 import Parser.Source
@@ -13,7 +14,13 @@ import TTImp.TTImp
 import System
 import System.File
 
+parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
+           {auto m : Ref MD Metadata}
+  processTTImpDecls : NestedNames vars -> Env Term vars ->
+                      List ImpDecl -> Core Bool
+
 parameters {auto c : Ref Ctxt Defs}
+
   processTTImpFile : String -> Core Bool
   processTTImpFile fname
       = do modIdent <- ctxtPathToNS fname
@@ -25,8 +32,15 @@ parameters {auto c : Ref Ctxt Defs}
                  | Left err => do coreLift (putStrLn (show err))
                                   pure False
            traverse_ recordWarning ws
+           m <- newRef MD (initMetadata (PhysicalIdrSrc modIdent))
+           u <- newRef UST initUState
 
-           throw (InternalError "Elaboration not done yet")
+           catch (do ignore $ processTTImpDecls (MkNested []) [<] tti
+                     Nothing <- checkDelayedHoles
+                         | Just err => throw err
+                     pure True)
+                 (\err => do coreLift_ (printLn err)
+                             pure False)
 
 export
 ttImpMain : String -> Core ()

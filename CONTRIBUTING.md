@@ -4,11 +4,14 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 * Please review the rules implemented in Core/Typecheck/Check.idr
     - Especially regarding quantities and universe levels
+* Some things which have changed in Idris 2 should ideally be changed here
+    - Most obviously: PrT/PrimType in the TT structure
 * Any missing support functions for TT to be ported from existing Idris 2
     - I will add these as they are needed, but it's even better if they're
       already done :). Mostly they'll be the same, with the addition of
       case alternatives. Experience so far is that case alternatives in the
       new representation are easier to process...
+* Implement TTC instances
 * Implement 'checkConstraints' in Core.TT.Universes. This should check
   whether the `uconstraints` are consistent and instantiate the names standing
   for universe levels as a `UniverseLevel` definition.
@@ -33,7 +36,7 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
-* Start TTImp elaborator
+* Continue TTImp elaborator
 * Unification details (which will come up during elaboration...):
   - Inlining things with linear quantities in the context
   - Implement 'retry'

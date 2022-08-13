@@ -4,11 +4,13 @@ import Core.Context
 import Core.Context.Log
 import Core.Env
 import Core.Error
+import Core.Evaluate
 import Core.TT
 
 import Data.SnocList
 
 import Libraries.Data.IntMap
+import Libraries.Data.NameMap
 
 public export
 data Constraint : Type where
@@ -41,7 +43,7 @@ data PolyConstraint : Type where
      MkPolyConstraint : {vars : _} ->
                         FC -> Env Term vars ->
                         (arg : Term vars) ->
-                        (expty : Term vars) ->
+                        (expty : Value vars) ->
                         (argty : Term vars) -> PolyConstraint
 
 public export
@@ -316,6 +318,14 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                     rewrite sym (appendLinLeftNeutral vars) in args
 
   export
+  setConstraint : Int -> Constraint -> Core ()
+  setConstraint cid c = update UST { constraints $= insert cid c }
+
+  export
+  deleteConstraint : Int -> Core ()
+  deleteConstraint cid = update UST { constraints $= delete cid }
+
+  export
   addConstraint : Constraint -> Core Int
   addConstraint constr
       = do ust <- get UST
@@ -323,6 +333,24 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            put UST ({ constraints $= insert cid constr,
                       nextConstraint := cid+1 } ust)
            pure cid
+
+  export
+  addDot : {vars : _} ->
+           FC -> Env Term vars -> Name -> Term vars -> DotReason -> Term vars ->
+           Core ()
+  addDot fc env dotarg x reason y
+      = do defs <- get Ctxt
+           update UST { dotConstraints $= ((dotarg, reason, MkConstraint fc False env x y) ::) }
+
+  export
+  addPolyConstraint : {vars : _} ->
+                      FC -> Env Term vars -> Term vars -> Value vars -> Term vars ->
+                      Core ()
+  -- assume value is expanded
+  addPolyConstraint fc env arg x@(VMeta _ _ _ _ _ _) y
+      = update UST { polyConstraints $= ((MkPolyConstraint fc env arg x y) ::) }
+  addPolyConstraint fc env arg x y
+      = pure ()
 
   export
   removeHole : Int -> Core ()
@@ -335,6 +363,53 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   removeHoleName n
       = do defs <- get Ctxt
            whenJust (getNameID n defs.gamma) removeHole
+
+  export
+  addNoSolve : Int -> Core ()
+  addNoSolve i = update UST { noSolve $= insert i () }
+
+  export
+  removeNoSolve : Int -> Core ()
+  removeNoSolve i = update UST { noSolve $= delete i }
+
+  export
+  saveHoles : Core (IntMap (FC, Name))
+  saveHoles
+      = do ust <- get UST
+           put UST ({ currentHoles := empty } ust)
+           pure (currentHoles ust)
+
+  export
+  restoreHoles : IntMap (FC, Name) -> Core ()
+  restoreHoles hs = update UST { currentHoles := hs }
+
+  export
+  removeGuess : Int -> Core ()
+  removeGuess n = update UST { guesses $= delete n }
+
+  -- Get all of the hole data
+  export
+  getHoles : Core (IntMap (FC, Name))
+  getHoles = holes <$> get UST
+
+  -- Get all of the guess data
+  export
+  getGuesses : Core (IntMap (FC, Name))
+  getGuesses = guesses <$> get UST
+
+  -- Get the hole data for holes in the current elaboration session
+  -- (i.e. since the last 'saveHoles')
+  export
+  getCurrentHoles : Core (IntMap (FC, Name))
+  getCurrentHoles = currentHoles <$> get UST
+
+  export
+  isHole : Int -> Core Bool
+  isHole i = isJust . lookup i <$> getHoles
+
+  export
+  isCurrentHole : Int -> Core Bool
+  isCurrentHole i = isJust . lookup i <$> getCurrentHoles
 
   export
   tryErrorUnify : Core a -> Core (Either Error a)
@@ -362,3 +437,88 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = do Right ok <- tryErrorUnify elab1
                  | Left err => elab2 err
            pure ok
+
+  -- Note that the given hole name arises from a type declaration, so needs
+  -- to be resolved later
+  export
+  addDelayedHoleName : (Int, (FC, Name)) -> Core ()
+  addDelayedHoleName (idx, h) = update UST { delayedHoles $= insert idx h }
+
+  export
+  checkDelayedHoles : Core (Maybe Error)
+  checkDelayedHoles
+      = do ust <- get UST
+           let hs = toList (delayedHoles ust)
+           if (not (isNil hs))
+              then do pure (Just (UnsolvedHoles (map snd hs)))
+              else pure Nothing
+
+  -- A hole is 'valid' - i.e. okay to leave unsolved for later - as long as it's
+  -- not guarded by a unification problem (in which case, report that the unification
+  -- problem is unsolved) and it doesn't depend on an implicit pattern variable
+  -- (in which case, perhaps suggest binding it explicitly)
+  checkValidHole : Int -> (Int, (FC, Name)) -> Core ()
+  checkValidHole base (idx, (fc, n))
+    = when (idx >= base) $
+        do defs <- get Ctxt
+           Just gdef <- lookupCtxtExact (Resolved idx) (gamma defs)
+                | Nothing => pure ()
+           case definition gdef of
+                BySearch _ _ _ =>
+                    do defs <- get Ctxt
+                       Just ty <- lookupTyExact n (gamma defs)
+                            | Nothing => pure ()
+                       throw (CantSolveGoal fc defs [<] ty Nothing)
+                Guess tm envb (con :: _) =>
+                    do ust <- get UST
+                       let Just c = lookup con (constraints ust)
+                            | Nothing => pure ()
+                       case c of
+                            MkConstraint fc l env x y =>
+                               do put UST ({ guesses := empty } ust)
+                                  throw (CantSolveEq fc defs env x y)
+                            MkSeqConstraint fc env (x :: _) (y :: _) =>
+                               do put UST ({ guesses := empty } ust)
+                                  throw (CantSolveEq fc defs env x y)
+                            _ => pure ()
+                _ => traverse_ checkRef !(traverse getFullName
+                                          ((keys (getRefs (Resolved (-1)) (type gdef)))))
+    where
+      checkRef : Name -> Core ()
+      checkRef (PV n f)
+          = throw (GenericMsg fc
+                     ("Hole cannot depend on an unbound implicit " ++ show n))
+      checkRef _ = pure ()
+
+  -- Bool flag says whether it's an error for there to have been holes left
+  -- in the last session. Usually we can leave them to the end, but it's not
+  -- valid for there to be holes remaining when checking a LHS.
+  -- Also throw an error if there are unresolved guarded constants or
+  -- unsolved searches
+  export
+  checkUserHolesAfter : Int -> Bool -> Core ()
+  checkUserHolesAfter base now
+      = do gs_map <- getGuesses
+           let gs = toList gs_map
+           log "unify.unsolved" 10 $ "Unsolved guesses " ++ show gs
+           traverse_ (checkValidHole base) gs
+           hs_map <- getCurrentHoles
+           let hs = toList hs_map
+           let hs' = if any isUserName (map (snd . snd) hs)
+                        then [] else hs
+           when (now && not (isNil hs')) $
+                throw (UnsolvedHoles (map snd (nubBy nameEq hs)))
+           -- Note the hole names, to ensure they are resolved
+           -- by the end of elaborating the current source file
+           traverse_ addDelayedHoleName hs'
+    where
+      nameEq : (a, b, Name) -> (a, b, Name) -> Bool
+      nameEq (_, _, x) (_, _, y) = x == y
+
+  export
+  checkUserHoles : Bool -> Core ()
+  checkUserHoles = checkUserHolesAfter 0
+
+  export
+  checkNoGuards : Core ()
+  checkNoGuards = checkUserHoles False
