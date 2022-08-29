@@ -1,0 +1,42 @@
+name: Yaffle
+
+on:
+  push:
+    branches:
+      - '*'
+    tags:
+      - '*'
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+    branches:
+      - '*'
+
+jobs:
+  ubuntu-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chezscheme git
+          echo "$HOME/.idris2/bin" >> "$GITHUB_PATH"
+
+      - name: Bootstrap-build Idris2
+        run: |
+          git clone https://github.com/idris-lang/Idris2.git
+          cd Idris2
+          git checkout 23e3695d
+          make bootstrap SCHEME=chezscheme
+          make install
+      - name: Build Yaffle
+        run: |
+          ~/.idris2/bin/idris2 --build 
