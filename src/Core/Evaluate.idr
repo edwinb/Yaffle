@@ -30,6 +30,14 @@ parameters {auto c : Ref Ctxt Defs}
            quoteHNF env val
 
   export
+  normaliseHoles
+      : {vars : _} ->
+        Env Term vars -> Term vars -> Core (Term vars)
+  normaliseHoles env tm
+      = do val <- nf env tm
+           quoteHoles env val
+
+  export
   getArityVal : Value vars -> Core Nat
   getArityVal (VBind fc _ (Pi _ _ _ _) sc)
       = pure $ 1 + !(getArityVal !(sc (VErased fc False)))

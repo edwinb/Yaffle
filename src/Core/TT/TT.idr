@@ -548,6 +548,25 @@ public export
 ClosedTerm : Type
 ClosedTerm = Term [<]
 
+export
+getLoc : Term vars -> FC
+getLoc (Local fc _ _ _) = fc
+getLoc (Ref fc _ _) = fc
+getLoc (Meta fc _ _ _) = fc
+getLoc (Bind fc _ _ _) = fc
+getLoc (App fc _ _ _) = fc
+getLoc (As fc _ _ _) = fc
+getLoc (Case fc _ _ _ _) = fc
+getLoc (TDelayed fc _ _) = fc
+getLoc (TDelay fc _ _ _) = fc
+getLoc (TForce fc _ _) = fc
+getLoc (PrimVal fc _) = fc
+getLoc (PrimOp fc _ _) = fc
+getLoc (Erased fc _) = fc
+getLoc (Unmatched fc _) = fc
+getLoc (Impossible fc) = fc
+getLoc (TType fc _) = fc
+
 -- Constraints between names representing universe levels. Record the
 -- origin of each name, for error message purposes
 public export

@@ -14,8 +14,9 @@ import TTImp.TTImp
 import System
 import System.File
 
-parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
+parameters {auto c : Ref Ctxt Defs}
            {auto m : Ref MD Metadata}
+           {auto u : Ref UST UState}
   processTTImpDecls : NestedNames vars -> Env Term vars ->
                       List ImpDecl -> Core Bool
 

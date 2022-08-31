@@ -4,6 +4,11 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 * Please review the rules implemented in Core/Typecheck/Check.idr
     - Especially regarding quantities and universe levels
+* Tidy up the auto-implicits so that there are 'parameters' blocks where
+  appropriate
+    - I haven't always done this while porting large chunks from Idris 2,
+      in the interests of making progress, but for the sake of tidiness and
+      readability, it would be nice.
 * Some things which have changed in Idris 2 should ideally be changed here
     - Most obviously: PrT/PrimType in the TT structure
 * Any missing support functions for TT to be ported from existing Idris 2

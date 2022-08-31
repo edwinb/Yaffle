@@ -365,6 +365,7 @@ subInclude ns (KeepCons p) = KeepCons (subInclude ns p)
 
 export
 shrinkTerm : Term vars -> SubVars newvars vars -> Maybe (Term newvars)
+export
 shrinkPi : PiInfo (Term vars) -> SubVars newvars vars ->
            Maybe (PiInfo (Term newvars))
 shrinkBinder : Binder (Term vars) -> SubVars newvars vars ->
@@ -568,6 +569,15 @@ getFnArgs tm = getFA [] tm
     getFA : List (Term vars) -> Term vars ->
             (Term vars, List (Term vars))
     getFA args (App _ f _ a) = getFA (a :: args) f
+    getFA args tm = (tm, args)
+
+export
+getFnArgsCount : Term vars -> (Term vars, List (RigCount, Term vars))
+getFnArgsCount tm = getFA [] tm
+  where
+    getFA : List (RigCount, Term vars) -> Term vars ->
+            (Term vars, List (RigCount, Term vars))
+    getFA args (App _ f c a) = getFA ((c, a) :: args) f
     getFA args tm = (tm, args)
 
 export

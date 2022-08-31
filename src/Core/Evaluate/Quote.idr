@@ -23,6 +23,7 @@ data Strategy
   | HNF -- head normal form (block under constructors)
   | Binders -- block after going under all the binders
   | BlockApp -- block all applications
+  | ExpandHoles -- block all applications except holes
 
 {-
 On Strategy: when quoting to full NF, we still want to block the body of an
@@ -164,6 +165,9 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteGen BlockApp bounds env (VApp fc nt n sp val)
       = do sp' <- quoteSpine BlockApp bounds env sp
            pure $ applySpine (Ref fc nt n) sp'
+  quoteGen ExpandHoles bounds env (VApp fc nt n sp val)
+      = do sp' <- quoteSpine BlockApp bounds env sp
+           pure $ applySpine (Ref fc nt n) sp'
   quoteGen s bounds env (VApp fc nt n sp val)
       = do Just v <- val
               | Nothing =>
@@ -295,6 +299,11 @@ parameters {auto c : Ref Ctxt Defs}
   quoteBinders : {vars : _} ->
           Env Term vars -> Value vars -> Core (Term vars)
   quoteBinders = quoteStrategy Binders
+
+  export
+  quoteHoles : {vars : _} ->
+          Env Term vars -> Value vars -> Core (Term vars)
+  quoteHoles = quoteStrategy ExpandHoles
 
   export
   quote : {vars : _} ->

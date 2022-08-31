@@ -267,7 +267,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   newMetaLets {vars} fc rig env n ty def lets
       = do let hty = if lets then abstractFullEnvType fc env ty
                              else abstractEnvType fc env ty
-           let hole = newDef fc n rig hty Public def
+           let hole = newDef fc n rig [] hty Public def
            log "unify.meta" 5 $ "Adding new meta " ++ show (n, fc, rig)
            logTerm "unify.meta" 10 ("New meta type " ++ show n) hty
            idx <- addDef n hole
@@ -305,13 +305,51 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = do let def = mkConstant fc env tm
            let defty = abstractFullEnvType fc env ty
            cn <- genName "postpone"
-           let guess = newDef fc cn rig defty Public
+           let guess = newDef fc cn rig [] defty Public
                               (Guess def (length env) constrs)
            log "unify.constant" 5 $ "Adding new constant " ++ show (cn, fc, rig)
            logTerm "unify.constant" 10 ("New constant type " ++ show cn) defty
            idx <- addDef cn guess
            addGuessName fc cn idx
            pure (Meta fc cn idx envArgs)
+    where
+      envArgs : List (RigCount, Term vars)
+      envArgs = let args = reverse (mkConstantAppArgs {done = [<]} True fc env [<]) in
+                    rewrite sym (appendLinLeftNeutral vars) in args
+
+  -- Create a new search with the given name and return type,
+  -- and return a term which is the name applied to the environment
+  -- (and which has the given type)
+  export
+  newSearch : {vars : _} ->
+              FC -> RigCount -> Nat -> Name ->
+              Env Term vars -> Name -> Term vars -> Core (Int, Term vars)
+  newSearch {vars} fc rig depth def env n ty
+      = do let hty = abstractEnvType fc env ty
+           let hole = newDef fc n rig [] hty Public (BySearch rig depth def)
+           log "unify.search" 10 $ "Adding new search " ++ show fc ++ " " ++ show n
+           logTermNF "unify.search" 10 "New search type" [<] hty
+           idx <- addDef n hole
+           addGuessName fc n idx
+           pure (idx, Meta fc n idx envArgs)
+    where
+      envArgs : List (RigCount, Term vars)
+      envArgs = let args = reverse (mkConstantAppArgs {done = [<]} True fc env [<]) in
+                    rewrite sym (appendLinLeftNeutral vars) in args
+
+  -- Add a hole which stands for a delayed elaborator
+  export
+  newDelayed : {vars : _} ->
+               FC -> RigCount ->
+               Env Term vars -> Name ->
+               (ty : Term vars) -> Core (Int, Term vars)
+  newDelayed {vars} fc rig env n ty
+      = do let hty = abstractEnvType fc env ty
+           let hole = newDef fc n rig [] hty Public Delayed
+           idx <- addDef n hole
+           log "unify.delay" 10 $ "Added delayed elaborator " ++ show (n, idx)
+           addHoleName fc n idx
+           pure (idx, Meta fc n idx envArgs)
     where
       envArgs : List (RigCount, Term vars)
       envArgs = let args = reverse (mkConstantAppArgs {done = [<]} True fc env [<]) in

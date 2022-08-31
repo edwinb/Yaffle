@@ -291,7 +291,6 @@ data ImpDecl' : Type -> Type where
      INamespace : FC -> Namespace -> List (ImpDecl' nm) -> ImpDecl' nm
      ITransform : FC -> Name -> RawImp' nm -> RawImp' nm -> ImpDecl' nm
      IRunElabDecl : FC -> RawImp' nm -> ImpDecl' nm
-     -- TODO: Put it back when we've worked out what an Env is!
      IPragma : List Name -> -- pragmas might define names that wouldn't
                      -- otherwise be spotted in 'definedInBlock' so they
                      -- can be flagged here.

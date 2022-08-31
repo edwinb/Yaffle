@@ -46,11 +46,14 @@ modules
     Core.Unify.Unify,
     Core.Warning,
 
-    -- The input language and elaborator
+    -- The language of TT with implicits
     TTImp.BindImplicits,
     TTImp.ProcessFile,
     TTImp.TTImp,
     TTImp.Utils,
+
+    -- Elaborating TTImp to the Core TT 
+    TTImp.Elab.Check,
 
     -- Parsing support
     Parser.Lexer.Common,

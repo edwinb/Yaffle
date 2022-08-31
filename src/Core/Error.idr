@@ -25,18 +25,18 @@ Show TFileError where
 
 public export
 data Error : Type where
-     UndefinedName : FC -> Name -> Error
-     NoDeclaration : FC -> Name -> Error
-     BadTypeConType : FC -> Name -> Error
-     BadDataConType : FC -> Name -> Name -> Error
-
-     AmbiguousName : FC -> List Name -> Error
-
      CantConvert : {vars : _} ->
                    FC -> Defs -> Env Term vars ->
                    Term vars -> Term vars -> Error
      CantSolveEq : {vars : _} ->
                    FC -> Defs -> Env Term vars -> Term vars -> Term vars -> Error
+     WhenUnifying : {vars : _} ->
+                    FC -> Defs -> Env Term vars -> Term vars -> Term vars -> Error -> Error
+
+     UndefinedName : FC -> Name -> Error
+     NoDeclaration : FC -> Name -> Error
+     BadTypeConType : FC -> Name -> Error
+     BadDataConType : FC -> Name -> Name -> Error
 
      PatternVariableUnifies : {vars : _} ->
                               FC -> FC -> Env Term vars -> Name -> Term vars -> Error
@@ -49,6 +49,17 @@ data Error : Type where
                    Term vars -> Error
      LinearUsed : FC -> Nat -> Name -> Error
      LinearMisuse : FC -> Name -> RigCount -> RigCount -> Error
+
+     AmbiguousName : FC -> List Name -> Error
+     AmbiguousElab : {vars : _} ->
+                     FC -> Env Term vars -> List (Defs, Term vars) -> Error
+     AmbiguousSearch : {vars : _} ->
+                       FC -> Env Term vars -> Term vars -> List (Term vars) -> Error
+     AmbiguityTooDeep : FC -> Name -> List Name -> Error
+     AllFailed : List (Maybe Name, Error) -> Error
+
+     BadUnboundImplicit : {vars : _} ->
+                          FC -> Env Term vars -> Name -> Term vars -> Error
      CantSolveGoal : {vars : _} ->
                      FC -> Defs -> Env Term vars -> Term vars ->
                      Maybe Error -> Error
@@ -65,11 +76,25 @@ data Error : Type where
      TTCErr : TTCError -> Error
      FileErr : TFileError -> Error
 
+     InType : FC -> Name -> Error -> Error
+     InCon : FC -> Name -> Error -> Error
+     InLHS : FC -> Name -> Error -> Error
+     InRHS : FC -> Name -> Error -> Error
+
+     WarningAsError : Warning -> Error
+
 -- Simplest possible display - higher level languages should unelaborate names
 -- and display annotations appropriately
 
 export
 Show Error where
+  show (CantConvert fc defs env x y)
+      = show fc ++ ":Can't convert " ++ show x ++ " with " ++ show y
+  show (CantSolveEq fc _ env x y)
+      = show fc ++ ":" ++ show x ++ " and " ++ show y ++ " are not equal"
+  show (WhenUnifying fc _ _ x y err)
+      = show fc ++ ":When unifying: " ++ show x ++ " and " ++ show y ++ "\n\t" ++ show err
+
   show (UndefinedName fc n) = show fc ++ ":Undefined name " ++ show n
   show (NoDeclaration fc x) = show fc ++ ":No type declaration for " ++ show x
   show (BadTypeConType fc n)
@@ -78,11 +103,11 @@ Show Error where
        = show fc ++ ":Return type of " ++ show n ++ " must be in " ++ show fam
 
   show (AmbiguousName fc ns) = show fc ++ ":Ambiguous name " ++ show ns
-
-  show (CantConvert fc defs env x y)
-      = show fc ++ ":Can't convert " ++ show x ++ " with " ++ show y
-  show (CantSolveEq fc _ env x y)
-      = show fc ++ ":" ++ show x ++ " and " ++ show y ++ " are not equal"
+  show (AmbiguousElab fc env ts) = show fc ++ ":Ambiguous elaboration " ++ show (map snd ts)
+  show (AmbiguousSearch fc env tgt ts) = show fc ++ ":Ambiguous search " ++ show ts
+  show (AmbiguityTooDeep fc n ns)
+      = show fc ++ ":Ambiguity too deep in " ++ show n ++ " " ++ show ns
+  show (AllFailed ts) = "No successful elaboration: " ++ assert_total (show ts)
 
   show (PatternVariableUnifies fc fct env n x)
       = show fc ++ ":Pattern variable " ++ show n ++ " unifies with " ++ show x
@@ -110,6 +135,9 @@ Show Error where
          "irrelevant"
          "relevant"
          (const "non-linear")
+  show (BadUnboundImplicit fc env n ty)
+      = show fc ++ ":Can't bind name " ++ nameRoot n ++
+                   " with type " ++ show ty
   show (CantSolveGoal fc gam env g cause)
       = show fc ++ ":Can't solve goal " ++ assert_total (show g)
 
@@ -130,6 +158,21 @@ Show Error where
 
   show (TTCErr err) = "TTC error: " ++ show err
   show (FileErr err) = "File error: " ++ show err
+
+  show (InType fc n err)
+       = show fc ++ ":When elaborating type of " ++ show n ++ ":\n" ++
+         show err
+  show (InCon fc n err)
+       = show fc ++ ":When elaborating type of constructor " ++ show n ++ ":\n" ++
+         show err
+  show (InLHS fc n err)
+       = show fc ++ ":When elaborating left hand side of " ++ show n ++ ":\n" ++
+         show err
+  show (InRHS fc n err)
+       = show fc ++ ":When elaborating right hand side of " ++ show n ++ ":\n" ++
+         show err
+
+  show (WarningAsError w) = show w
 
 public export
 Core : Type -> Type

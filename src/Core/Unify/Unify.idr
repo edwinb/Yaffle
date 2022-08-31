@@ -684,3 +684,21 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
      = do x' <- nf env x
           y' <- nf env y
           unifyWithLazy umode fc env x' y'
+
+public export
+data SolveMode = Normal -- during elaboration: unifies and searches
+               | Defaults -- unifies and searches for default hints only
+               | MatchArgs -- match rather than unify
+               | LastChance -- as normal, but any failure throws rather than delays
+
+Eq SolveMode where
+  Normal == Normal = True
+  Defaults == Defaults = True
+  MatchArgs == MatchArgs = True
+  LastChance == LastChance = True
+  _ == _ = False
+
+export
+solveConstraints : {auto c : Ref Ctxt Defs} ->
+                   {auto u : Ref UST UState} ->
+                   UnifyInfo -> (smode : SolveMode) -> Core ()

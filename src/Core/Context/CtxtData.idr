@@ -147,6 +147,7 @@ record GlobalDef where
   definition : Def
   evaldef : Maybe CompiledTerm
   multiplicity : RigCount
+  localVars : List Name -- environment name is defined in
   visibility : Visibility
   totality : Totality
   flags : List DefFlag
