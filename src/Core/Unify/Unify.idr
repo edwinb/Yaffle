@@ -35,6 +35,14 @@ third : (s, t, u) -> u
 third (x, y, z) = z
 
 parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
+  -- Defined in Core.AutoSearch
+  export
+  search : {vars : _} ->
+           FC -> RigCount ->
+           (defaults : Bool) -> (depth : Nat) ->
+           (defining : Name) -> (topTy : Term vars) -> Env Term vars ->
+           Core (Term vars)
+
   namespace Value
     export
     unify : {vars : _} ->
@@ -698,7 +706,283 @@ Eq SolveMode where
   LastChance == LastChance = True
   _ == _ = False
 
-export
-solveConstraints : {auto c : Ref Ctxt Defs} ->
-                   {auto u : Ref UST UState} ->
-                   UnifyInfo -> (smode : SolveMode) -> Core ()
+parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
+  retry : UnifyInfo -> Int -> Core UnifyResult
+  retry mode c
+      = do ust <- get UST
+           case lookup c (constraints ust) of
+                Nothing => pure success
+                Just Resolved => pure success
+                Just (MkConstraint loc withLazy env xold yold)
+                 => do defs <- get Ctxt
+                       x <- nf env xold
+                       y <- nf env yold
+                       catch
+                         (do cs <- ifThenElse withLazy
+                                      (unifyWithLazy mode loc env x y)
+                                      (unify (lower mode) loc env x y)
+                             case constraints cs of
+                               [] => do deleteConstraint c
+                                        pure cs
+                               _ => pure cs)
+                        (\err => do defs <- get Ctxt
+                                    throw (WhenUnifying loc defs env
+                                                        !(quote env x)
+                                                        !(quote env y) err))
+                Just (MkSeqConstraint loc env xsold ysold)
+                    => do defs <- get Ctxt
+                          xs <- traverse (nf env) xsold
+                          ys <- traverse (nf env) ysold
+                          cs <- unifyArgs mode loc env xs ys
+                          case constraints cs of
+                               [] => do deleteConstraint c
+                                        pure cs
+                               _ => pure cs
+    where
+      definedN : Name -> Core Bool
+      definedN n@(NS _ (MN _ _)) -- a metavar will only ever be a MN
+          = do defs <- get Ctxt
+               Just gdef <- lookupCtxtExact n (gamma defs)
+                    | _ => pure False
+               case definition gdef of
+                    Hole _ => pure (invertible gdef)
+                    BySearch _ _ _ => pure False
+                    Guess _ _ _ => pure False
+                    _ => pure True
+      definedN _ = pure True
+
+  delayMeta : {vars : _} ->
+              LazyReason -> Nat -> Term vars -> Term vars -> Term vars
+  delayMeta r (S k) ty (Bind fc n b sc)
+      = Bind fc n b (delayMeta r k (weaken ty) sc)
+  delayMeta r envb ty tm = TDelay (getLoc tm) r ty tm
+
+  forceMeta : LazyReason -> Nat -> Term vars -> Term vars
+  forceMeta r (S k) (Bind fc n b sc)
+      = Bind fc n b (forceMeta r k sc)
+  forceMeta r envb tm = TForce (getLoc tm) r tm
+
+  -- Check whether it's worth trying a search again, based on what went wrong
+  recoverable : Error -> Bool
+  recoverable (UndefinedName _ _) = False
+  recoverable (InType _ _ err) = recoverable err
+  recoverable (InCon _ _ err) = recoverable err
+  recoverable (InLHS _ _ err) = recoverable err
+  recoverable (InRHS _ _ err) = recoverable err
+  recoverable (WhenUnifying _ _ _ _ _ err) = recoverable err
+  recoverable (MaybeMisspelling err _) = recoverable err
+  recoverable _ = True
+
+  -- Retry the given constraint, return True if progress was made
+  retryGuess : UnifyInfo -> (smode : SolveMode) -> (hole : (Int, (FC, Name))) ->
+               Core Bool
+  retryGuess mode smode (hid, (loc, hname))
+      = do defs <- get Ctxt
+           case !(lookupCtxtExact (Resolved hid) (gamma defs)) of
+             Nothing => pure False
+             Just def =>
+               case definition def of
+                 BySearch rig depth defining =>
+                    handleUnify
+                       (do tm <- search loc rig (smode == Defaults) depth defining
+                                        (type def) [<]
+                           let gdef = { definition := Function defaultFI tm } def
+                           ignore $ addDef (Resolved hid) gdef
+                           removeGuess hid
+                           pure True)
+                       $ \case
+                         DeterminingArg _ n i _ _ =>
+                           do logTerm "unify.retry" 5
+                                      ("Failed (det " ++ show hname ++ " " ++ show n ++ ")")
+                                      (type def)
+                              setInvertible loc (Resolved i)
+                              pure False -- progress not made yet!
+                         err =>
+                           case smode of
+                                LastChance => throw err
+                                _ => if recoverable err
+                                        then pure False -- Postpone again
+                                        else throw (CantSolveGoal loc defs
+                                                       [<] (type def) (Just err))
+                 Guess tm envb [constr] =>
+                   do let umode = case smode of
+                                       MatchArgs => inMatch
+                                       _ => mode
+                      cs <- retry umode constr
+                      case constraints cs of
+                           [] => do tm' <- case addLazy cs of
+                                             NoLazy => pure tm
+                                             AddForce r => pure $ forceMeta r envb tm
+                                             AddDelay r =>
+                                                do logTerm "unify.retry" 5 "Retry Delay" tm
+                                                   pure $ delayMeta r envb (type def) tm
+                                    let gdef = { definition := Function (MkFnInfo NotHole True False) tm' } def
+                                    logTerm "unify.retry" 5 ("Resolved " ++ show hname) tm'
+                                    ignore $ addDef (Resolved hid) gdef
+                                    removeGuess hid
+                                    pure (holesSolved cs)
+                           newcs => do tm' <- case addLazy cs of
+                                             NoLazy => pure tm
+                                             AddForce r => pure $ forceMeta r envb tm
+                                             AddDelay r =>
+                                                do logTerm "unify.retry" 5 "Retry Delay (constrained)" tm
+                                                   pure $ delayMeta r envb (type def) tm
+                                       let gdef = { definition := Guess tm' envb newcs } def
+                                       ignore $ addDef (Resolved hid) gdef
+                                       pure False
+                 Guess tm envb constrs =>
+                   do let umode = case smode of
+                                       MatchArgs => inMatch
+                                       _ => mode
+                      cs' <- traverse (retry umode) constrs
+                      let csAll = unionAll cs'
+                      case constraints csAll of
+                           -- All constraints resolved, so turn into a
+                           -- proper definition and remove it from the
+                           -- hole list
+                           [] => do let gdef = { definition := Function (MkFnInfo NotHole True False) tm } def
+                                    logTerm "unify.retry" 5 ("Resolved " ++ show hname) tm
+                                    ignore $ addDef (Resolved hid) gdef
+                                    removeGuess hid
+                                    pure (holesSolved csAll)
+                           newcs => do let gdef = { definition := Guess tm envb newcs } def
+                                       ignore $ addDef (Resolved hid) gdef
+                                       pure False
+                 _ => pure False
+
+  export
+  solveConstraints : UnifyInfo -> (smode : SolveMode) -> Core ()
+  solveConstraints umode smode
+      = do ust <- get UST
+           progress <- traverse (retryGuess umode smode) (toList (guesses ust))
+           when (any id progress) $
+                 solveConstraints umode Normal
+
+  export
+  solveConstraintsAfter : Int -> UnifyInfo -> (smode : SolveMode) -> Core ()
+  solveConstraintsAfter start umode smode
+      = do ust <- get UST
+           progress <- traverse (retryGuess umode smode)
+                                (filter afterStart (toList (guesses ust)))
+           when (any id progress) $
+                 solveConstraintsAfter start umode Normal
+    where
+      afterStart : (Int, a) -> Bool
+      afterStart (x, _) = x >= start
+
+  -- Replace any 'BySearch' with 'Hole', so that we don't keep searching
+  -- fruitlessly while elaborating the rest of a source file
+  export
+  giveUpConstraints : Core ()
+  giveUpConstraints
+      = do ust <- get UST
+           traverse_ constraintToHole (toList (guesses ust))
+    where
+      constraintToHole : (Int, (FC, Name)) -> Core ()
+      constraintToHole (hid, (_, _))
+          = do defs <- get Ctxt
+               case !(lookupDefExact (Resolved hid) (gamma defs)) of
+                    Just (BySearch _ _ _) =>
+                           updateDef (Resolved hid) (const (Just (Hole 0)))
+                    Just (Guess _ _ _) =>
+                           updateDef (Resolved hid) (const (Just (Hole 0)))
+                    _ => pure ()
+
+  -- Check whether any of the given hole references have the same solution
+  -- (up to conversion)
+  export
+  checkArgsSame : List Int -> Core Bool
+  checkArgsSame [] = pure False
+  checkArgsSame (x :: xs)
+      = do defs <- get Ctxt
+           Just (Function _ def) <-
+                      lookupDefExact (Resolved x) (gamma defs)
+                | _ => checkArgsSame xs
+           s <- anySame def xs
+           if s
+              then pure True
+              else checkArgsSame xs
+    where
+      anySame : ClosedTerm -> List Int -> Core Bool
+      anySame tm [] = pure False
+      anySame tm (t :: ts)
+          = do defs <- get Ctxt
+               Just (Function _ def) <-
+                          lookupDefExact (Resolved t) (gamma defs)
+                   | _ => anySame tm ts
+               if !(convert [<] tm def)
+                  then pure True
+                  else anySame tm ts
+
+  export
+  checkDots : Core ()
+  checkDots
+      = do ust <- get UST
+           hs <- getCurrentHoles
+           traverse_ checkConstraint (reverse (dotConstraints ust))
+           hs <- getCurrentHoles
+           update UST { dotConstraints := [] }
+    where
+      getHoleName : Term [<] -> Core (Maybe Name)
+      getHoleName tm
+          = do defs <- get Ctxt
+               VMeta _ n' i _ _ _ <- expand !(nf [<] tm)
+                   | _ => pure Nothing
+               pure (Just n')
+
+      checkConstraint : (Name, DotReason, Constraint) -> Core ()
+      checkConstraint (n, reason, MkConstraint fc wl env xold yold)
+          = do defs <- get Ctxt
+               x <- nf env xold
+               y <- nf env yold
+               -- A dot is okay if the constraint is solvable *without solving
+               -- any additional holes*
+               ust <- get UST
+               handleUnify
+                 (do defs <- get Ctxt
+                     -- get the hole name that 'n' is currently resolved to,
+                     -- if indeed it is still a hole
+                     (i, _) <- getPosition n (gamma defs)
+                     oldholen <- getHoleName (Meta fc n i [])
+                     -- Check that what was given (x) matches what was
+                     -- solved by unification (y).
+                     -- In 'InMatch' mode, only metavariables in 'x' can
+                     -- be solved, so everything in the dotted metavariable
+                     -- must be complete.
+                     cs <- unify inMatch fc env x y
+                     defs <- get Ctxt
+                     -- If the name standing for the dot wasn't solved
+                     -- earlier, but is now (even with another metavariable)
+                     -- this is bad (it most likely means there's a non-linear
+                     -- variable)
+                     dotSolved <-
+                        maybe (pure False)
+                              (\n => do Just ndef <- lookupDefExact n (gamma defs)
+                                             | Nothing => undefinedName fc n
+                                        pure $ case ndef of
+                                             Hole _ => False
+                                             _ => True)
+                              oldholen
+  --
+                     -- If any of the things we solved have the same definition,
+                     -- we've sneaked a non-linear pattern variable in
+                     argsSame <- checkArgsSame (namesSolved cs)
+                     when (not (isNil (constraints cs))
+                              || dotSolved || argsSame) $
+                        throw (InternalError "Dot pattern match fail"))
+                 (\err =>
+                      case err of
+                           InternalError _ =>
+                             do defs <- get Ctxt
+                                Just dty <- lookupTyExact n (gamma defs)
+                                     | Nothing => undefinedName fc n
+                                logTermNF "unify.constraint" 5 "Dot type" [<] dty
+                                -- Clear constraints so we don't report again
+                                -- later
+                                put UST ({ dotConstraints := [] } ust)
+                                throw (BadDotPattern fc env reason
+                                        !(quote env x)
+                                        !(quote env y))
+                           _ => do put UST ({ dotConstraints := [] } ust)
+                                   throw err)
+      checkConstraint _ = pure ()

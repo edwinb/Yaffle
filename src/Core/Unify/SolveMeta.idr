@@ -194,7 +194,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   tryInstantiate {newvars} loc mode env mname mref num mdef locs otm tm
       = do logTerm "unify.instantiate" 5 ("Instantiating in " ++ show newvars) tm
            case fullname mdef of
-                PV pv pi => ?todo -- throw (PatternVariableUnifies loc (getLoc otm) env (PV pv pi) otm)
+                PV pv pi => throw (PatternVariableUnifies loc (getLoc otm) env (PV pv pi) otm)
                 _ => pure ()
            defs <- get Ctxt
            -- Make sure any applications are expanded to pi binders, if that's

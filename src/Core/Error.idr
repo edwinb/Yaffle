@@ -37,6 +37,8 @@ data Error : Type where
      NoDeclaration : FC -> Name -> Error
      BadTypeConType : FC -> Name -> Error
      BadDataConType : FC -> Name -> Name -> Error
+     BadDotPattern : {vars : _} ->
+                     FC -> Env Term vars -> DotReason -> Term vars -> Term vars -> Error
 
      PatternVariableUnifies : {vars : _} ->
                               FC -> FC -> Env Term vars -> Name -> Term vars -> Error
@@ -64,9 +66,12 @@ data Error : Type where
                      FC -> Defs -> Env Term vars -> Term vars ->
                      Maybe Error -> Error
      UnsolvedHoles : List (FC, Name) -> Error
+     DeterminingArg : {vars : _} ->
+                      FC -> Name -> Int -> Env Term vars -> Term vars -> Error
 
      MaybeMisspelling : Error -> List1 String -> Error
      ModuleNotFound : FC -> ModuleIdent -> Error
+
      GenericMsg : FC -> String -> Error
      UserError : String -> Error
      LitFail : FC -> Error
@@ -101,6 +106,10 @@ Show Error where
        = show fc ++ ":Return type of " ++ show n ++ " must be Type"
   show (BadDataConType fc n fam)
        = show fc ++ ":Return type of " ++ show n ++ " must be in " ++ show fam
+  show (BadDotPattern fc env reason x y)
+      = show fc ++ ":Can't match on " ++ show x ++
+           " (" ++ show reason ++ ")" ++
+           " - it elaborates to " ++ show y
 
   show (AmbiguousName fc ns) = show fc ++ ":Ambiguous name " ++ show ns
   show (AmbiguousElab fc env ts) = show fc ++ ":Ambiguous elaboration " ++ show (map snd ts)
@@ -140,6 +149,9 @@ Show Error where
                    " with type " ++ show ty
   show (CantSolveGoal fc gam env g cause)
       = show fc ++ ":Can't solve goal " ++ assert_total (show g)
+  show (DeterminingArg fc n i env g)
+      = show fc ++ ":Can't solve goal " ++ assert_total (show g) ++
+                " since argument " ++ show n ++ " can't be inferred"
 
   show (UnsolvedHoles hs) = "Unsolved holes " ++ show hs
   show (MaybeMisspelling err ns)

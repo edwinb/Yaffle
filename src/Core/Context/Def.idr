@@ -18,6 +18,10 @@ record FnInfo where
   externalDecl : Bool -- declared in another module, which may affect how it
                       -- is compiled
 
+export
+defaultFI : FnInfo
+defaultFI = MkFnInfo NotHole False False
+
 public export
 record DataConInfo where
   constructor MkDataConInfo

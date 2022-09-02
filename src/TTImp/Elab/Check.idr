@@ -107,10 +107,6 @@ public export
 record EState (vars : SnocList Name) where
   constructor MkEState
   {outer : SnocList Name}
-  -- Top level function to process declarations
-  process : {vars' : _} ->
-            List ElabOpt ->
-            NestedNames vars' -> Env Term vars' -> ImpDecl -> Core ()
   -- The function/constructor name we're currently working on (resolved id)
   defining : Int
   -- The outer environment in which we're running the elaborator. Things here should
@@ -156,13 +152,9 @@ data EST : Type where
 
 export
 initEStateSub : {outer : _} ->
-        (process : {vars' : _} ->
-            List ElabOpt ->
-            NestedNames vars' -> Env Term vars' -> ImpDecl -> Core ()) ->
         Int -> Env Term outer -> SubVars outer vars -> EState vars
-initEStateSub p n env sub = MkEState
-    { process = p
-    , defining = n
+initEStateSub n env sub = MkEState
+    { defining = n
     , outerEnv = env
     , subEnv = sub
     , boundNames = []
@@ -179,11 +171,8 @@ initEStateSub p n env sub = MkEState
 
 export
 initEState : {vars : _} ->
-        (process : {vars' : _} ->
-            List ElabOpt ->
-            NestedNames vars' -> Env Term vars' -> ImpDecl -> Core ()) ->
         Int -> Env Term vars -> EState vars
-initEState p n env = initEStateSub p n env SubRefl
+initEState n env = initEStateSub n env SubRefl
 
 export
 saveHole : {auto e : Ref EST (EState vars)} ->
@@ -672,6 +661,15 @@ anyOne : {vars : _} ->
 anyOne fc [] = throw (GenericMsg fc "No elaborators provided")
 anyOne fc [(tm, elab)] = elab
 anyOne fc ((tm, elab) :: es) = try elab (anyOne fc es)
+
+-- Implemented in TTImp.ProcessFile
+export
+processDecl : {vars : _} ->
+              {auto c : Ref Ctxt Defs} ->
+              {auto m : Ref MD Metadata} ->
+              {auto u : Ref UST UState} ->
+              List ElabOpt -> NestedNames vars ->
+              Env Term vars -> ImpDecl -> Core ()
 
 -- Check whether two terms are convertible. May solve metavariables (in Ctxt)
 -- in doing so.
