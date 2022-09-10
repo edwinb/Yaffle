@@ -35,11 +35,11 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            -- Add a placeholder for the type constructor so that we can
            -- check the data constructors
            arity <- getArity [<] ty
-           let tinf = MkTyConInfo [] [] [] [] Nothing
+           let tinf = MkTyConInfo [] [] [] [] Nothing False False
            ignore $ addDef n (newDef fc n top [] ty Public (TCon tinf arity))
            cnames <- traverse (processDataCon fc n) (mkTags 0 cons)
            -- TODO: Deal with parameters and universe constraints
-           let tinf = MkTyConInfo [] [] [] cnames Nothing
+           let tinf = MkTyConInfo [] [] [] cnames Nothing False False
            -- Re-add with the full information
            ignore $ addDef n (newDef fc n top [] ty Public (TCon tinf arity))
     where

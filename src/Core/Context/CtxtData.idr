@@ -221,10 +221,30 @@ record Context where
                       -- unification
     hidden : NameMap () -- Never return these
 
+-- Rewrite rules, applied after type checking, for runtime code only
+-- LHS and RHS must have the same type, but we don't (currently) require that
+-- the result still type checks (which might happen e.g. if transforming to a
+-- faster implementation with different behaviour)
+-- (Q: Do we need the 'Env' here? Usually we end up needing an 'Env' with a
+-- 'NF but we're working with terms rather than values...)
+public export
+data Transform : Type where
+     MkTransform : {vars : _} ->
+                   Name -> -- name for identifying the rule
+                   Env Term vars -> Term vars -> Term vars -> Transform
+
+export
+getFnName : Transform -> Maybe Name
+getFnName (MkTransform _ _ app _)
+    = case getFn app of
+           Ref _ _ fn => Just fn
+           _ => Nothing
+
 public export
 record Defs where
   constructor MkDefs
   gamma : Context
+  mutData : List Name -- Currently declared but undefined data types
   uconstraints : List UConstraint
   nextUVar : Int
   currentNS : Namespace -- namespace for current definitions
@@ -252,6 +272,10 @@ record Defs where
      -- We don't look up anything in here, it's merely for saving out to TTC.
      -- We save the hints in the 'GlobalDef' itself for faster lookup.
   saveAutoHints : List (Name, Bool)
+  transforms : NameMap (List Transform)
+     -- ^ A mapping from names to transformation rules which update applications
+     -- of that name
+  saveTransforms : List (Name, Transform)
   namedirectives : NameMap (List String)
   ifaceHash : Int
   importHashes : List (Namespace, Int)

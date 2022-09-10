@@ -46,6 +46,9 @@ record TyConInfo where
                     -- argument positions which can be used for
                     -- detagging, if it's possible (to check if it's
                     -- safe to erase)
+  uniqueAuto : Bool  -- should 'auto' implicits check for uniqueness
+  external : Bool -- defined externally (e.g. in a C or Scheme library)
+
 
 public export
 data Def : Type where

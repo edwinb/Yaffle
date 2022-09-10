@@ -1,7 +1,8 @@
 module Core.Context
 
-import Core.CompileExpr
+import        Core.CompileExpr
 import public Core.Error
+import        Core.Hash
 import public Core.Options
 import public Core.TT
 import public Core.Context.Ctxt
@@ -539,6 +540,325 @@ parameters {auto c : Ref Ctxt Defs}
   toResolvedNames t
       = do defs <- get Ctxt
            resolved (gamma defs) t
+
+  -- Make the name look nicer for user display
+  export
+  prettyName : Name -> Core String
+  prettyName (Nested (i, _) n)
+      = do i' <- toFullNames (Resolved i)
+           pure (!(prettyName i') ++ "," ++
+                 !(prettyName n))
+  prettyName (WithBlock outer idx)
+      = pure ("with block in " ++ outer)
+  prettyName (NS ns n) = prettyName n
+  prettyName n = pure (show n)
+
+  -- Add a hash of a thing that contains names,
+  -- but convert the internal numbers to full names first.
+  -- This makes the hash not depend on the internal numbering,
+  -- which is unstable.
+  export
+  addHashWithNames : Hashable a => HasNames a => a -> Core ()
+  addHashWithNames x = toFullNames x >>= addHash
+
+  export
+  setFlag : FC -> Name -> DefFlag -> Core ()
+  setFlag fc n fl
+      = do defs <- get Ctxt
+           Just def <- lookupCtxtExact n (gamma defs)
+                | Nothing => undefinedName fc n
+           let flags' = fl :: filter (/= fl) (flags def)
+           ignore $ addDef n ({ flags := flags' } def)
+
+  export
+  setNameFlag : FC -> Name -> DefFlag -> Core ()
+  setNameFlag fc n fl
+      = do defs <- get Ctxt
+           [(n', i, def)] <- lookupCtxtName n (gamma defs)
+                | res => ambiguousName fc n (map fst res)
+           let flags' = fl :: filter (/= fl) (flags def)
+           ignore $ addDef (Resolved i) ({ flags := flags' } def)
+
+  export
+  unsetFlag : FC -> Name -> DefFlag -> Core ()
+  unsetFlag fc n fl
+      = do defs <- get Ctxt
+           Just def <- lookupCtxtExact n (gamma defs)
+                | Nothing => undefinedName fc n
+           let flags' = filter (/= fl) (flags def)
+           ignore $ addDef n ({ flags := flags' } def)
+
+  export
+  hasFlag : FC -> Name -> DefFlag -> Core Bool
+  hasFlag fc n fl
+      = do defs <- get Ctxt
+           Just def <- lookupCtxtExact n (gamma defs)
+                | Nothing => undefinedName fc n
+           pure (fl `elem` flags def)
+
+  export
+  setSizeChange : FC -> Name -> List SCCall -> Core ()
+  setSizeChange loc n sc
+      = do defs <- get Ctxt
+           Just def <- lookupCtxtExact n (gamma defs)
+                | Nothing => undefinedName loc n
+           ignore $ addDef n ({ sizeChange := sc } def)
+
+  export
+  setTotality : FC -> Name -> Totality -> Core ()
+  setTotality loc n tot
+      = do defs <- get Ctxt
+           Just def <- lookupCtxtExact n (gamma defs)
+                | Nothing => undefinedName loc n
+           ignore $ addDef n ({ totality := tot } def)
+
+  export
+  setCovering : FC -> Name -> Covering -> Core ()
+  setCovering loc n tot
+      = do defs <- get Ctxt
+           Just def <- lookupCtxtExact n (gamma defs)
+                | Nothing => undefinedName loc n
+           ignore $ addDef n ({ totality->isCovering := tot } def)
+
+  export
+  setTerminating : FC -> Name -> Terminating -> Core ()
+  setTerminating loc n tot
+      = do defs <- get Ctxt
+           Just def <- lookupCtxtExact n (gamma defs)
+                | Nothing => undefinedName loc n
+           ignore $ addDef n ({ totality->isTerminating := tot } def)
+
+  export
+  getTotality : FC -> Name -> Core Totality
+  getTotality loc n
+      = do defs <- get Ctxt
+           Just def <- lookupCtxtExact n (gamma defs)
+                | Nothing => undefinedName loc n
+           pure $ totality def
+
+  export
+  getSizeChange : FC -> Name -> Core (List SCCall)
+  getSizeChange loc n
+      = do defs <- get Ctxt
+           Just def <- lookupCtxtExact n (gamma defs)
+                | Nothing => undefinedName loc n
+           pure $ sizeChange def
+
+  export
+  setVisibility : FC -> Name -> Visibility -> Core ()
+  setVisibility fc n vis
+      = do defs <- get Ctxt
+           Just def <- lookupCtxtExact n (gamma defs)
+                | Nothing => undefinedName fc n
+           ignore $ addDef n ({ visibility := vis } def)
+
+public export
+record SearchData where
+  constructor MkSearchData
+  ||| determining argument positions
+  detArgs : List Nat
+  ||| Name of functions to use as hints, and whether ambiguity is allowed
+  |||
+  ||| In proof search, for every group of names
+  |||  * If exactly one succeeds, use it
+  |||  * If more than one succeeds, report an ambiguity error
+  |||  * If none succeed, move on to the next group
+  |||
+  ||| This allows us to prioritise some names (e.g. to declare 'open' hints,
+  ||| which we might us to open an implementation working as a module, or to
+  ||| declare a named implementation to be used globally), and to have names
+  ||| which are only used if all else fails (e.g. as a defaulting mechanism),
+  ||| while the proof search mechanism doesn't need to know about any of the
+  ||| details.
+  hintGroups : List (Bool, List Name)
+
+parameters {auto c : Ref Ctxt Defs}
+  ||| Get the auto search data for a name.
+  export
+  getSearchData : FC -> (defaults : Bool) -> Name ->
+                  Core SearchData
+  getSearchData fc defaults target
+      = do defs <- get Ctxt
+           Just (TCon (MkTyConInfo _ dets _ _ _ u _) _) <- lookupDefExact target (gamma defs)
+                | _ => undefinedName fc target
+           hs <- case lookup !(toFullNames target) (typeHints defs) of
+                         Just hs => filterM (\x => notHidden x (gamma defs)) hs
+                         Nothing => pure []
+           if defaults
+              then let defns = map fst !(filterM (\x => pure $ isDefault x
+                                                   && !(notHidden x (gamma defs)))
+                                               (toList (autoHints defs))) in
+                       pure (MkSearchData [] [(False, defns)])
+              else let opens = map fst !(filterM (\x => notHidden x (gamma defs))
+                                               (toList (openHints defs)))
+                       autos = map fst !(filterM (\x => pure $ not (isDefault x)
+                                                   && !(notHidden x (gamma defs)))
+                                               (toList (autoHints defs)))
+                       tyhs = map fst (filter direct hs)
+                       chasers = map fst (filter (not . direct) hs) in
+                       pure (MkSearchData dets (filter (isCons . snd)
+                                 [(False, opens),
+                                  (False, autos),
+                                  (not u, tyhs),
+                                  (True, chasers)]))
+    where
+      ||| We don't want hidden (by `%hide`) names to appear in the search.
+      ||| Lookup has to be done by a full qualified name, not a resolved ID.
+      notHidden : forall a. (Name, a) -> Context -> Core Bool
+      notHidden (n, _) ctxt = do
+        fulln <- toFullNames n
+        pure $ not (isHidden fulln ctxt)
+
+      isDefault : (Name, Bool) -> Bool
+      isDefault = snd
+
+      direct : (Name, Bool) -> Bool
+      direct = snd
+
+  export
+  setMutWith : FC -> Name -> List Name -> Core ()
+  setMutWith fc tn tns
+      = do defs <- get Ctxt
+           Just g <- lookupCtxtExact tn (gamma defs)
+                | _ => undefinedName fc tn
+           let TCon ti a = definition g
+                | _ => throw (GenericMsg fc (show (fullname g) ++ " is not a type constructor [setMutWith]"))
+           updateDef tn (const (Just (TCon ({ mutWith := tns } ti) a)))
+
+  export
+  addMutData : Name -> Core ()
+  addMutData n = update Ctxt { mutData $= (n ::) }
+
+  export
+  dropMutData : Name -> Core ()
+  dropMutData n = update Ctxt { mutData $= filter (/= n) }
+
+  export
+  setDetermining : FC -> Name -> List Name -> Core ()
+  setDetermining fc tyn args
+      = do defs <- get Ctxt
+           Just g <- lookupCtxtExact tyn (gamma defs)
+                | _ => undefinedName fc tyn
+           let TCon ti a = definition g
+                | _ => throw (GenericMsg fc (show (fullname g) ++ " is not a type constructor [setDetermining]"))
+           apos <- getPos 0 args (type g)
+           updateDef tyn (const (Just (TCon ({ deterArgs := apos } ti) a)))
+    where
+      -- Type isn't normalised, but the argument names refer to those given
+      -- explicitly in the type, so there's no need.
+      getPos : Nat -> List Name -> Term vs -> Core (List Nat)
+      getPos i ns (Bind _ x (Pi _ _ _ _) sc)
+          = if x `elem` ns
+               then do rest <- getPos (1 + i) (filter (/=x) ns) sc
+                       pure $ i :: rest
+               else getPos (1 + i) ns sc
+      getPos _ [] _ = pure []
+      getPos _ ns ty = throw (GenericMsg fc ("Unknown determining arguments: "
+                             ++ showSep ", " (map show ns)))
+
+  export
+  setDetags : FC -> Name -> Maybe (List Nat) -> Core ()
+  setDetags fc tyn args
+      = do defs <- get Ctxt
+           Just g <- lookupCtxtExact tyn (gamma defs)
+                | _ => undefinedName fc tyn
+           let TCon ti a = definition g
+                | _ => throw (GenericMsg fc (show (fullname g) ++ " is not a type constructor [setDetermining]"))
+           updateDef tyn (const (Just (TCon ({ detagBy := args } ti) a)))
+
+  export
+  setUniqueSearch : FC -> Name -> Bool -> Core ()
+  setUniqueSearch fc tyn u
+      = do defs <- get Ctxt
+           Just g <- lookupCtxtExact tyn (gamma defs)
+                | _ => undefinedName fc tyn
+           let TCon ti a = definition g
+                | _ => throw (GenericMsg fc (show (fullname g) ++ " is not a type constructor [setDetermining]"))
+           updateDef tyn (const (Just (TCon ({ uniqueAuto := u } ti) a)))
+
+  export
+  setExternal : FC -> Name -> Bool -> Core ()
+  setExternal fc tyn u
+      = do defs <- get Ctxt
+           Just g <- lookupCtxtExact tyn (gamma defs)
+                | _ => undefinedName fc tyn
+           let TCon ti a = definition g
+                | _ => throw (GenericMsg fc (show (fullname g) ++ " is not a type constructor [setDetermining]"))
+           updateDef tyn (const (Just (TCon ({ external := u } ti) a)))
+
+  export
+  addHintFor : FC -> Name -> Name -> Bool -> Bool -> Core ()
+  addHintFor fc tyn_in hintn_in direct loading
+      = do defs <- get Ctxt
+           tyn <- toFullNames tyn_in
+            -- ^ We have to index by full name because of the order we load -
+            -- the name may not be resolved yet when we load the hints.
+            -- Revisit if this turns out to be a bottleneck (it seems unlikely)
+           hintn <- toResolvedNames hintn_in
+
+           let hs = case lookup tyn (typeHints defs) of
+                         Just hs => hs
+                         Nothing => []
+           if loading
+              then put Ctxt
+                       ({ typeHints $= insert tyn ((hintn, direct) :: hs)
+                        } defs)
+              else put Ctxt
+                       ({ typeHints $= insert tyn ((hintn, direct) :: hs),
+                          saveTypeHints $= ((tyn, hintn, direct) :: )
+                        } defs)
+
+  export
+  addGlobalHint : Name -> Bool -> Core ()
+  addGlobalHint hintn_in isdef
+      = do hintn <- toResolvedNames hintn_in
+           update Ctxt { autoHints $= insert hintn isdef,
+                         saveAutoHints $= ((hintn, isdef) ::) }
+
+  export
+  addLocalHint : Name -> Core ()
+  addLocalHint hintn_in
+      = do hintn <- toResolvedNames hintn_in
+           update Ctxt { localHints $= insert hintn () }
+
+  export
+  addOpenHint : Name -> Core ()
+  addOpenHint hintn_in
+      = do hintn <- toResolvedNames hintn_in
+           update Ctxt { openHints $= insert hintn () }
+
+  export
+  dropOpenHint : Name -> Core ()
+  dropOpenHint hintn_in
+      = do hintn <- toResolvedNames hintn_in
+           update Ctxt { openHints $= delete hintn }
+
+  export
+  setOpenHints : NameMap () -> Core ()
+  setOpenHints hs = update Ctxt { openHints := hs }
+
+  export
+  addTransform : FC -> Transform -> Core ()
+  addTransform fc t_in
+      = do defs <- get Ctxt
+           let Just fn_in = getFnName t_in
+               | Nothing =>
+                    throw (GenericMsg fc "LHS of a transformation must be a function application")
+           fn <- toResolvedNames fn_in
+           t <- toResolvedNames t_in
+           fn_full <- toFullNames fn_in
+           t_full <- toFullNames t_in
+           case lookup fn (transforms defs) of
+                Nothing =>
+                   put Ctxt ({ transforms $= insert fn [t],
+                               saveTransforms $= ((fn_full, t_full) ::) } defs)
+                Just ts =>
+                   put Ctxt ({ transforms $= insert fn (t :: ts),
+                               saveTransforms $= ((fn_full, t_full) ::) } defs)
+
+  export
+  clearSavedHints : Core ()
+  clearSavedHints = update Ctxt { saveTypeHints := [], saveAutoHints := [] }
 
   -- Set the default namespace for new definitions
   export

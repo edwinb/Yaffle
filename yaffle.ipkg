@@ -54,7 +54,9 @@ modules
     TTImp.Utils,
 
     -- Elaborating TTImp to the Core TT 
+    TTImp.Elab,
     TTImp.Elab.Check,
+    TTImp.Elab.Delayed,
     TTImp.Elab.Utils,
 
     -- Parsing support

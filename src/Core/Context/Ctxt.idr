@@ -389,6 +389,7 @@ initDefs
          opts <- defaults
          pure $ MkDefs
            { gamma = gam
+           , mutData = []
            , uconstraints = []
            , nextUVar = 0
            , currentNS = mainNS
@@ -402,6 +403,8 @@ initDefs
            , localHints = empty
            , saveTypeHints = []
            , saveAutoHints = []
+           , transforms = empty
+           , saveTransforms = []
            , namedirectives = empty
            , ifaceHash = 5381
            , importHashes = []
@@ -741,6 +744,16 @@ mutual -- Bah, they are all mutual and we can't forward declare implementations 
     resolved gam tm = pure tm
 
 export
+HasNames (Env Term vars) where
+  full gam [<] = pure [<]
+  full gam (bs :< b)
+      = pure $ !(full gam bs) :< !(traverse (full gam) b)
+
+  resolved gam [<] = pure [<]
+  resolved gam (bs :< b)
+      = pure $ !(resolved gam bs) :< !(traverse (resolved gam) b)
+
+export
 HasNames TyConInfo where
   full gam x
       = pure $ { mutWith := !(full gam (mutWith x)),
@@ -869,6 +882,16 @@ HasNames Error where
   resolved gam (LinearMisuse fc n c1 c2)
       = pure $ LinearMisuse fc !(resolved gam n) c1 c2
   resolved gam err = pure err
+
+export
+HasNames Transform where
+  full gam (MkTransform n env lhs rhs)
+      = pure $ MkTransform !(full gam n) !(full gam env)
+                           !(full gam lhs) !(full gam rhs)
+
+  resolved gam (MkTransform n env lhs rhs)
+      = pure $ MkTransform !(resolved gam n) !(resolved gam env)
+                           !(resolved gam lhs) !(resolved gam rhs)
 
 decode gam idx update (Coded stbl _ bin)
     = do b <- newRef Bin bin
