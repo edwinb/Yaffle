@@ -44,7 +44,6 @@ edwinb's next steps:
 * Continue TTImp elaborator
 * Unification details (which will come up during elaboration...):
   - Inlining things with linear quantities in the context
-  - Implement 'retry'
   - We don't need 'inlineOnly' in the context any more, so remove once
     unification works and inlining metavariables works as it should
   - Implement auto-implicit search

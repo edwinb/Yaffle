@@ -662,6 +662,30 @@ anyOne fc [] = throw (GenericMsg fc "No elaborators provided")
 anyOne fc [(tm, elab)] = elab
 anyOne fc ((tm, elab) :: es) = try elab (anyOne fc es)
 
+-- Implemented in TTImp.Elab.Term; delaring just the type allows us to split
+-- the elaborator over multiple files more easily
+export
+check : {vars : _} ->
+        {auto c : Ref Ctxt Defs} ->
+        {auto m : Ref MD Metadata} ->
+        {auto u : Ref UST UState} ->
+        {auto e : Ref EST (EState vars)} ->
+        RigCount -> ElabInfo ->
+        NestedNames vars -> Env Term vars -> RawImp ->
+        Maybe (Value vars) ->
+        Core (Term vars, Value vars)
+
+-- As above, but doesn't add any implicit lambdas, forces, delays, etc
+export
+checkImp : {vars : _} ->
+           {auto c : Ref Ctxt Defs} ->
+           {auto m : Ref MD Metadata} ->
+           {auto u : Ref UST UState} ->
+           {auto e : Ref EST (EState vars)} ->
+           RigCount -> ElabInfo ->
+           NestedNames vars -> Env Term vars -> RawImp -> Maybe (Value vars) ->
+           Core (Term vars, Value vars)
+
 -- Implemented in TTImp.ProcessFile
 export
 processDecl : {vars : _} ->

@@ -804,6 +804,8 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                                         then pure False -- Postpone again
                                         else throw (CantSolveGoal loc defs
                                                        [<] (type def) (Just err))
+                 -- TODO: Check if this is still needed as a performance
+                 -- hack
                  Guess tm envb [constr] =>
                    do let umode = case smode of
                                        MatchArgs => inMatch

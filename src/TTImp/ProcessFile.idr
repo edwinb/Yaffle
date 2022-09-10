@@ -10,6 +10,7 @@ import Core.Unify.State
 import Parser.Source
 import TTImp.BindImplicits
 import TTImp.Parser
+import TTImp.ProcessBuiltin
 import TTImp.TTImp
 import TTImp.Elab.Check
 

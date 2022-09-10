@@ -62,6 +62,8 @@ data Error : Type where
 
      BadUnboundImplicit : {vars : _} ->
                           FC -> Env Term vars -> Name -> Term vars -> Error
+     TryWithImplicits : {vars : _} ->
+                        FC -> Env Term vars -> List (Name, Term vars) -> Error
      CantSolveGoal : {vars : _} ->
                      FC -> Defs -> Env Term vars -> Term vars ->
                      Maybe Error -> Error
@@ -147,6 +149,10 @@ Show Error where
   show (BadUnboundImplicit fc env n ty)
       = show fc ++ ":Can't bind name " ++ nameRoot n ++
                    " with type " ++ show ty
+  show (TryWithImplicits fc env imps)
+     = show fc ++ ":Need to bind implicits "
+          ++ showSep "," (map (\x => show (fst x) ++ " : " ++ show (snd x)) imps)
+          ++ "\n(The front end should probably have done this for you. Please report!)"
   show (CantSolveGoal fc gam env g cause)
       = show fc ++ ":Can't solve goal " ++ assert_total (show g)
   show (DeterminingArg fc n i env g)

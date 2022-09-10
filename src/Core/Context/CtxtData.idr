@@ -144,8 +144,12 @@ record GlobalDef where
   location : FC
   fullname : Name -- original unresolved name
   type : Term [<]
-  definition : Def
-  evaldef : Maybe CompiledTerm
+  eraseArgs : List Nat -- which argument positions to erase at runtime
+  safeErase : List Nat -- which argument positions are safe to assume
+                       -- erasable without 'dotting', because their types
+                       -- are collapsible relative to non-erased arguments
+  specArgs : List Nat -- arguments to specialise by
+  inferrable : List Nat -- arguments which can be inferred from elsewhere in the type
   multiplicity : RigCount
   localVars : List Name -- environment name is defined in
   visibility : Visibility
@@ -154,9 +158,11 @@ record GlobalDef where
   refersToM : Maybe (NameMap Bool)
   refersToRuntimeM : Maybe (NameMap Bool)
   invertible : Bool -- for an ordinary definition, is it invertible in unification
+  definition : Def
   compexpr : Maybe CDef
   namedcompexpr : Maybe NamedDef
   sizeChange : List SCCall
+  evaldef : Maybe CompiledTerm
 
 export
 TTC GlobalDef where

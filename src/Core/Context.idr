@@ -598,6 +598,16 @@ parameters {auto c : Ref Ctxt Defs}
       getDir : (CG, String) -> Maybe String
       getDir (x', str) = if cg == x' then Just str else Nothing
 
+  -- Explicitly note that the name should be saved when writing out a .ttc
+  export
+  addToSave : Name -> Core ()
+  addToSave n_in
+    = do defs <- get Ctxt
+         n <- full (gamma defs) n_in
+         put Ctxt ({ toSave $= insert n (),
+                     toIR $= insert n ()
+                   } defs)
+
 reducibleIn : Namespace -> Name -> Visibility -> Bool
 reducibleIn nspace (NS ns (UN n)) Export = isParentOf ns nspace
 reducibleIn nspace (NS ns (UN n)) Private = isParentOf ns nspace

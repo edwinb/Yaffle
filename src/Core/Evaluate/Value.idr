@@ -75,6 +75,10 @@ expand v@(VMeta fc n i args sp val)
          expand val'
 expand val = pure val
 
+export
+spineVal : (FC, RigCount, Value vars) -> Core (Value vars)
+spineVal (_, _, val) = expand val
+
 public export
 VCaseScope : SnocList (RigCount, Name) -> SnocList Name -> Type
 VCaseScope [<] vars = Core (Value vars)

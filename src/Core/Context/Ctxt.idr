@@ -349,6 +349,10 @@ newDef fc n rig vars ty vis def
         { location = fc
         , fullname = n
         , type = ty
+        , eraseArgs = []
+        , safeErase = []
+        , specArgs = []
+        , inferrable = []
         , definition = def
         , evaldef = Nothing
         , multiplicity = rig

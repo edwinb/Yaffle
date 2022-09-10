@@ -48,12 +48,14 @@ modules
 
     -- The language of TT with implicits
     TTImp.BindImplicits,
+    TTImp.ProcessBuiltin,
     TTImp.ProcessFile,
     TTImp.TTImp,
     TTImp.Utils,
 
     -- Elaborating TTImp to the Core TT 
     TTImp.Elab.Check,
+    TTImp.Elab.Utils,
 
     -- Parsing support
     Parser.Lexer.Common,

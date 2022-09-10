@@ -101,3 +101,7 @@ export
 relevance : RigCount -> RigCount
 relevance Rig0 = Rig0
 relevance _ = Rig1
+
+export
+lub : RigCount -> RigCount -> RigCount
+lub x y = if x <= y then y else x
