@@ -35,7 +35,7 @@ data Value : SnocList Name -> Type where
             NameType -> Name -> Spine vars -> -- original form
             Core (Maybe (Value vars)) -> -- the normal form
             Value vars
-     VLocal   : FC -> Maybe Bool -> (idx : Nat) -> (0 p : IsVar name idx vars) ->
+     VLocal   : FC -> Maybe Bool -> (idx : Nat) -> (0 p : IsVar n idx vars) ->
                 Spine vars ->
                 Value vars
      VMeta  : FC -> Name -> Int -> -- Name and resolved name of metavar
@@ -55,7 +55,7 @@ data Value : SnocList Name -> Type where
      VDelay   : FC -> LazyReason -> Value vars -> Value vars -> Value vars
      VForce   : FC -> LazyReason -> Value vars -> Spine vars -> Value vars
      VPrimVal : FC -> Constant -> Value vars
-     VPrimOp  : FC -> PrimFn arity -> Vect arity (Value vars) -> Value vars
+     VPrimOp  : FC -> PrimFn ar -> Vect ar (Value vars) -> Value vars
      VErased  : FC -> (imp : Bool) -> Value vars
      VUnmatched : FC -> String -> Value vars
      VImpossible : FC -> Value vars

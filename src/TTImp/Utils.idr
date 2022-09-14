@@ -574,20 +574,20 @@ getArgName defs x bound allvars ty
           let defaultPos = ["m", "n", "p", "q"]
           let defaultInts = ["i", "j", "k", "l"]
           pure $ filter notBound $ case c of
-            IntType => defaultInts
-            Int8Type => defaultInts
-            Int16Type => defaultInts
-            Int32Type => defaultInts
-            Int64Type => defaultInts
-            IntegerType => defaultInts
-            Bits8Type => defaultPos
-            Bits16Type => defaultPos
-            Bits32Type => defaultPos
-            Bits64Type => defaultPos
-            StringType => ["str"]
-            CharType => ["c","d"]
-            DoubleType => ["dbl"]
-            WorldType => ["wrld", "w"]
+            PrT IntType => defaultInts
+            PrT Int8Type => defaultInts
+            PrT Int16Type => defaultInts
+            PrT Int32Type => defaultInts
+            PrT Int64Type => defaultInts
+            PrT IntegerType => defaultInts
+            PrT Bits8Type => defaultPos
+            PrT Bits16Type => defaultPos
+            PrT Bits32Type => defaultPos
+            PrT Bits64Type => defaultPos
+            PrT StringType => ["str"]
+            PrT CharType => ["c","d"]
+            PrT DoubleType => ["dbl"]
+            PrT WorldType => ["wrld", "w"]
             _ => defaultNames -- impossible
     findNames ty = pure (filter notBound defaultNames)
 

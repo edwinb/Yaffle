@@ -215,7 +215,7 @@ constant
         IntegerLit i => Just (BI i)
         Ident s      => isConstantType (UN $ Basic s) >>=
                              \case WorldType => Nothing
-                                   c         => Just $ c
+                                   c         => Just $ PrT c
         _            => Nothing
 
 export

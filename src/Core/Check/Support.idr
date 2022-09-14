@@ -50,7 +50,7 @@ matchVars = go []
     goBinder acc _ _ = []
 
     goPrimOp : forall vars .
-               List (Var vars, Term vars) -> Vect arity (Term vars) -> Vect arity' (Term vars) ->
+               List (Var vars, Term vars) -> Vect ar (Term vars) -> Vect ar' (Term vars) ->
                List (Var vars, Term vars)
     goPrimOp acc (tm :: tms) (tm' :: tms') = goPrimOp (go acc tm tm') tms tms'
     goPrimOp acc _ _ = []

@@ -4,6 +4,9 @@ module Core.Context.Def
 -- * The forms of definition (function, data type etc)
 
 import Core.TT
+import Core.Env
+
+import Data.SnocList
 
 public export
 data HoleInfo
@@ -81,3 +84,54 @@ data Def : Type where
     -- A delayed elaboration. The elaborators themselves are stored in the
     -- unification state
     Delayed : Def
+
+export
+covering
+Show Def where
+  show None = "undefined"
+  show (Function _ tm)
+      = "Function " ++ show tm
+  show (DCon di t a)
+      = "DataCon " ++ show t ++ " " ++ show a
+           ++ maybe "" (\n => " (newtype by " ++ show n ++ ")")
+                    (newTypeArg di)
+  show (TCon ti a)
+      = "TyCon " ++ " arity " ++ show a ++
+        " params: " ++ show (paramPos ti) ++
+        " constructors: " ++ show (datacons ti) ++
+        " mutual with: " ++ show (mutWith ti) ++
+        " detaggable by: " ++ show (detagBy ti)
+  show (ExternDef arity) = "<external def with arity " ++ show arity ++ ">"
+  show (ForeignDef a cs) = "<foreign def with arity " ++ show a ++
+                           " " ++ show cs ++">"
+  show (Hole _) = "Hole"
+  show (BySearch c depth def) = "Search in " ++ show def
+  show (Guess tm _ cs) = "Guess " ++ show tm ++ " when " ++ show cs
+  show (UniverseLevel i) = "Universe level #" ++ show i
+  show ImpBind = "Bound name"
+  show Delayed = "Delayed"
+
+public export
+record Constructor where
+  constructor MkCon
+  loc : FC
+  name : Name
+  arity : Nat
+  type : ClosedTerm
+
+public export
+data DataDef : Type where
+     MkData : (tycon : Constructor) -> (datacons : List Constructor) ->
+              DataDef
+
+public export
+data Clause : Type where
+     MkClause : {vars : _} ->
+                (env : Env Term vars) ->
+                (lhs : Term vars) -> (rhs : Term vars) -> Clause
+
+export
+covering
+Show Clause where
+  show (MkClause {vars} env lhs rhs)
+      = show vars ++ ": " ++ show lhs ++ " = " ++ show rhs

@@ -9,8 +9,6 @@ TODOs throughout for which I would welcome some help. Currently these are:
     - I haven't always done this while porting large chunks from Idris 2,
       in the interests of making progress, but for the sake of tidiness and
       readability, it would be nice.
-* Some things which have changed in Idris 2 should ideally be changed here
-    - Most obviously: PrT/PrimType in the TT structure
 * Any missing support functions for TT to be ported from existing Idris 2
     - I will add these as they are needed, but it's even better if they're
       already done :). Mostly they'll be the same, with the addition of

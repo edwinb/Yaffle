@@ -81,7 +81,7 @@ extend (vars :< x) env = extend vars env :< x
 
 updateEnv : {idx : _} ->
             LocalEnv free vars ->
-            (0 _ : IsVar name idx (vars ++ free)) -> Value vars ->
+            (0 _ : IsVar n idx (vars ++ free)) -> Value vars ->
             LocalEnv free vars
 updateEnv (env :< b) First new = env :< new
 updateEnv (env :< b) (Later p) new = updateEnv env p new :< b
@@ -211,7 +211,7 @@ parameters {auto c : Ref Ctxt Defs}
   evalLocal : {vars, idx : _} ->
               Env Term vars ->
               FC -> Maybe Bool ->
-              (0 p : IsVar name idx (vars ++ free)) ->
+              (0 p : IsVar n idx (vars ++ free)) ->
               LocalEnv free vars ->
               Core (Value vars)
   evalLocal env fc mloc p [<]

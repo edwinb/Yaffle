@@ -517,6 +517,15 @@ parameters {auto c : Ref Ctxt Defs}
   setCtxt : Context -> Core ()
   setCtxt gam = update Ctxt { gamma := gam }
 
+  export
+  resolveName : Name -> Core Int
+  resolveName (Resolved idx) = pure idx
+  resolveName n
+    = do defs <- get Ctxt
+         (i, gam') <- getPosition n (gamma defs)
+         setCtxt gam'
+         pure i
+
   -- Call this before trying alternative elaborations, so that updates to the
   -- context are put in the staging area rather than writing over the mutable
   -- array of definitions.

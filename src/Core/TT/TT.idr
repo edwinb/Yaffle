@@ -4,7 +4,11 @@ import public Core.FC
 import public Core.TT.Name
 import public Core.TT.RigCount
 
+import Data.String
 import Data.Vect
+import Decidable.Equality
+import Libraries.Data.Primitives
+import Libraries.Data.String.Extra
 import Libraries.Text.PrettyPrint.Prettyprinter
 import Libraries.Text.PrettyPrint.Prettyprinter.Util
 
@@ -18,6 +22,25 @@ data NameType : Type where
      Func    : NameType
      DataCon : (tag : Tag) -> (arity : Nat) -> NameType
      TyCon   : (arity : Nat) -> NameType
+
+public export
+data PrimType
+    = IntType
+    | Int8Type
+    | Int16Type
+    | Int32Type
+    | Int64Type
+    | IntegerType
+    | Bits8Type
+    | Bits16Type
+    | Bits32Type
+    | Bits64Type
+    | StringType
+    | CharType
+    | DoubleType
+    | WorldType
+
+%name PrimType pty
 
 public export
 data Constant =
@@ -35,26 +58,11 @@ data Constant =
     | Str String
     | Ch Char
     | Db Double
+    | PrT PrimType
     | WorldVal
 
-    | IntType
-    | Int8Type
-    | Int16Type
-    | Int32Type
-    | Int64Type
-    | IntegerType
-    | Bits8Type
-    | Bits16Type
-    | Bits32Type
-    | Bits64Type
-
-    | StringType
-    | CharType
-    | DoubleType
-    | WorldType
-
 export
-isConstantType : Name -> Maybe Constant
+isConstantType : Name -> Maybe PrimType
 isConstantType (UN (Basic n)) = case n of
   "Int"     => Just IntType
   "Int8"    => Just Int8Type
@@ -74,21 +82,69 @@ isConstantType (UN (Basic n)) = case n of
 isConstantType _ = Nothing
 
 export
-Show Constant where
-  show (I x) = show x
-  show (I8 x) = show x
-  show (I16 x) = show x
-  show (I32 x) = show x
-  show (I64 x) = show x
-  show (BI x) = show x
-  show (B8 x) = show x
-  show (B16 x) = show x
-  show (B32 x) = show x
-  show (B64 x) = show x
-  show (Str x) = show x
-  show (Ch x) = show x
-  show (Db x) = show x
-  show WorldVal = "%MkWorld"
+isPrimType : Constant -> Bool
+isPrimType (PrT _) = True
+isPrimType _       = False
+
+export
+primTypeEq : (x, y : PrimType) -> Maybe (x = y)
+primTypeEq IntType IntType = Just Refl
+primTypeEq Int8Type Int8Type = Just Refl
+primTypeEq Int16Type Int16Type = Just Refl
+primTypeEq Int32Type Int32Type = Just Refl
+primTypeEq Int64Type Int64Type = Just Refl
+primTypeEq IntegerType IntegerType = Just Refl
+primTypeEq StringType StringType = Just Refl
+primTypeEq CharType CharType = Just Refl
+primTypeEq DoubleType DoubleType = Just Refl
+primTypeEq WorldType WorldType = Just Refl
+primTypeEq _ _ = Nothing
+
+export
+constantEq : (x, y : Constant) -> Maybe (x = y)
+constantEq (I x) (I y) = case decEq x y of
+                              Yes Refl => Just Refl
+                              No contra => Nothing
+constantEq (I8 x) (I8 y) = case decEq @{TempI8} x y of
+                                  Yes Refl => Just Refl
+                                  No contra => Nothing
+constantEq (I16 x) (I16 y) = case decEq @{TempI16} x y of
+                                  Yes Refl => Just Refl
+                                  No contra => Nothing
+constantEq (I32 x) (I32 y) = case decEq @{TempI32} x y of
+                                  Yes Refl => Just Refl
+                                  No contra => Nothing
+constantEq (I64 x) (I64 y) = case decEq @{TempI64} x y of
+                                  Yes Refl => Just Refl
+                                  No contra => Nothing
+constantEq (B8 x) (B8 y) = case decEq @{TempB8} x y of
+                                  Yes Refl => Just Refl
+                                  No contra => Nothing
+constantEq (B16 x) (B16 y) = case decEq @{TempB16} x y of
+                                  Yes Refl => Just Refl
+                                  No contra => Nothing
+constantEq (B32 x) (B32 y) = case decEq @{TempB32} x y of
+                                  Yes Refl => Just Refl
+                                  No contra => Nothing
+constantEq (B64 x) (B64 y) = case decEq @{TempB64} x y of
+                                  Yes Refl => Just Refl
+                                  No contra => Nothing
+constantEq (BI x) (BI y) = case decEq x y of
+                                Yes Refl => Just Refl
+                                No contra => Nothing
+constantEq (Str x) (Str y) = case decEq x y of
+                                  Yes Refl => Just Refl
+                                  No contra => Nothing
+constantEq (Ch x) (Ch y) = case decEq x y of
+                                Yes Refl => Just Refl
+                                No contra => Nothing
+constantEq (Db x) (Db y) = Nothing -- no DecEq for Doubles!
+constantEq (PrT x) (PrT y) = cong PrT <$> primTypeEq x y
+constantEq WorldVal WorldVal = Just Refl
+constantEq _ _ = Nothing
+
+export
+Show PrimType where
   show IntType = "Int"
   show Int8Type = "Int8"
   show Int16Type = "Int16"
@@ -105,27 +161,47 @@ Show Constant where
   show WorldType = "%World"
 
 export
-Pretty ann Constant where
-  pretty (Str x) = dquotes (pretty0 x)
-  pretty (Ch x) = squotes (pretty0 x)
-  pretty x = pretty0 $ show x
+Show Constant where
+  show (I x) = show x
+  show (I8 x) = show x
+  show (I16 x) = show x
+  show (I32 x) = show x
+  show (I64 x) = show x
+  show (BI x) = show x
+  show (B8 x) = show x
+  show (B16 x) = show x
+  show (B32 x) = show x
+  show (B64 x) = show x
+  show (Str x) = show x
+  show (Ch x) = show x
+  show (Db x) = show x
+  show (PrT x) = show x
+  show WorldVal = "%MkWorld"
+
+Pretty ann PrimType where
+  pretty c = case c of
+    IntType => "Int"
+    Int8Type => "Int8"
+    Int16Type => "Int16"
+    Int32Type => "Int32"
+    Int64Type => "Int64"
+    IntegerType => "Integer"
+    Bits8Type => "Bits8"
+    Bits16Type => "Bits16"
+    Bits32Type => "Bits32"
+    Bits64Type => "Bits64"
+    StringType => "String"
+    CharType => "Char"
+    DoubleType => "Double"
+    WorldType => "%World"
 
 export
-Eq Constant where
-  (I x) == (I y) = x == y
-  (I8 x) == (I8 y) = x == y
-  (I16 x) == (I16 y) = x == y
-  (I32 x) == (I32 y) = x == y
-  (I64 x) == (I64 y) = x == y
-  (BI x) == (BI y) = x == y
-  (B8 x) == (B8 y) = x == y
-  (B16 x) == (B16 y) = x == y
-  (B32 x) == (B32 y) = x == y
-  (B64 x) == (B64 y) = x == y
-  (Str x) == (Str y) = x == y
-  (Ch x) == (Ch y) = x == y
-  (Db x) == (Db y) = x == y
-  WorldVal == WorldVal = True
+Pretty ann Constant where
+  pretty (PrT x) = pretty x
+  pretty v = pretty0 $ show v
+
+export
+Eq PrimType where
   IntType == IntType = True
   Int8Type == Int8Type = True
   Int16Type == Int16Type = True
@@ -142,25 +218,43 @@ Eq Constant where
   WorldType == WorldType = True
   _ == _ = False
 
+export
+Eq Constant where
+  (I x) == (I y) = x == y
+  (I8 x) == (I8 y) = x == y
+  (I16 x) == (I16 y) = x == y
+  (I32 x) == (I32 y) = x == y
+  (I64 x) == (I64 y) = x == y
+  (BI x) == (BI y) = x == y
+  (B8 x) == (B8 y) = x == y
+  (B16 x) == (B16 y) = x == y
+  (B32 x) == (B32 y) = x == y
+  (B64 x) == (B64 y) = x == y
+  (Str x) == (Str y) = x == y
+  (Ch x) == (Ch y) = x == y
+  (Db x) == (Db y) = x == y
+  (PrT x) == (PrT y) = x == y
+  WorldVal == WorldVal = True
+  _ == _ = False
+
 -- for typecase
 export
-constTag : Constant -> Int
+primTypeTag : PrimType -> Int
 -- 1 = ->, 2 = Type
-constTag IntType = 3
-constTag IntegerType = 4
-constTag Bits8Type = 5
-constTag Bits16Type = 6
-constTag Bits32Type = 7
-constTag Bits64Type = 8
-constTag StringType = 9
-constTag CharType = 10
-constTag DoubleType = 11
-constTag WorldType = 12
-constTag Int8Type = 13
-constTag Int16Type = 14
-constTag Int32Type = 15
-constTag Int64Type = 16
-constTag _ = 0
+primTypeTag IntType = 3
+primTypeTag IntegerType = 4
+primTypeTag Bits8Type = 5
+primTypeTag Bits16Type = 6
+primTypeTag Bits32Type = 7
+primTypeTag Bits64Type = 8
+primTypeTag StringType = 9
+primTypeTag CharType = 10
+primTypeTag DoubleType = 11
+primTypeTag WorldType = 12
+primTypeTag Int8Type = 13
+primTypeTag Int16Type = 14
+primTypeTag Int32Type = 15
+primTypeTag Int64Type = 16
 
 ||| Precision of integral types.
 public export
@@ -185,7 +279,7 @@ public export
 data IntKind = Signed Precision | Unsigned Int
 
 public export
-intKind : Constant -> Maybe IntKind
+intKind : PrimType -> Maybe IntKind
 intKind IntegerType = Just $ Signed Unlimited
 intKind Int8Type    = Just . Signed   $ P 8
 intKind Int16Type   = Just . Signed   $ P 16
@@ -206,24 +300,24 @@ precision (Unsigned p) = P p
 -- All the internal operators, parameterised by their arity
 public export
 data PrimFn : Nat -> Type where
-     Add : (ty : Constant) -> PrimFn 2
-     Sub : (ty : Constant) -> PrimFn 2
-     Mul : (ty : Constant) -> PrimFn 2
-     Div : (ty : Constant) -> PrimFn 2
-     Mod : (ty : Constant) -> PrimFn 2
-     Neg : (ty : Constant) -> PrimFn 1
-     ShiftL : (ty : Constant) -> PrimFn 2
-     ShiftR : (ty : Constant) -> PrimFn 2
+     Add : (ty : PrimType) -> PrimFn 2
+     Sub : (ty : PrimType) -> PrimFn 2
+     Mul : (ty : PrimType) -> PrimFn 2
+     Div : (ty : PrimType) -> PrimFn 2
+     Mod : (ty : PrimType) -> PrimFn 2
+     Neg : (ty : PrimType) -> PrimFn 1
+     ShiftL : (ty : PrimType) -> PrimFn 2
+     ShiftR : (ty : PrimType) -> PrimFn 2
 
-     BAnd : (ty : Constant) -> PrimFn 2
-     BOr : (ty : Constant) -> PrimFn 2
-     BXOr : (ty : Constant) -> PrimFn 2
+     BAnd : (ty : PrimType) -> PrimFn 2
+     BOr : (ty : PrimType) -> PrimFn 2
+     BXOr : (ty : PrimType) -> PrimFn 2
 
-     LT  : (ty : Constant) -> PrimFn 2
-     LTE : (ty : Constant) -> PrimFn 2
-     EQ  : (ty : Constant) -> PrimFn 2
-     GTE : (ty : Constant) -> PrimFn 2
-     GT  : (ty : Constant) -> PrimFn 2
+     LT  : (ty : PrimType) -> PrimFn 2
+     LTE : (ty : PrimType) -> PrimFn 2
+     EQ  : (ty : PrimType) -> PrimFn 2
+     GTE : (ty : PrimType) -> PrimFn 2
+     GT  : (ty : PrimType) -> PrimFn 2
 
      StrLength : PrimFn 1
      StrHead : PrimFn 1
@@ -247,7 +341,7 @@ data PrimFn : Nat -> Type where
      DoubleFloor : PrimFn 1
      DoubleCeiling : PrimFn 1
 
-     Cast : Constant -> Constant -> PrimFn 1
+     Cast : PrimType -> PrimType -> PrimFn 1
      BelieveMe : PrimFn 3
      Crash : PrimFn 2
 
@@ -505,9 +599,6 @@ data AsName : SnocList Name -> Type where
 
 public export
 data CaseAlt : SnocList Name -> Type
-
-public export
-data PatternClause : SnocList Name -> Type
 
 -- Typechecked terms
 -- These are guaranteed to be well-scoped wrt local variables, because they are
