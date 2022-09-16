@@ -9,6 +9,8 @@ import Data.Vect
 
 import Libraries.Data.NameMap
 
+%default covering
+
 public export
 reverseOnto : SnocList a -> SnocList a -> SnocList a
 reverseOnto acc [<] = acc
@@ -882,14 +884,19 @@ mutual
         showApp (Unmatched _ str) [] = "Unmatched: " ++ show str
         showApp (Impossible _) [] = "impossible"
         showApp (TType _ u) [] = "Type"
-        showApp _ [] = "???"
-        showApp f args = "(" ++ assert_total (show f) ++ " " ++
-                          assert_total (showSep " " (map show args))
-                       ++ ")"
+        showApp f args@(_ :: _)
+          = "(" ++ assert_total (show f) ++ " " ++
+             assert_total (showSep " " (map show args))
+             ++ ")"
+
+  export
+  {vars : _} -> Show (CaseScope vars) where
+      show (RHS rhs) = " => " ++ show rhs
+      show (Arg r nm sc) = " " ++ show nm ++ show sc
 
   export
   {vars : _} -> Show (CaseAlt vars) where
-     show (ConCase fc n t sc) = "???"
-     show (DelayCase fc ty arg sc) = "???"
+     show (ConCase fc n t sc) = show n ++ show sc
+     show (DelayCase fc ty arg sc) = "Delay " ++ show arg ++ " => " ++ show sc
      show (ConstCase fc c sc) = show c ++ " => " ++ show sc
      show (DefaultCase fc sc) = "_ => " ++ show sc
