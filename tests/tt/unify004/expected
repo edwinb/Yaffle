@@ -1,0 +1,7 @@
+Yaffle> h1 : ((a : Type) -> ((m : Nat) -> ((n : Nat) -> ((p : ((i : (Fin m[1])) -> a[3])) -> ((q : ((i : (Fin n[1])) -> a[4])) -> ((i : (Fin (plus m[3] n[2]))) -> ((m' : Nat) -> ((nm' : Nat) -> a[7]))))))))
+TIMING : 0.000s
+Yaffle> h2 : ((a : Type) -> ((m : Nat) -> ((n : Nat) -> ((p : ((i : (Fin m[1])) -> a[3])) -> ((q : ((i : (Fin n[1])) -> a[4])) -> ((i : (Fin (plus m[3] n[2]))) -> ((m' : Nat) -> ((nm' : Nat) -> ((j : (Fin nm'[0])) -> a[8])))))))))
+TIMING : 0.000s
+Yaffle> h0 : ((a : Type) -> ((m : Nat) -> ((n : Nat) -> ((p : ((i : (Fin m[1])) -> a[3])) -> ((q : ((i : (Fin n[1])) -> a[4])) -> ((i : (Fin (plus m[3] n[2]))) -> a[5]))))))
+TIMING : 0.000s
+Yaffle> Bye for now!

@@ -1,0 +1,48 @@
+data Nat : Type where {
+   Z : Nat
+ | S : pi k : Nat . Nat
+}
+
+plus : pi x : Nat . pi y : Nat . Nat;
+plus = lam x . lam y .
+  case x of
+      Z => y
+    | S x' => S (plus x' y);
+
+data Fin : pi n : Nat . Type where {
+    FZ : pi n : Nat . Fin (S n)
+  | FS : pi n : Nat . pi i : Fin n . Fin (S n)
+}
+
+data All : pi n : Nat . pi p : (pi i : (Fin n) . Type) . Type where {
+    Nil : pi p : (pi i : Fin Z . Type) . All Z p
+  | Cons : pi n : Nat . pi p : (pi i : Fin (S n) . Type) .
+           pi prf : (p (FZ n)) .
+           pi prfs : All n (lam i . p (FS n i)) .
+           All (S n) p
+}
+
+cotupleBin : pi a : Type . pi m : Nat . pi n : Nat .
+  pi p : (pi i : Fin m . a) . pi q : (pi i : Fin n . a) .
+  pi i : Fin (plus m n) . a;
+cotupleBin = lam a . lam m . lam n . lam p . lam q . lam i .
+  case m of
+      Z => ?h0 -- (q i) -- gives: Can't convert case m[4] of [???, ???] with n[3]
+    | S m' => (case i of
+                   FZ nm'   => ?h1 -- (p (FZ m')) -- gives: Can't convert (S m'[1]) with m[6]
+                 | FS nm' j => ?h2 -- (cotupleBin a m' n (lam i . p (FS m' i)) q j)
+                                                  -- gives: Can't convert (S m'[3]) with m[8]
+              );
+
+concat : pi m : Nat .
+         pi n : Nat .
+         pi p : (pi i : (Fin m) . Type) .
+         pi q : (pi i : (Fin n) . Type) .
+         pi prfs : All m p .
+         pi qrfs : All n q .
+         All (plus m n) (cotupleBin Type m n p q);
+concat = lam m . lam n . lam p . lam q . lam prfs . lam qrfs .
+  case prfs of
+      Nil p' => ?h3 -- qrfs
+    | Cons m' p' prf' prfs' => ?h4 -- (Cons ?h5 ?h6 prf' (concat ?h7 ?h8 ?h9 ?h10 prfs' qrfs))
+    ;
