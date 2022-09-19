@@ -4,6 +4,13 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 * Please review the rules implemented in Core/Typecheck/Check.idr
     - Especially regarding quantities and universe levels
+    - Needs fix: Test tt/unify004 will only work properly if scrutinees of
+      case expressions are substituted in the environment when checking the
+      right hand sides
+    - Taking charge of maintenance of this typechecker would also be
+      useful! It is only intended as scaffolding, but may also be helpful
+      for debugging later so having a way to re-check elaborated progams
+      from scratch will be useful.
 * Tidy up the auto-implicits so that there are 'parameters' blocks where
   appropriate
     - I haven't always done this while porting large chunks from Idris 2,
@@ -39,6 +46,7 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
+* Index 'Value' by whether it has been 'expanded'
 * Continue TTImp elaborator
 * Unification details (which will come up during elaboration...):
   - Inlining things with linear quantities in the context
@@ -59,4 +67,4 @@ edwinb's next steps:
 * ???
 * PROFIT
 
-(Last updated 5th August 2022)
+(Last updated 16th September 2022)

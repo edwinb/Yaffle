@@ -6,6 +6,7 @@ module Core.Check.Typecheck
 
 import Core.Check.Support
 import Core.Context
+import Core.Context.Log
 import Core.Env
 import Core.Error
 import Core.Evaluate

@@ -42,6 +42,8 @@ knownTopics = [
     ("builtin.Natural", Just "Log each encountered %builtin Natural declaration."),
     ("builtin.NaturalToInteger", Just "Log each encountered %builtin NaturalToInteger declaration."),
     ("builtin.IntegerToNatural", Just "Log each encountered %builtin IntegerToNatural declaration."),
+    ("check.type", Nothing),
+    ("check.linear", Nothing),
     ("compile.execute", Nothing),
     ("compile.casetree", Nothing),
     ("compile.casetree.clauses", Nothing),

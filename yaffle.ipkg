@@ -49,6 +49,7 @@ modules
     -- The language of TT with implicits
     TTImp.BindImplicits,
     TTImp.ProcessBuiltin,
+    TTImp.ProcessData,
     TTImp.ProcessFile,
     TTImp.TTImp,
     TTImp.Utils,
