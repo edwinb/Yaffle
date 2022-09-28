@@ -200,11 +200,13 @@ parameters {auto c : Ref Ctxt Defs}
           (throw (LinearUsed fc used nm))
 
   lcheckAlt : {vars : _} ->
-              (scrig : RigCount) ->
+              -- must be Rig0 or Rig1
               (rhsrig : RigCount) ->
-              Env Term vars -> CaseAlt vars ->
+              Env Term vars ->
+              (scrig : RigCount) ->
+              CaseAlt vars ->
               Core (Usage vars)
-  lcheckAlt scrig rig env (ConCase fc n t sc)
+  lcheckAlt rig env scrig (ConCase fc n t sc)
       = lcheckScope env sc
     where
       lcheckScope : {vars : _} -> Env Term vars -> CaseScope vars ->
@@ -219,9 +221,9 @@ parameters {auto c : Ref Ctxt Defs}
                      PVar fc (rigMult scrig c) Explicit (Erased fc False)
                u' <- lcheckScope env' sc
                let used = count 0 u'
-               checkUsageOK EmptyFC used x (rigMult scrig c)
+               checkUsageOK EmptyFC used x (rigMult (rigMult scrig c) rig)
                pure (doneScope u')
-  lcheckAlt scrig rig env (DelayCase fc t a rhs)
+  lcheckAlt rig env scrig (DelayCase fc t a rhs)
       = do -- See above for why the types are erased
            let env'
                = env :<
@@ -233,18 +235,19 @@ parameters {auto c : Ref Ctxt Defs}
            checkUsageOK EmptyFC usedt t (rigMult scrig rig)
            checkUsageOK EmptyFC useda a (rigMult scrig rig)
            pure (doneScope (doneScope u'))
-  lcheckAlt scrig rig env (ConstCase fc c rhs) = lcheck rig env rhs
-  lcheckAlt scrig rig env (DefaultCase fc rhs) = lcheck rig env rhs
+  lcheckAlt rig env scrig (ConstCase fc c rhs) = lcheck rig env rhs
+  lcheckAlt rig env scrig (DefaultCase fc rhs) = lcheck rig env rhs
 
   lcheckAlts : {vars : _} ->
-               (scrig : RigCount) ->
                (rhsrig : RigCount) ->
-               Env Term vars -> List (CaseAlt vars) ->
+               Env Term vars ->
+               (scrig : RigCount) ->
+               List (CaseAlt vars) ->
                Core (Usage vars)
-  lcheckAlts scrig rig env [] = pure [<]
-  lcheckAlts scrig rig env (a :: alts)
-     = do ua <- lcheckAlt scrig rig env a
-          ualts <- lcheckAlts scrig rig env alts
+  lcheckAlts rig env scrig [] = pure [<]
+  lcheckAlts rig env scrig (a :: alts)
+     = do ua <- lcheckAlt rig env scrig a
+          ualts <- lcheckAlts rig env scrig alts
           pure (ua ++ ualts)
 
   lcheckBinder : {vars : _} ->
@@ -353,8 +356,8 @@ parameters {auto c : Ref Ctxt Defs}
   lcheck rig env (As fc s var pat)
       = lcheck rig env pat
   lcheck rig env (Case fc scrig sc ty alts)
-      = do usc <- lcheck scrig env sc
-           ualts <- lcheckAlts rig rig env alts
+      = do usc <- lcheck (rigMult scrig rig) env sc
+           ualts <- lcheckAlts (presence rig) (restrictEnv env rig) scrig alts
            pure (usc ++ ualts)
   lcheck rig env (TDelayed fc r tm) = lcheck rig env tm
   lcheck rig env (TDelay fc r ty arg) = lcheck rig env arg

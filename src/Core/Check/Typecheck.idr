@@ -123,18 +123,21 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   checkCon : {bound, vars : _} ->
              Int ->
              Bounds bound ->
-             FC -> RigCount -> RigCount ->
+             FC ->
+             -- must be Rig0 or Rig1
+             RigCount ->
              Env Term vars ->
              Env Term (vars ++ bound) ->
              Name -> List Name ->
              (conApp : Term (vars ++ bound)) ->
              (conTy : Value vars) ->
              (rhs : RawC) ->
+             (scrig : RigCount) ->
              (scr : Term (vars ++ bound)) ->
              (scrTy : Term (vars ++ bound)) ->
              (rhsTy : Term (vars ++ bound)) ->
              Core (CaseScope (vars ++ bound))
-  checkCon i bs fc rig scrig valenv env cname [] app ty rhs scr scrTy rhsTy
+  checkCon i bs fc rig valenv env cname [] app ty rhs scrig scr scrTy rhsTy
       = do let conTy = refsToLocals bs !(quote valenv ty)
            -- Now the tricky step! To make this a dependent case, we need to
            -- * Substitute the application for the scrutinee in the expected
@@ -150,7 +153,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            rhs' <- check rig env rhs rhsExp
            pure (RHS rhs')
 
-  checkCon i bs fc rig scrig valenv env cname (arg :: args) app (VBind _ x (Pi _ rigp p aty) sc) rhs scr scrTy rhsTy
+  checkCon i bs fc rig valenv env cname (arg :: args) app (VBind _ x (Pi _ rigp p aty) sc) rhs scrig scr scrTy rhsTy
       = do -- Extend the environment with the constructor argument name
            argty <- quote valenv aty
            let varty = refsToLocals bs argty
@@ -160,11 +163,11 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            -- application to the new variable, and substitute the variable into
            -- the constructor type
            let argn = MN "carg" i
-           casesc <- checkCon (i + 1) (Add arg argn bs) fc rig scrig
-                              valenv env' cname args
+           casesc <- checkCon (i + 1) (Add arg argn bs) fc rig valenv
+                              env' cname args
                               (App fc (weaken app) rigp (Local fc (Just False) _ First))
                               !(sc (VApp fc Bound argn [<] (pure Nothing)))
-                              rhs (weaken scr) (weaken scrTy) (weaken rhsTy)
+                              rhs scrig (weaken scr) (weaken scrTy) (weaken rhsTy)
            pure (Arg rigp arg casesc)
   -- I wouldn't expect to see this happen since we've done an arity check, but
   -- here for completeness
@@ -175,13 +178,14 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   -- We need to replace any occurrence of 'scr' in 'rhsTy' with whatever
   -- the typechecked lhs turns out to be before checking the rhs.
   checkAlt : {vars : _} ->
-             (rig : RigCount) -> (scrig : RigCount) ->
+             (rig : RigCount) ->
              Env Term vars ->
+             (scrig : RigCount) ->
              (scr : Term vars) ->
              (scrTy : Term vars) ->
              (rhsTy : Term vars) ->
              RawCaseAlt -> Core (CaseAlt vars)
-  checkAlt rig scrig env scr scrTy rhsTy (RConCase fc n args rhs)
+  checkAlt rig env scrig scr scrTy rhsTy (RConCase fc n args rhs)
       = do defs <- get Ctxt
            [(cname, i, def)] <- lookupCtxtName n (gamma defs)
                 | ns => ambiguousName fc n (map fst ns)
@@ -190,19 +194,19 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            let True = arity == length args
                 | _ => throw (GenericMsg fc (show cname ++ " has arity " ++ show arity))
            let conty = embed (type def)
-           concase <- checkCon 0 None fc rig scrig env env cname args
+           concase <- checkCon 0 None fc rig env env cname args
                                (Ref fc (DataCon tag arity) cname)
                                !(nf env conty)
-                               rhs scr scrTy rhsTy
+                               rhs scrig scr scrTy rhsTy
            pure (ConCase fc n tag concase)
-  checkAlt rig scrig env scr scrTy rhsTy (RConstCase fc c rhs)
+  checkAlt rig env scrig scr scrTy rhsTy (RConstCase fc c rhs)
       = do c' <- check rig env (RInf fc (RPrimVal fc c)) scrTy
            -- Substitute the scrutinee into the expected type, to get the
            -- expected type of the right hand side
            rhsExp <- replace env !(nf env scr) c' !(nf env rhsTy)
            rhs' <- check rig env rhs rhsExp
            pure (ConstCase fc c rhs')
-  checkAlt rig scrig env scr scrTy rhsTy (RDefaultCase fc rhs)
+  checkAlt rig env scrig scr scrTy rhsTy (RDefaultCase fc rhs)
       = do rhs' <- check rig env rhs rhsTy
            pure (DefaultCase fc rhs')
 
@@ -222,8 +226,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                        pure (Bind fc n (Lam fc rigp p aty) sc')
                 _ => throw (NotFunctionType fc !(get Ctxt) env ty)
   check rig env (RCase fc r sc alts) exp
-      = do (sc', scTy') <- infer r env sc
-           alts <- traverse (checkAlt rig r env sc' scTy' exp) alts
+      = do (sc', scTy') <- infer (rigMult r rig) env sc
+           alts <- traverse (checkAlt (presence rig) env r sc' scTy' exp) alts
            pure (Case fc r sc' scTy' alts)
   check rig env (RMeta fc str) exp
       = do let n = UN (mkUserName str)
