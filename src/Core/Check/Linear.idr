@@ -302,7 +302,7 @@ parameters {auto c : Ref Ctxt Defs}
            -- we're checking in general context
            let (env', rig') = case b of
                                    Pi _ _ _ _ => (env, rig)
-                                   _ => (divEnv env rig, relevance rig)
+                                   _ => (restrictEnv env rig, presence rig)
 
            usc <- lcheck rig' (env' :< b) sc
            let used_in = count 0 usc

@@ -78,7 +78,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                 do defs <- get Ctxt
                    [(pname, i, def)] <- lookupCtxtName n (gamma defs)
                         | ns => ambiguousName fc n (map fst ns)
-                   rigSafe (multiplicity def) (relevance rigc)
+                   rigSafe (multiplicity def) (presence rigc)
                    let nt = fromMaybe Func (defNameType $ definition def)
                    pure (Ref fc nt (Resolved i), embed (type def))
     where
@@ -98,8 +98,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   infer rig env (RLet fc rigl n val ty sc)
       = do ty' <- check erased env ty (topType fc)
            val' <- check (rigMult rig rigl) env val ty'
-           let (rigEnv', rig') = branchOne (rig, relevance rig) (relevance rig, rig) rigl
-           let env' = divEnv env rigEnv' :< Let fc rigl val' ty'
+           let (rigEnv', rig') = branchOne (rig, presence rig) (presence rig, rig) rigl
+           let env' = restrictEnv env rigEnv' :< Let fc rigl val' ty'
            (sc', scty) <- infer rig' env' sc
            let letTy = Bind fc n (Let fc rigl val' ty') scty
            pure (Bind fc n (Let fc rigl val' ty') sc', letTy)
@@ -216,8 +216,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = do tnf <- nf env ty
            case !(quote env tnf) of
                 Bind _ x (Pi _ rigp p aty) rty =>
-                    do let (rigEnv', rig') = branchOne (rig, relevance rig) (relevance rig, rig) rigp
-                       let env' = divEnv env rigEnv' :< Lam fc rigp p aty
+                    do let (rigEnv', rig') = branchOne (rig, presence rig) (presence rig, rig) rigp
+                       let env' = restrictEnv env rigEnv' :< Lam fc rigp p aty
                        sc' <- check rig' env' scope (renameTop n rty)
                        pure (Bind fc n (Lam fc rigp p aty) sc')
                 _ => throw (NotFunctionType fc !(get Ctxt) env ty)
