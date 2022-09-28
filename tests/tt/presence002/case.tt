@@ -1,0 +1,13 @@
+data Bool : Type where {
+    False : Bool
+  | True : Bool
+}
+
+data T : Type where {
+    V : pi 1 x : Bool. T
+}
+
+0 f : pi 1 T : T. Bool;
+f = lam t.
+        case t of
+           V x => False;
