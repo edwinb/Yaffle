@@ -16,7 +16,7 @@ parameters {auto c : Ref Ctxt Defs}
       = do defs <- get Ctxt
            let n = MN "u" (nextUVar defs)
            put Ctxt ({nextUVar $= (1+) } defs)
-           idx <- addDef n (newDef fc n erased [] (Erased fc False) Public None)
+           idx <- addDef n (newDef fc n erased [<] (Erased fc False) Public None)
            pure (Resolved idx)
 
   -- Check constraints are consistent and instantiate names as universe levels

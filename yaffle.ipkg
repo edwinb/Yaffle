@@ -15,6 +15,8 @@ modules
     Core.CompileExpr,
     Core.Context,
     Core.Context.Ctxt,
+    Core.Context.CtxtData,
+    Core.Context.Data,
     Core.Context.Def, -- top level definition forms live here
     Core.Error,
     Core.Evaluate,

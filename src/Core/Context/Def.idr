@@ -38,6 +38,10 @@ record DataConInfo where
                -- that the value is inspected, to make sure external effects
                -- happen)
 
+export
+defaultDataConInfo : DataConInfo
+defaultDataConInfo = MkDataConInfo Nothing
+
 public export
 record TyConInfo where
   constructor MkTyConInfo

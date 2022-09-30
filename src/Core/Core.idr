@@ -251,6 +251,11 @@ namespace Binder
   traverse f (PVTy fc c ty) = pure $ PVTy fc c !(f ty)
 
 export
+mapTermM : ({vars : _} -> Term vars -> CoreE err (Term vars)) ->
+           ({vars : _} -> Term vars -> CoreE err (Term vars))
+-- TODO
+
+export
 anyM : (a -> CoreE err Bool) -> List a -> CoreE err Bool
 anyM f [] = pure False
 anyM f (x :: xs)

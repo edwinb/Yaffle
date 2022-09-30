@@ -342,7 +342,7 @@ lookupDefTyExact : Name -> Context -> Core (Maybe (Def, Term [<]))
 lookupDefTyExact = lookupExactBy (\g => (definition g, type g))
 
 export
-newDef : FC -> Name -> RigCount -> List Name ->
+newDef : FC -> Name -> RigCount -> SnocList Name ->
          Term [<] -> Visibility -> Def -> GlobalDef
 newDef fc n rig vars ty vis def
     = MkGlobalDef

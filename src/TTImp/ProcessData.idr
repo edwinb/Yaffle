@@ -2,6 +2,7 @@ module TTImp.ProcessData
 
 import Core.CompileExpr
 import Core.Context
+import Core.Context.Data
 import Core.Context.Log
 import Core.Core
 import Core.Env
@@ -36,17 +37,16 @@ processDataOpt fc ndef External
 processDataOpt fc ndef NoNewtype
     = pure ()
 
-{-
 checkRetType : {auto c : Ref Ctxt Defs} ->
-               Env Term vars -> Glued vars ->
-               (Glued vars -> Core ()) -> Core ()
+               Env Term vars -> NF vars ->
+               (NF vars -> Core ()) -> Core ()
 checkRetType env (VBind fc x (Pi _ _ _ ty) sc) chk
     = do defs <- get Ctxt
          checkRetType env !(expand !(sc (VErased fc False))) chk
 checkRetType env nf chk = chk nf
 
 checkIsType : {auto c : Ref Ctxt Defs} ->
-              FC -> Name -> Env Term vars -> Value vars -> Core ()
+              FC -> Name -> Env Term vars -> Glued vars -> Core ()
 checkIsType loc n env nf
     = checkRetType env !(expand nf) $
          \case
@@ -54,7 +54,7 @@ checkIsType loc n env nf
            _ => throw $ BadTypeConType loc n
 
 checkFamily : {auto c : Ref Ctxt Defs} ->
-              FC -> Name -> Name -> Env Term vars -> Value vars -> Core ()
+              FC -> Name -> Name -> Env Term vars -> Glued vars -> Core ()
 checkFamily loc cn tn env nf
     = checkRetType env !(expand nf) $
          \case
@@ -121,26 +121,25 @@ checkCon {vars} opts nest env vis tn_in tn (MkImpTy fc _ cn_in ty_raw)
 
 -- Get the indices of the constructor type (with non-constructor parts erased)
 getIndexPats : {auto c : Ref Ctxt Defs} ->
-               ClosedTerm -> Core (List (Value [<]))
+               ClosedTerm -> Core (List (NF [<]))
 getIndexPats tm
     = do defs <- get Ctxt
          tmnf <- nf [<] tm
          ret <- getRetType defs !(expand tmnf)
          getPats defs ret
   where
-    getRetType : Defs -> Value [<] -> Core (Value [<])
+    getRetType : Defs -> NF [<] -> Core (NF [<])
     getRetType defs (VBind fc _ (Pi _ _ _ _) sc)
         = do sc' <- sc (VErased fc False)
              getRetType defs !(expand sc')
     getRetType defs t = pure t
 
-    getPats : Defs -> Value [<] -> Core (List (Value [<]))
+    getPats : Defs -> NF [<] -> Core (List (NF [<]))
     getPats defs (VTCon fc _ _ args)
         = do args' <- traverseSnocList spineVal args
-             traverse expand (cast args')
+             pure (cast args')
     getPats defs _ = pure [] -- Can't happen if we defined the type successfully!
 
-{-
 getDetags : {auto c : Ref Ctxt Defs} ->
             FC -> List ClosedTerm -> Core (Maybe (List Nat))
 getDetags fc [] = pure (Just []) -- empty type, trivially detaggable
@@ -152,50 +151,50 @@ getDetags fc tys
              xs => pure $ Just xs
   where
     mutual
-      disjointArgs : List (NF []) -> List (NF []) -> Core Bool
-      disjointArgs [] _ = pure False
-      disjointArgs _ [] = pure False
-      disjointArgs (a :: args) (a' :: args')
+      disjointArgs : SnocList (NF [<]) -> SnocList (NF [<]) -> Core Bool
+      disjointArgs [<] _ = pure False
+      disjointArgs _ [<] = pure False
+      disjointArgs (args :< a) (args' :< a')
           = if !(disjoint a a')
                then pure True
                else disjointArgs args args'
 
-      disjoint : NF [] -> NF [] -> Core Bool
-      disjoint (NDCon _ _ t _ args) (NDCon _ _ t' _ args')
+      disjoint : NF [<] -> NF [<] -> Core Bool
+      disjoint (VDCon _ _ t _ args) (VDCon _ _ t' _ args')
           = if t /= t'
                then pure True
                else do defs <- get Ctxt
-                       argsnf <- traverse (evalClosure defs . snd) args
-                       args'nf <- traverse (evalClosure defs . snd) args'
+                       argsnf <- traverseSnocList spineVal args
+                       args'nf <- traverseSnocList spineVal args'
                        disjointArgs argsnf args'nf
-      disjoint (NTCon _ n _ _ args) (NDCon _ n' _ _ args')
+      disjoint (VTCon _ n _ args) (VTCon _ n' _ args')
           = if n /= n'
                then pure True
                else do defs <- get Ctxt
-                       argsnf <- traverse (evalClosure defs . snd) args
-                       args'nf <- traverse (evalClosure defs . snd) args'
+                       argsnf <- traverseSnocList spineVal args
+                       args'nf <- traverseSnocList spineVal args'
                        disjointArgs argsnf args'nf
-      disjoint (NPrimVal _ c) (NPrimVal _ c') = pure (c /= c')
+      disjoint (VPrimVal _ c) (VPrimVal _ c') = pure (c /= c')
       disjoint _ _ = pure False
 
-    allDisjointWith : NF [] -> List (NF []) -> Core Bool
+    allDisjointWith : NF [<] -> List (NF [<]) -> Core Bool
     allDisjointWith val [] = pure True
-    allDisjointWith (NErased _ _) _ = pure False
+    allDisjointWith (VErased _ _) _ = pure False
     allDisjointWith val (nf :: nfs)
         = do ok <- disjoint val nf
              if ok then allDisjointWith val nfs
                    else pure False
 
-    allDisjoint : List (NF []) -> Core Bool
+    allDisjoint : List (NF [<]) -> Core Bool
     allDisjoint [] = pure True
-    allDisjoint (NErased _ _ :: _) = pure False
+    allDisjoint (VErased _ _ :: _) = pure False
     allDisjoint (nf :: nfs)
         = do ok <- allDisjoint nfs
              if ok then allDisjointWith nf nfs
                    else pure False
 
     -- Which argument positions have completely disjoint contructors
-    getDisjointPos : Nat -> List (List (NF [])) -> Core (List Nat)
+    getDisjointPos : Nat -> List (List (NF [<])) -> Core (List Nat)
     getDisjointPos i [] = pure []
     getDisjointPos i (args :: argss)
         = do rest <- getDisjointPos (1 + i) argss
@@ -205,23 +204,23 @@ getDetags fc tys
 
 -- If exactly one argument is unerased, return its position
 getRelevantArg : {auto c : Ref Ctxt Defs} ->
-                 Defs -> Nat -> Maybe Nat -> Bool -> NF [] ->
+                 Defs -> Nat -> Maybe Nat -> Bool -> NF [<] ->
                  Core (Maybe (Bool, Nat))
-getRelevantArg defs i rel world (NBind fc _ (Pi _ rig _ val) sc)
+getRelevantArg defs i rel world (VBind fc _ (Pi _ rig _ val) sc)
     = branchZero (getRelevantArg defs (1 + i) rel world
-                              !(sc defs (toClosure defaultOpts [] (Erased fc False))))
-                 (case !(evalClosure defs val) of
+                      !(expand !(sc (VErased fc False))))
+                 (case !(expand val) of
                        -- %World is never inspected, so might as well be deleted from data types,
                        -- although it needs care when compiling to ensure that the function that
                        -- returns the IO/%World type isn't erased
-                       (NPrimVal _ $ PrT WorldType) =>
+                       (VPrimVal _ $ PrT WorldType) =>
                            getRelevantArg defs (1 + i) rel False
-                               !(sc defs (toClosure defaultOpts [] (Erased fc False)))
+                               !(expand !(sc (VErased fc False)))
                        _ =>
                        -- if we haven't found a relevant argument yet, make
                        -- a note of this one and keep going. Otherwise, we
                        -- have more than one, so give up.
-                           maybe (do sc' <- sc defs (toClosure defaultOpts [] (Erased fc False))
+                           maybe (do sc' <- expand !(sc (VErased fc False))
                                      getRelevantArg defs (1 + i) (Just i) False sc')
                                  (const (pure Nothing))
                                  rel)
@@ -236,11 +235,11 @@ findNewtype : {auto c : Ref Ctxt Defs} ->
               List Constructor -> Core ()
 findNewtype [con]
     = do defs <- get Ctxt
-         Just arg <- getRelevantArg defs 0 Nothing True !(nf defs [] (type con))
+         Just arg <- getRelevantArg defs 0 Nothing True !(expand !(nf [<] (type con)))
               | Nothing => pure ()
          updateDef (name con) $
                \case
-                 DCon t a _ => Just $ DCon t a $ Just arg
+                 DCon di t a => Just $ DCon ({ newTypeArg := Just arg } di) t a
                  _ => Nothing
 findNewtype _ = pure ()
 
@@ -265,8 +264,8 @@ firstArg (Bind _ _ (Pi _ c _ val) sc)
 firstArg tm = Nothing
 
 typeCon : Term vs -> Maybe Name
-typeCon (Ref _ (TyCon _ _) n) = Just n
-typeCon (App _ fn _) = typeCon fn
+typeCon (Ref _ (TyCon _) n) = Just n
+typeCon (App _ fn _ _) = typeCon fn
 typeCon _ = Nothing
 
 shaped : {auto c : Ref Ctxt Defs} ->
@@ -275,7 +274,7 @@ shaped : {auto c : Ref Ctxt Defs} ->
 shaped as [] = pure Nothing
 shaped as (c :: cs)
     = do defs <- get Ctxt
-         if as !(normalise defs [] (type c))
+         if as !(normalise [<] (type c))
             then pure (Just (name c))
             else shaped as cs
 
@@ -328,7 +327,7 @@ calcEnum fc cs
     isNullary : Constructor -> Core Bool
     isNullary c
         = do defs <- get Ctxt
-             pure $ hasArgs 0 !(normalise defs [] (type c))
+             pure $ hasArgs 0 !(normalise [<] (type c))
 
 calcRecord : {auto c : Ref Ctxt Defs} ->
              FC -> List Constructor -> Core Bool
@@ -393,15 +392,13 @@ processData : {vars : _} ->
               {auto c : Ref Ctxt Defs} ->
               {auto m : Ref MD Metadata} ->
               {auto u : Ref UST UState} ->
-              {auto s : Ref Syn SyntaxInfo} ->
-              {auto o : Ref ROpts REPLOpts} ->
               List ElabOpt -> NestedNames vars ->
               Env Term vars -> FC ->
               Visibility -> Maybe TotalReq ->
               ImpData -> Core ()
 processData {vars} eopts nest env fc vis mbtot (MkImpLater dfc n_in ty_raw)
     = do n <- inCurrentNS n_in
-         ty_raw <- bindTypeNames fc [] vars ty_raw
+         ty_raw <- bindTypeNames fc [] (cast vars) ty_raw
 
          defs <- get Ctxt
          -- Check 'n' is undefined
@@ -413,16 +410,17 @@ processData {vars} eopts nest env fc vis mbtot (MkImpLater dfc n_in ty_raw)
              wrapErrorC eopts (InCon fc n) $
                     elabTerm !(resolveName n) InType eopts nest env
                               (IBindHere fc (PI erased) ty_raw)
-                              (Just (gType dfc u))
+                              (Just (VType dfc u))
          let fullty = abstractEnvType dfc env ty
-         logTermNF "declare.data" 5 ("data " ++ show n) [] fullty
+         logTermNF "declare.data" 5 ("data " ++ show n) [<] fullty
 
-         checkIsType fc n env !(nf defs env ty)
-         arity <- getArity defs [] fullty
+         checkIsType fc n env !(nf env ty)
+         arity <- getArity [<] fullty
 
          -- Add the type constructor as a placeholder
+         let tinf = MkTyConInfo [] [] [] [] Nothing False False
          tidx <- addDef n (newDef fc n linear vars fullty vis
-                          (TCon 0 arity [] [] defaultFlags [] [] Nothing))
+                          (TCon tinf arity))
          addMutData (Resolved tidx)
          defs <- get Ctxt
          traverse_ (\n => setMutWith fc n (mutData defs)) (mutData defs)
@@ -439,7 +437,7 @@ processData {vars} eopts nest env fc vis mbtot (MkImpLater dfc n_in ty_raw)
 
 processData {vars} eopts nest env fc vis mbtot (MkImpData dfc n_in ty_raw opts cons_raw)
     = do n <- inCurrentNS n_in
-         ty_raw <- bindTypeNames fc [] vars ty_raw
+         ty_raw <- bindTypeNames fc [] (cast vars) ty_raw
 
          log "declare.data" 1 $ "Processing " ++ show n
          defs <- get Ctxt
@@ -448,7 +446,7 @@ processData {vars} eopts nest env fc vis mbtot (MkImpData dfc n_in ty_raw opts c
              wrapErrorC eopts (InCon fc n) $
                     elabTerm !(resolveName n) InType eopts nest env
                               (IBindHere fc (PI erased) ty_raw)
-                              (Just (gType dfc u))
+                              (Just (VType dfc u))
          let fullty = abstractEnvType dfc env ty
 
          -- If n exists, check it's the same type as we have here, and is
@@ -460,23 +458,24 @@ processData {vars} eopts nest env fc vis mbtot (MkImpData dfc n_in ty_raw opts c
                   Nothing => pure []
                   Just ndef =>
                     case definition ndef of
-                         TCon _ _ _ _ _ mw [] _ =>
-                            do ok <- convert defs [] fullty (type ndef)
-                               if ok then pure mw
-                                     else do logTermNF "declare.data" 1 "Previous" [] (type ndef)
-                                             logTermNF "declare.data" 1 "Now" [] fullty
+                         TCon ti _ =>
+                            do ok <- convert [<] fullty (type ndef)
+                               if ok then pure (mutWith ti)
+                                     else do logTermNF "declare.data" 1 "Previous" [<] (type ndef)
+                                             logTermNF "declare.data" 1 "Now" [<] fullty
                                              throw (AlreadyDefined fc n)
                          _ => throw (AlreadyDefined fc n)
 
-         logTermNF "declare.data" 5 ("data " ++ show n) [] fullty
+         logTermNF "declare.data" 5 ("data " ++ show n) [<] fullty
 
-         checkIsType fc n env !(nf defs env ty)
-         arity <- getArity defs [] fullty
+         checkIsType fc n env !(nf env ty)
+         arity <- getArity [<] fullty
 
          -- Add the type constructor as a placeholder while checking
          -- data constructors
+         let tinf = MkTyConInfo [] [] [] [] Nothing False False
          tidx <- addDef n (newDef fc n linear vars fullty vis
-                          (TCon 0 arity [] [] defaultFlags [] [] Nothing))
+                          (TCon tinf arity))
          case vis of
               Private => pure ()
               _ => do addHashWithNames n

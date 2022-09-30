@@ -30,7 +30,7 @@ mkPrim a op = mkFn 0 a (rewrite plusZeroRightNeutral a in op) []
 addPrim : Ref Ctxt Defs =>
           Prim -> CoreE err ()
 addPrim p
-    = do let primdef = newDef EmptyFC (opName (fn p)) RigW []
+    = do let primdef = newDef EmptyFC (opName (fn p)) RigW [<]
                               (type p) Public
                               (Function (MkFnInfo NotHole False False)
                                         (mkPrim (arity p) (fn p)))

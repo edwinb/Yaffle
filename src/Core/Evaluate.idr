@@ -164,6 +164,35 @@ parameters {auto c : Ref Ctxt Defs}
         Core (Term vars)
   replace = replace' 0
 
+  export
+  etaContract : {vars : _} -> Term vars -> Core (Term vars)
+  etaContract tm = do
+    defs <- get Ctxt
+    logTerm "eval.eta" 5 "Attempting to eta contract subterms of" tm
+    nf <- normalise (mkEnv EmptyFC _) tm
+    logTerm "eval.eta" 5 "Evaluated to" nf
+    res <- mapTermM act tm
+    logTerm "eval.eta" 5 "Result of eta-contraction" res
+    pure res
+
+     where
+
+      act : {vars : _} -> Term vars -> Core (Term vars)
+      act tm = do
+        logTerm "eval.eta" 10 "  Considering" tm
+        case tm of
+          (Bind _ x (Lam _ _ _ _) (App _ fn _ (Local _ _ Z _))) => do
+            logTerm "eval.eta" 10 "  Shrinking candidate" fn
+            let shrunk = shrinkTerm fn (DropCons SubRefl)
+            case shrunk of
+              Nothing => do
+                log "eval.eta" 10 "  Failure!"
+                pure tm
+              Just tm' => do
+                logTerm "eval.eta" 10 "  Success!" tm'
+                pure tm'
+          _ => pure tm
+
   -- Log message with a value, translating back to human readable names first
   export
   logNF : {vars : _} ->
