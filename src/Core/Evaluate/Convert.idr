@@ -27,7 +27,7 @@ genName n
          put QVar (i + 1)
          pure (MN n i)
 
-genVar : Ref QVar Int => FC -> String -> Core (Value vars)
+genVar : Ref QVar Int => FC -> String -> Core (Value f vars)
 genVar fc n
     = do var <- genName n
          pure (VApp fc Bound var [<] (pure Nothing))
@@ -37,7 +37,7 @@ parameters {auto c : Ref Ctxt Defs}
   convGen : {vars : _} ->
             Ref QVar Int =>
             Strategy -> Env Term vars ->
-            Value vars -> Value vars -> Core Bool
+            Value f vars -> Value f' vars -> Core Bool
 
   convSpine : {vars : _} ->
               Ref QVar Int =>
@@ -53,23 +53,23 @@ parameters {auto c : Ref Ctxt Defs}
   -- convGen : {vars : _} ->
   --           Ref QVar Int =>
   --           Strategy -> Env Term vars ->
-  --           Value vars -> Value vars -> Core Bool
+  --           Value vars -> Value f vars -> Core Bool
   convGen s env (VLam fc x r p ty sc) (VLam fc' x' r' p' ty' sc')
       = do True <- convGen s env ty ty' | False => pure False
            var <- genVar fc "conv"
            convGen s env !(sc var) !(sc' var)
   convGen {vars} s env tmx@(VLam fc x r p ty sc) tmy
       = do let etay = VLam fc x r p ty (apply fc tmy r)
-           convGen s env tmx etay
+           convGen {f'=Normal} s env tmx etay
   convGen {vars} s env tmx tmy@(VLam fc x r p ty sc)
       = do let etax = VLam fc x r p ty (apply fc tmy r)
-           convGen s env etax tmy
+           convGen {f=Normal} s env etax tmy
   convGen {vars} s env (VBind fc x b sc) (VBind fc' x' b' sc')
       = do True <- convBinders b b' | False => pure False
            var <- genVar fc "conv"
            convGen s env !(sc var) !(sc' var)
     where
-      convBinders : Binder (Value vars) -> Binder (Value vars) -> Core Bool
+      convBinders : Binder (Value f vars) -> Binder (Value f' vars) -> Core Bool
       convBinders (Lam _ cx _ tx) (Lam _ cy _ ty)
           = if cx /= cy
                then pure False
@@ -105,8 +105,8 @@ parameters {auto c : Ref Ctxt Defs}
       = do True <- convScope sc sc' | False => pure False
            convSpine BlockApp env args args'
     where
-      convScope : List (RigCount, Value vars) ->
-                  List (RigCount, Value vars) -> Core Bool
+      convScope : List (RigCount, Glued vars) ->
+                  List (RigCount, Glued vars) -> Core Bool
       convScope [] [] = pure True
       convScope ((_, x) :: xs) ((_, y) :: ys)
           = do True <- convGen BlockApp env x y | False => pure False
@@ -194,7 +194,7 @@ parameters {auto c : Ref Ctxt Defs}
            then convArgs args args'
            else pure False
     where
-      convArgs : Vect n (Value vars) -> Vect m (Value vars) -> Core Bool
+      convArgs : Vect n (Value f vars) -> Vect m (Value f' vars) -> Core Bool
       convArgs [] [] = pure True
       convArgs (x :: xs) (y :: ys)
           = do True <- convGen s env x y
@@ -212,14 +212,14 @@ parameters {auto c : Ref Ctxt Defs}
   namespace Value
     export
     convert : {vars : _} ->
-              Env Term vars -> Value vars -> Value vars -> Core Bool
+              Env Term vars -> Value f vars -> Value f' vars -> Core Bool
     convert env x y
         = do q <- newRef QVar 0
              convGen Reduce env x y
 
     export
     chkConvert : {vars : _} ->
-                 FC -> Env Term vars -> Value vars -> Value vars -> Core ()
+                 FC -> Env Term vars -> Value f vars -> Value f' vars -> Core ()
     chkConvert fc env x y
         = do True <- convert env x y
                  | False => throw (CantConvert fc !(get Ctxt) env

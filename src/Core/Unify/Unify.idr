@@ -47,11 +47,11 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
     export
     unify : {vars : _} ->
             UnifyInfo -> FC -> Env Term vars ->
-            Value vars -> Value vars -> Core UnifyResult
+            Value f vars -> Value f' vars -> Core UnifyResult
     export
     unifyWithLazy : {vars : _} ->
             UnifyInfo -> FC -> Env Term vars ->
-            Value vars -> Value vars -> Core UnifyResult
+            Value f vars -> Value f' vars -> Core UnifyResult
 
   namespace Term
     export
@@ -64,13 +64,19 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
             Term vars -> Term vars -> Core UnifyResult
 
   convertError : {vars : _} ->
-            FC -> Env Term vars -> Value vars -> Value vars -> Core a
+            FC -> Env Term vars -> Value f vars -> Value f' vars -> Core a
   convertError loc env x y
       = do defs <- get Ctxt
            throw (CantConvert loc defs env !(quote env x) !(quote env y))
 
+  convertGluedError : {vars : _} ->
+            FC -> Env Term vars -> Glued vars -> Glued vars -> Core a
+  convertGluedError loc env x y
+      = do defs <- get Ctxt
+           throw (CantConvert loc defs env !(quote env x) !(quote env y))
+
   convertErrorS : {vars : _} ->
-            Bool -> FC -> Env Term vars -> Value vars -> Value vars ->
+            Bool -> FC -> Env Term vars -> Value f vars -> Value f' vars ->
             Core a
   convertErrorS s loc env x y
       = if s then convertError loc env y x
@@ -78,7 +84,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
 
   postpone : {vars : _} ->
              FC -> UnifyInfo -> String ->
-             Env Term vars -> Value vars -> Value vars -> Core UnifyResult
+             Env Term vars -> Value f vars -> Value f' vars -> Core UnifyResult
   postpone loc mode logstr env x y
       = do defs <- get Ctxt
            xtm <- quote env x
@@ -99,7 +105,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
            logTerm "unify.postpone" 10 "Y" ytm
            pure (constrain c)
     where
-      checkDefined : Defs -> Value vars -> Core ()
+      checkDefined : Defs -> Value f vars -> Core ()
       checkDefined defs (VApp _ _ n _ _)
           = do Just _ <- lookupCtxtExact n (gamma defs)
                     | _ => undefinedName loc n
@@ -117,7 +123,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
 
   postponeS : {vars : _} ->
               Bool -> FC -> UnifyInfo -> String -> Env Term vars ->
-              Value vars -> Value vars ->
+              Value f vars -> Value f' vars ->
               Core UnifyResult
   postponeS s loc mode logstr env x y
       = if s then postpone loc (lower mode) logstr env y x
@@ -127,20 +133,21 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                    (swaporder : Bool) ->
                    UnifyInfo -> FC -> Env Term vars ->
                    (metaname : Name) -> (metaref : Int) ->
-                   (margs : List (RigCount, Value vars)) ->
+                   (margs : List (RigCount, Glued vars)) ->
                    (margs' : Spine vars) ->
-                   (soln : Value vars) ->
+                   (soln : Glued vars) ->
                    Core UnifyResult
   postponePatVar swap mode fc env mname mref margs margs' tm
       = do let x = VMeta fc mname mref margs margs' (pure Nothing)
            if !(convert env x tm)
               then pure success
-              else postponeS swap fc mode "Not in pattern fragment" env
+              else postponeS {f=Normal}
+                             swap fc mode "Not in pattern fragment" env
                              x tm
 
   unifyArgs : {vars : _} ->
               UnifyInfo -> FC -> Env Term vars ->
-              List (Value vars) -> List (Value vars) ->
+              List (Glued vars) -> List (Glued vars) ->
               Core UnifyResult
   unifyArgs mode loc env [] [] = pure success
   unifyArgs mode loc env (cx :: cxs) (cy :: cys)
@@ -175,7 +182,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
 
   unifyIfEq : {vars : _} ->
               (postpone : Bool) ->
-              FC -> UnifyInfo -> Env Term vars -> Value vars -> Value vars ->
+              FC -> UnifyInfo -> Env Term vars -> Glued vars -> Glued vars ->
               Core UnifyResult
   unifyIfEq post loc mode env x y
         = if !(convert env x y)
@@ -185,13 +192,13 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                                                  show (atTop mode)) env x y
                      else convertError loc env x y
 
-  spineToValues : Spine vars -> List (Value vars)
+  spineToValues : Spine vars -> List (Glued vars)
   spineToValues sp = toList (map third sp)
 
   headsConvert : {vars : _} ->
                  UnifyInfo ->
                  FC -> Env Term vars ->
-                 Maybe (SnocList (Value vars)) -> Maybe (SnocList (Value vars)) ->
+                 Maybe (SnocList (Glued vars)) -> Maybe (SnocList (Glued vars)) ->
                  Core Bool
   headsConvert mode fc env (Just vs) (Just ns)
       = case (vs, ns) of
@@ -208,8 +215,8 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
            pure True
 
   getArgTypes : {vars : _} ->
-                (fnType : Value vars) -> SnocList (Value vars) ->
-                Core (Maybe (SnocList (Value vars)))
+                (fnType : NF vars) -> SnocList (Glued vars) ->
+                Core (Maybe (SnocList (Glued vars)))
   getArgTypes (VBind _ n (Pi _ _ _ ty) sc) (as :< a)
      = do Just scTys <- getArgTypes !(expand !(sc a)) as
                | Nothing => pure Nothing
@@ -221,10 +228,10 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                     (swaporder : Bool) ->
                     UnifyInfo -> FC -> Env Term vars ->
                     (metaname : Name) -> (metaref : Int) ->
-                    (args : List (RigCount, Value vars)) ->
+                    (args : List (RigCount, Glued vars)) ->
                     (sp : Spine vars) ->
                     Maybe (Term [<]) ->
-                    (Spine vars -> Value vars) ->
+                    (Spine vars -> Glued vars) ->
                     Spine vars ->
                     Core UnifyResult
   unifyInvertible swap mode fc env mname mref args sp nty con args'
@@ -251,7 +258,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                           (if not swap then
                               do ures <- unify mode fc env (third h) (third f)
                                  log "unify.invertible" 10 $ "Constraints " ++ show (constraints ures)
-                                 uargs <- unify mode fc env
+                                 uargs <- unify {f=Normal} mode fc env
                                                 (VMeta fc mname mref args hargs (pure Nothing))
                                                 (con fargs)
                                  pure (union ures uargs)
@@ -259,18 +266,18 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                               do log "unify.invertible" 10 "Unifying invertible"
                                  ures <- unify mode fc env (third f) (third h)
                                  log "unify.invertible" 10 $ "Constraints " ++ show (constraints ures)
-                                 uargs <- unify mode fc env
+                                 uargs <- unify {f'=Normal} mode fc env
                                                 (con fargs)
                                                 (VMeta fc mname mref args hargs (pure Nothing))
                                  pure (union ures uargs))
-                          (postponeS swap fc mode "Postponing hole application [1]" env
+                          (postponeS {f=Normal} swap fc mode "Postponing hole application [1]" env
                                 (VMeta fc mname mref args sp (pure Nothing))
                                 (con args'))
-                     _ => postponeS swap fc mode "Postponing hole application [2]" env
+                     _ => postponeS {f=Normal} swap fc mode "Postponing hole application [2]" env
                                 (VMeta fc mname mref args sp (pure Nothing))
                                 (con args')
               else -- TODO: Cancellable function applications
-                   postpone fc mode "Postponing hole application [3]" env
+                   postpone {f=Normal} fc mode "Postponing hole application [3]" env
                             (VMeta fc mname mref args sp (pure Nothing)) (con args')
 
   -- Unify a hole application - we have already checked that the hole is
@@ -280,9 +287,9 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                  (swaporder : Bool) ->
                  UnifyInfo -> FC -> Env Term vars ->
                  (metaname : Name) -> (metaref : Int) ->
-                 (args : List (RigCount, Value vars)) ->
+                 (args : List (RigCount, Glued vars)) ->
                  (sp : Spine vars) ->
-                 Value vars ->
+                 NF vars ->
                  Core UnifyResult
   unifyHoleApp swap mode fc env mname mref args sp (VTCon nfc n a args')
       = do defs <- get Ctxt
@@ -306,15 +313,16 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
               then unifyInvertible swap (lower mode) fc env
                                    mname mref args sp Nothing
                                    (\t => VMeta nfc n i margs2 t val) args2'
-              else postponeS swap fc mode "Postponing hole application" env
-                             (VMeta fc mname mref args sp (pure Nothing)) tm
+              else postponeS {f=Normal} swap fc mode "Postponing hole application" env
+                             (VMeta fc mname mref args sp (pure Nothing))
+                             (asGlued tm)
     where
       isPatName : Name -> Bool
       isPatName (PV _ _) = True
       isPatName _ = False
   unifyHoleApp swap mode fc env mname mref args sp tm
-      = postponeS swap fc mode "Postponing hole application" env
-                 (VMeta fc mname mref args sp (pure Nothing)) tm
+      = postponeS {f=Normal} swap fc mode "Postponing hole application" env
+                  (VMeta fc mname mref args sp (pure Nothing)) (asGlued tm)
 
   -- Solve a metavariable application (that is, the name applied the to
   -- args and spine) with the given solution.
@@ -323,18 +331,18 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   solveHole : {newvars, vars : _} ->
               FC -> UnifyInfo -> Env Term vars ->
               (metaname : Name) -> (metaref : Int) ->
-              (args : List (RigCount, Value vars)) ->
+              (args : List (RigCount, Glued vars)) ->
               (sp : Spine vars) ->
               SnocList (Var newvars) ->
               SubVars newvars vars ->
               (solfull : Term vars) -> -- Original solution
               (soln : Term newvars) -> -- Solution with shrunk environment
-              (solnf : Value vars) ->
+              (solnf : Glued vars) ->
               Core (Maybe UnifyResult)
   solveHole fc mode env mname mref margs margs' locs submv solfull stm solnf
       = do defs <- get Ctxt
            ust <- get UST
-           if solutionHeadSame solnf || inNoSolve mref (noSolve ust)
+           if solutionHeadSame !(expand solnf) || inNoSolve mref (noSolve ust)
               then pure $ Just success
               else do Just hdef <- lookupCtxtExact (Resolved mref) (gamma defs)
                            | Nothing => throw (InternalError ("Can't happen: Lost hole " ++ show mname))
@@ -351,7 +359,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       -- checked the rest if they are the same (and we couldn't instantiate it
       -- anyway...)
       -- Also the solution is expanded by now (via Evaluate.Value.expand)
-      solutionHeadSame : Value vars -> Bool
+      solutionHeadSame : NF vars -> Bool
       solutionHeadSame (VMeta _ _ shead _ _ _) = shead == mref
       solutionHeadSame _ = False
 
@@ -361,9 +369,9 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
               (swaporder : Bool) ->
               UnifyInfo -> FC -> Env Term vars ->
               FC -> (metaname : Name) -> (metaref : Int) ->
-              (args : List (RigCount, Value vars)) ->
+              (args : List (RigCount, Glued vars)) ->
               (sp : Spine vars) ->
-              (soln : Value vars) ->
+              (soln : Glued vars) ->
               Core UnifyResult
   unifyHole swap mode fc env nfc mname mref args sp tmnf
       = do let margs = cast (map snd args)
@@ -377,18 +385,18 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                      let Hole _ = definition hdef
                         | _ => postponePatVar swap mode fc env mname mref args sp tmnf
                      if invertible hdef
-                        then unifyHoleApp swap mode fc env mname mref args sp tmnf
+                        then unifyHoleApp swap mode fc env mname mref args sp !(expand tmnf)
                         else postponePatVar swap mode fc env mname mref args sp tmnf
                 Just (newvars ** (locs, submv)) =>
                   do Just hdef <- lookupCtxtExact (Resolved mref) (gamma defs)
                          | _ => postponePatVar swap mode fc env mname mref args sp tmnf
                      let Hole _ = definition hdef
-                         | _ => postponeS swap fc mode "Delayed hole" env
+                         | _ => postponeS {f=Normal} swap fc mode "Delayed hole" env
                                           (VMeta fc mname mref args sp (pure Nothing))
                                           tmnf
                      tm <- quote env tmnf
                      Just tm <- occursCheck fc env mode mname tm
-                         | _ => postponeS swap fc mode "Occurs check failed" env
+                         | _ => postponeS {f=Normal} swap fc mode "Occurs check failed" env
                                           (VMeta fc mname mref args sp (pure Nothing))
                                           tmnf
                      let solveOrElsePostpone : Term newvars -> Core UnifyResult
@@ -397,7 +405,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                                             args sp locs submv
                                             tm stm tmnf
                            flip fromMaybe (pure <$> mbResult) $
-                             postponeS swap fc mode "Can't instantiate" env
+                             postponeS {f=Normal} swap fc mode "Can't instantiate" env
                                        (VMeta fc mname mref args sp (pure Nothing))
                                        tmnf
                      case shrinkTerm tm submv of
@@ -405,7 +413,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                           Nothing =>
                             do tm' <- quote env tmnf
                                case shrinkTerm tm' submv of
-                                    Nothing => postponeS swap fc mode "Can't shrink" env
+                                    Nothing => postponeS {f=Normal} swap fc mode "Can't shrink" env
                                                  (VMeta fc mname mref args sp (pure Nothing))
                                                  tmnf
                                     Just stm => solveOrElsePostpone stm
@@ -414,7 +422,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   -- sub-problems and solving metavariables where appropriate
   unifyNoEta : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
-          Value vars -> Value vars -> Core UnifyResult
+          Value f vars -> Value f' vars -> Core UnifyResult
   -- Deal with metavariable cases first
   -- If they're both holes, solve the one with the bigger context
   unifyNoEta mode fc env x@(VMeta fcx nx ix margsx argsx _) y@(VMeta fcy ny iy margsy argsy _)
@@ -440,21 +448,21 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                                       || (xlocs == ylocs &&
                                            length argsx <= length argsy)
                       if (xbigger || umode mode == InMatch) && not (pv nx)
-                         then unifyHole False mode fc env fcx nx ix margsx argsx y
-                         else unifyHole True mode fc env fcy ny iy margsy argsy x
+                         then unifyHole False mode fc env fcx nx ix margsx argsx (asGlued y)
+                         else unifyHole True mode fc env fcy ny iy margsy argsy (asGlued x)
     where
       pv : Name -> Bool
       pv (PV _ _) = True
       pv _ = False
 
-      localsIn : List (Value vars) -> Nat
+      localsIn : List (NF vars) -> Nat
       localsIn [] = 0
       localsIn (VLocal{} :: xs) = 1 + localsIn xs
       localsIn (_ :: xs) = localsIn xs
   unifyNoEta mode fc env (VMeta fcm n i margs args _) tm
-      = unifyHole False mode fc env fcm n i margs args tm
+      = unifyHole False mode fc env fcm n i margs args (asGlued tm)
   unifyNoEta mode fc env tm (VMeta fcm n i margs args _)
-      = unifyHole True mode fc env fcm n i margs args tm
+      = unifyHole True mode fc env fcm n i margs args (asGlued tm)
   -- Unifying applications means we're stuck and need to postpone, since we've
   -- already checked convertibility
   -- In 'match' or 'search'  mode, we can nevertheless unify the arguments
@@ -492,28 +500,30 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       = do cs <- unify (lower mode) fc env vx vy
            cs' <- unifySpine (lower mode) fc env spx spy
            pure (union cs cs')
-  unifyNoEta mode fc env x y
-      = unifyIfEq (isDelay x || isDelay y) fc mode env x y
+  unifyNoEta mode fc env x_in y_in
+      = do x <- expand x_in
+           y <- expand y_in
+           unifyIfEq (isDelay x || isDelay y) fc mode env (asGlued x) (asGlued y)
     where
       -- If one of them is a delay, and they're not equal, we'd better
       -- postpone and come back to it so we can insert the implicit
       -- Force/Delay later
-      isDelay : Value vars -> Bool
+      isDelay : NF vars -> Bool
       isDelay (VDelayed{}) = True
       isDelay _ = False
 
-  mkArg : FC -> Name -> Value vars
+  mkArg : FC -> Name -> Glued vars
   mkArg fc var = VApp fc Bound var [<] (pure Nothing)
 
   -- In practice, just Pi
   unifyBothBinders : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
-          FC -> Name -> Binder (Value vars) -> (Value vars -> Core (Value vars)) ->
-          FC -> Name -> Binder (Value vars) -> (Value vars -> Core (Value vars)) ->
+          FC -> Name -> Binder (Glued vars) -> (Glued vars -> Core (Glued vars)) ->
+          FC -> Name -> Binder (Glued vars) -> (Glued vars -> Core (Glued vars)) ->
           Core UnifyResult
   unifyBothBinders mode fc env fcx nx bx@(Pi bfcx cx ix tx) scx fcy ny by@(Pi bfcy cy iy ty) scy
       = if cx /= cy
-          then convertError fc env
+          then convertGluedError fc env
                  (VBind fcx nx bx scx)
                  (VBind fcy ny by scy)
           else do csarg <- unify (lower mode) fc env tx ty
@@ -548,18 +558,18 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                                      (refsToLocals (Add nx x' None) tmy)
                             pure (union csarg cs')
   unifyBothBinders mode fc env fcx nx bx scx fcy ny by scy
-      = convertError fc env
+      = convertGluedError fc env
                   (VBind fcx nx bx scx)
                   (VBind fcy ny by scy)
 
-  isHoleApp : Value vars -> Bool
+  isHoleApp : NF vars -> Bool
   isHoleApp (VMeta{}) = True
   isHoleApp _ = False
 
   -- At this point, we know that 'VApp' and 'VMeta' don't reduce further
   unifyWithEta : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
-          Value vars -> Value vars -> Core UnifyResult
+          NF vars -> NF vars -> Core UnifyResult
   -- Pair of binders or lambdas
   unifyWithEta mode fc env (VBind fcx nx bx scx) (VBind fcy ny by scy)
       = unifyBothBinders mode fc env fcx nx bx scx fcy ny by scy
@@ -616,9 +626,9 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   -- At this point, we know that 'VApp' and 'VMeta' don't reduce further
   unifyLazy : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
-          Value vars -> Value vars -> Core UnifyResult
+          NF vars -> NF vars -> Core UnifyResult
   unifyLazy mode fc env (VDelayed _ _ x) (VDelayed _ _ y)
-      = unifyWithEta (lower mode) fc env x y
+      = unifyWithEta (lower mode) fc env !(expand x) !(expand y)
   unifyLazy mode fc env x@(VDelayed _ r tmx) tmy
         -- TODO: why 'isHoleApp'
       = if isHoleApp tmy && not (umode mode == InMatch)
@@ -636,7 +646,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   unifyExpandApps : {vars : _} ->
           Bool ->
           UnifyInfo -> FC -> Env Term vars ->
-          Value vars -> Value vars -> Core UnifyResult
+          Glued vars -> Glued vars -> Core UnifyResult
   -- If the values convert already, we're done
   unifyExpandApps lazy mode fc env x@(VApp fcx ntx nx spx valx) y@(VApp fcy nty ny spy valy)
       = if nx == ny
@@ -666,22 +676,22 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
 
   unifyVal : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
-          Value vars -> Value vars -> Core UnifyResult
+          Glued vars -> Glued vars -> Core UnifyResult
   unifyVal mode fc env x y = unifyExpandApps False mode fc env x y
 
   unifyValLazy : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
-          Value vars -> Value vars -> Core UnifyResult
+          Glued vars -> Glued vars -> Core UnifyResult
   unifyValLazy mode fc env x y = unifyExpandApps True mode fc env x y
 
   -- The interesting top level case, for unifying values
   Core.Unify.Unify.Value.unify mode fc env x y
-     = unifyVal mode fc env x y
+     = unifyVal mode fc env (asGlued x) (asGlued y)
 
   -- The interesting top level case, for unifying values and inserting laziness
   -- coercions if appropriate
   Core.Unify.Unify.Value.unifyWithLazy mode fc env x y
-     = unifyValLazy mode fc env x y
+     = unifyValLazy mode fc env (asGlued x) (asGlued y)
 
   Core.Unify.Unify.Term.unify umode fc env x y
      = do x' <- nf env x

@@ -14,7 +14,7 @@ import Data.SnocList
 %default covering
 
 detagSafe : {auto c : Ref Ctxt Defs} ->
-            Defs -> Value [<] -> Core Bool
+            Defs -> NF [<] -> Core Bool
 detagSafe defs (VTCon _ n _ args)
     = do Just (TCon (MkTyConInfo _ _ _ _ (Just detags) _ _) _) <- lookupDefExact n (gamma defs)
               | _ => pure False
@@ -23,7 +23,7 @@ detagSafe defs (VTCon _ n _ args)
   where
     -- if any argument positions are in the detaggable set, and unerased, then
     -- detagging is safe
-    notErased : Nat -> List Nat -> SnocList (Value [<]) -> Bool
+    notErased : Nat -> List Nat -> SnocList (NF [<]) -> Bool
     notErased i [] _ = True -- Don't need an index available
     notErased i ns [<] = False
     notErased i ns (rest :< VErased _ True)
@@ -33,7 +33,7 @@ detagSafe defs (VTCon _ n _ args)
 detagSafe defs _ = pure False
 
 findErasedFrom : {auto c : Ref Ctxt Defs} ->
-                 Defs -> Nat -> Value [<] -> Core (List Nat, List Nat)
+                 Defs -> Nat -> NF [<] -> Core (List Nat, List Nat)
 findErasedFrom defs pos (VBind fc x (Pi _ c _ aty) scf)
     = do -- In the scope, use 'Erased fc True' to mean 'argument is erased'.
          -- It's handy here, because we can use it to tell if a detaggable
@@ -55,7 +55,7 @@ findErased : {auto c : Ref Ctxt Defs} ->
 findErased tm
     = do defs <- get Ctxt
          tmnf <- nf [<] tm
-         findErasedFrom defs 0 tmnf
+         findErasedFrom defs 0 !(expand tmnf)
 
 export
 updateErasable : {auto c : Ref Ctxt Defs} ->

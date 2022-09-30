@@ -38,30 +38,26 @@ parameters {auto c : Ref Ctxt Defs}
            quoteHoles env val
 
   export
-  getArityVal : Value vars -> Core Nat
+  getArityVal : NF vars -> Core Nat
   getArityVal (VBind fc _ (Pi _ _ _ _) sc)
-      = pure $ 1 + !(getArityVal !(sc (VErased fc False)))
-  getArityVal (VApp _ _ _ _ val)
-      = do Just val' <- val
-                | Nothing => pure 0
-           getArityVal val'
+      = pure $ 1 + !(getArityVal !(expand !(sc (VErased fc False))))
   getArityVal _ = pure 0
 
   export
   getArity : {vars : _} -> Env Term vars -> Term vars -> Core Nat
-  getArity env tm = getArityVal !(nf env tm)
+  getArity env tm = getArityVal !(expand !(nf env tm))
 
   replace'
       : {vars : _} ->
         Int -> Env Term vars ->
-        (orig : Value vars) -> (parg : Term vars) -> (tm : Value vars) ->
+        (orig : Value f vars) -> (parg : Term vars) -> (tm : Value f' vars) ->
         Core (Term vars)
   replace' {vars} tmpi env orig parg tm
       = if !(convert env orig tm)
            then pure parg
            else repSub tm
     where
-      repArg : Value vars -> Core (Term vars)
+      repArg : Value f vars -> Core (Term vars)
       repArg = replace' tmpi env orig parg
 
       repArgAll : Spine vars -> Core (SnocList (FC, RigCount, Term vars))
@@ -101,7 +97,7 @@ parameters {auto c : Ref Ctxt Defs}
           = do rhs' <- repArg rhs
                pure (DefaultCase fc rhs')
 
-      repSub : Value vars -> Core (Term vars)
+      repSub : Value f vars -> Core (Term vars)
       repSub (VLam fc x c p ty scfn)
           = do b' <- traverse repSub (Lam fc c p ty)
                let x' = MN "tmp" tmpi
@@ -164,7 +160,7 @@ parameters {auto c : Ref Ctxt Defs}
   replace
       : {vars : _} ->
         Env Term vars ->
-        (orig : Value vars) -> (new : Term vars) -> (tm : Value vars) ->
+        (orig : Value f vars) -> (new : Term vars) -> (tm : Value f' vars) ->
         Core (Term vars)
   replace = replace' 0
 
@@ -173,7 +169,7 @@ parameters {auto c : Ref Ctxt Defs}
   logNF : {vars : _} ->
           (s : String) ->
           {auto 0 _ : KnownTopic s} ->
-          Nat -> Lazy String -> Env Term vars -> Value vars -> Core ()
+          Nat -> Lazy String -> Env Term vars -> Value f vars -> Core ()
   logNF str n msg env tmnf
       = when !(logging str n) $
           do tm <- quote env tmnf

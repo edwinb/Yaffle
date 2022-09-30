@@ -13,7 +13,7 @@ import Data.SnocList
 import Data.Vect
 
 export
-apply : FC -> Value vars -> RigCount -> Value vars -> Core (Value vars)
+apply : FC -> Value f vars -> RigCount -> Glued vars -> Core (Glued vars)
 apply fc (VLam _ _ _ _ _ sc) _ arg = sc arg
 apply fc (VApp afc nt n spine go) q arg
     = pure $ VApp afc nt n (spine :< (fc, q, arg)) $
@@ -40,7 +40,7 @@ apply fc (VForce ffc r v spine) q arg
 apply fc (VCase cfc r sc ty alts) q arg
     = pure $ VCase cfc r sc ty !(traverse (applyAlt arg) alts)
   where
-    applyConCase : Value vars ->
+    applyConCase : Glued vars ->
                    Name -> Int ->
                    (args : SnocList (RigCount, Name)) ->
                    VCaseScope args vars ->
@@ -52,7 +52,7 @@ apply fc (VCase cfc r sc ty alts) q arg
         = \a' => applyConCase arg n t args (sc a')
 
     -- Need to apply the argument to the rhs of every case branch
-    applyAlt : Value vars -> VCaseAlt vars -> Core (VCaseAlt vars)
+    applyAlt : Glued vars -> VCaseAlt vars -> Core (VCaseAlt vars)
     applyAlt arg (VConCase fc n t args rhs)
         = pure $ VConCase fc n t args (applyConCase arg n t args rhs)
     applyAlt arg (VDelayCase fc t a rhs)
@@ -63,9 +63,9 @@ apply fc (VCase cfc r sc ty alts) q arg
     applyAlt arg (VConstCase fc c rhs) = VConstCase fc c <$> apply fc rhs q arg
     applyAlt arg (VDefaultCase fc rhs) = VDefaultCase fc <$> apply fc rhs q arg
 -- Remaining cases would be ill-typed
-apply _ arg _ _ = pure arg
+apply _ arg _ _ = pure (believe_me arg)
 
-applyAll : FC -> Value vars -> List (RigCount, Value vars) -> Core (Value vars)
+applyAll : FC -> Glued vars -> List (RigCount, Glued vars) -> Core (Glued vars)
 applyAll fc f [] = pure f
 applyAll fc f ((q, x) :: xs)
     = do f' <- apply fc f q x
@@ -73,7 +73,7 @@ applyAll fc f ((q, x) :: xs)
 
 data LocalEnv : SnocList Name -> SnocList Name -> Type where
      Lin : LocalEnv [<] vars
-     (:<) : LocalEnv free vars -> Value vars -> LocalEnv (free :< x) vars
+     (:<) : LocalEnv free vars -> Glued vars -> LocalEnv (free :< x) vars
 
 extend : LocalEnv ns vars -> LocalEnv ms vars -> LocalEnv (ms ++ ns) vars
 extend [<] env = env
@@ -81,7 +81,7 @@ extend (vars :< x) env = extend vars env :< x
 
 updateEnv : {idx : _} ->
             LocalEnv free vars ->
-            (0 _ : IsVar n idx (vars ++ free)) -> Value vars ->
+            (0 _ : IsVar n idx (vars ++ free)) -> Glued vars ->
             LocalEnv free vars
 updateEnv (env :< b) First new = env :< new
 updateEnv (env :< b) (Later p) new = updateEnv env p new :< b
@@ -91,7 +91,7 @@ namespace ExtendLocs
   public export
   data ExtendLocs : SnocList Name -> SnocList Name -> Type where
        Lin : ExtendLocs vars [<]
-       (:<) : ExtendLocs vars xs -> Value vars -> ExtendLocs vars (cons x xs)
+       (:<) : ExtendLocs vars xs -> Glued vars -> ExtendLocs vars (cons x xs)
 
 mkEnv : ExtendLocs vars ns -> LocalEnv ns vars
 mkEnv {vars} ext = rewrite sym (appendLinLeftNeutral ns) in go ext [<]
@@ -104,9 +104,9 @@ mkEnv {vars} ext = rewrite sym (appendLinLeftNeutral ns) in go ext [<]
                   go ext (locs :< val)
 
 runOp : {vars : _} ->
-        FC -> PrimFn ar -> Vect ar (Value vars) -> Core (Value vars)
+        FC -> PrimFn ar -> Vect ar (Glued vars) -> Core (NF vars)
 runOp fc op args
-    = do args' <- traverseVect getVal args
+    = do args' <- traverseVect expand args
          -- If it gets stuck, return the glued args, not the values
          case getOp op args' of
            Just res => pure res
@@ -119,7 +119,7 @@ parameters {auto c : Ref Ctxt Defs}
   eval : {vars : _} ->
          LocalEnv free vars ->
          Env Term vars ->
-         Term (vars ++ free) -> Core (Value vars)
+         Term (vars ++ free) -> Core (Glued vars)
 
   evalCaseAlt : {vars : _} ->
                 LocalEnv free vars -> Env Term vars ->
@@ -148,9 +148,9 @@ parameters {auto c : Ref Ctxt Defs}
 
   blockedCase : {vars : _} ->
                 FC -> LocalEnv free vars -> Env Term vars ->
-                RigCount -> (sc : Value vars) -> (scTy : Term (vars ++ free)) ->
+                RigCount -> (sc : Glued vars) -> (scTy : Term (vars ++ free)) ->
                 List (CaseAlt (vars ++ free)) ->
-                Core (Value vars)
+                Core (Glued vars)
   blockedCase fc locs env r sc scTy alts
       = do scTy' <- eval locs env scTy
            alts' <- traverse (evalCaseAlt locs env) alts
@@ -158,11 +158,11 @@ parameters {auto c : Ref Ctxt Defs}
 
   tryAlts : {vars : _} ->
             LocalEnv free vars -> Env Term vars ->
-            (sc : Value vars) -> -- scrutinee, which we assume to be in
+            (sc : NF vars) -> -- scrutinee, which we assume to be in
                   -- canonical form since we've checked (so not blocked)
             List (CaseAlt (vars ++ free)) ->
-            Core (Value vars) -> -- what to do if stuck
-            Core (Value vars)
+            Core (Glued vars) -> -- what to do if stuck
+            Core (Glued vars)
   tryAlts {vars} locs env sc@(VDCon _ _ t a sp) (ConCase _ _ t' cscope :: as) stuck
       = if t == t' then evalCaseScope locs (cast sp) cscope
            else tryAlts locs env sc as stuck
@@ -170,8 +170,8 @@ parameters {auto c : Ref Ctxt Defs}
       -- We've turned the spine into a list so that the argument positions
       -- correspond when going through the CaseScope
       evalCaseScope : forall free . LocalEnv free vars ->
-                      List (FC, RigCount, Value vars) -> CaseScope (vars ++ free) ->
-                      Core (Value vars)
+                      List (FC, RigCount, Glued vars) -> CaseScope (vars ++ free) ->
+                      Core (Glued vars)
       evalCaseScope locs [] (RHS tm) = eval locs env tm
       evalCaseScope locs ((_, _, v) :: sp) (Arg r x sc)
           = evalCaseScope (locs :< v) sp sc
@@ -189,16 +189,16 @@ parameters {auto c : Ref Ctxt Defs}
 
   evalCase : {vars : _} ->
              FC -> LocalEnv free vars -> Env Term vars ->
-             RigCount -> (sc : Value vars) -> (scTy : Term (vars ++ free)) ->
+             RigCount -> (sc : Glued vars) -> (scTy : Term (vars ++ free)) ->
              List (CaseAlt (vars ++ free)) ->
-             Core (Value vars)
+             Core (Glued vars)
   evalCase fc locs env r sc_in ty alts
-      = do sc <- getVal sc_in
+      = do sc <- expand sc_in
            if isCanonical sc
-              then tryAlts locs env sc alts (blockedCase fc locs env r sc ty alts)
+              then tryAlts locs env sc alts (blockedCase fc locs env r sc_in ty alts)
               else blockedCase fc locs env r sc_in ty alts
     where
-      isCanonical : Value vars -> Bool
+      isCanonical : NF vars -> Bool
       isCanonical (VLam{}) = True
       isCanonical (VBind{}) = True
       isCanonical (VDCon{}) = True
@@ -213,7 +213,7 @@ parameters {auto c : Ref Ctxt Defs}
               FC -> Maybe Bool ->
               (0 p : IsVar n idx (vars ++ free)) ->
               LocalEnv free vars ->
-              Core (Value vars)
+              Core (Glued vars)
   evalLocal env fc mloc p [<]
       = case getBinder p env of
              Let _ _ val _ => eval [<] env val
@@ -225,7 +225,7 @@ parameters {auto c : Ref Ctxt Defs}
                LocalEnv free vars ->
                Env Term vars ->
                PiInfo (Term (vars ++ free)) ->
-               Core (PiInfo (Value vars))
+               Core (PiInfo (Glued vars))
   evalPiInfo locs env Implicit = pure Implicit
   evalPiInfo locs env Explicit = pure Explicit
   evalPiInfo locs env AutoImplicit = pure AutoImplicit
@@ -237,7 +237,7 @@ parameters {auto c : Ref Ctxt Defs}
                LocalEnv free vars ->
                Env Term vars ->
                Binder (Term (vars ++ free)) ->
-               Core (Binder (Value vars))
+               Core (Binder (Glued vars))
   evalBinder locs env (Lam fc c p ty)
      = pure $ Lam fc c !(evalPiInfo locs env p) !(eval locs env ty)
   evalBinder locs env (Let fc c val ty)
@@ -255,7 +255,7 @@ parameters {auto c : Ref Ctxt Defs}
 --   eval : {vars : _} ->
 --          LocalEnv free vars ->
 --          Env Term vars ->
---          Term (vars ++ free) -> Core (Value vars)
+--          Term (vars ++ free) -> Core (Glued vars)
   eval locs env (Local fc l idx p) = evalLocal env fc l p locs
   eval locs env (Ref fc (DataCon t a) n)
       = pure $ VDCon fc n t a [<]
@@ -302,7 +302,7 @@ parameters {auto c : Ref Ctxt Defs}
   eval locs env (Case fc r sc ty alts)
       = do sc' <- eval locs env sc
            locs' <- case sc of
-                         Local _ _ _ p => pure $ updateEnv locs p !(getVal sc')
+                         Local _ _ _ p => pure $ updateEnv locs p (asGlued !(expand sc'))
                          _ => pure locs
            evalCase fc locs' env r sc' ty alts
   eval locs env (TDelayed fc r tm)
@@ -315,10 +315,11 @@ parameters {auto c : Ref Ctxt Defs}
            pure arg
   eval locs env (PrimVal fc c) = pure $ VPrimVal fc c
   eval {free} {vars} locs env (PrimOp fc op args)
-      = runOp fc op !(evalArgs args)
+      = do nf <- runOp fc op !(evalArgs args)
+           pure (believe_me nf) -- switch back to Glued
     where
       -- No traverse for Vect in Core...
-      evalArgs : Vect n (Term (vars ++ free)) -> Core (Vect n (Value vars))
+      evalArgs : Vect n (Term (vars ++ free)) -> Core (Vect n (Glued vars))
       evalArgs [] = pure []
       evalArgs (a :: as) = pure $ !(eval locs env a) :: !(evalArgs as)
 
@@ -329,5 +330,5 @@ parameters {auto c : Ref Ctxt Defs}
 
   export
   nf : {vars : _} ->
-       Env Term vars -> Term vars -> Core (Value vars)
+       Env Term vars -> Term vars -> Core (Glued vars)
   nf = eval [<]

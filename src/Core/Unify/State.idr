@@ -43,7 +43,7 @@ data PolyConstraint : Type where
      MkPolyConstraint : {vars : _} ->
                         FC -> Env Term vars ->
                         (arg : Term vars) ->
-                        (expty : Value vars) ->
+                        (expty : Glued vars) ->
                         (argty : Term vars) -> PolyConstraint
 
 -- Explanation for why an elaborator has been delayed. It's helpful to know
@@ -419,7 +419,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
 
   export
   addPolyConstraint : {vars : _} ->
-                      FC -> Env Term vars -> Term vars -> Value vars -> Term vars ->
+                      FC -> Env Term vars -> Term vars -> Glued vars -> Term vars ->
                       Core ()
   -- assume value is expanded
   addPolyConstraint fc env arg x@(VMeta _ _ _ _ _ _) y

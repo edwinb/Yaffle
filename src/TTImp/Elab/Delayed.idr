@@ -22,7 +22,7 @@ import Data.SnocList
 -- closed term.
 mkClosedElab : {vars : _} ->
                FC -> Env Term vars ->
-               (Core (Term vars, Value vars)) ->
+               (Core (Term vars, Glued vars)) ->
                Core ClosedTerm
 mkClosedElab fc [<] elab
     = do (tm, _) <- elab
@@ -61,11 +61,11 @@ delayOnFailure : {vars : _} ->
                  {auto u : Ref UST UState} ->
                  {auto e : Ref EST (EState vars)} ->
                  FC -> RigCount -> Env Term vars ->
-                 (expected : Maybe (Value vars)) ->
+                 (expected : Maybe (Glued vars)) ->
                  (Error -> Bool) ->
                  (pri : DelayReason) ->
-                 (Bool -> Core (Term vars, Value vars)) ->
-                 Core (Term vars, Value vars)
+                 (Bool -> Core (Term vars, Glued vars)) ->
+                 Core (Term vars, Glued vars)
 delayOnFailure fc rig env exp pred pri elab
     = do ust <- get UST
          let nos = noSolve ust -- remember the holes we shouldn't solve
@@ -92,7 +92,7 @@ delayOnFailure fc rig env exp pred pri elab
                          pure (dtm, expected)
                     else throw err)
   where
-    mkExpected : Maybe (Value vars) -> Core (Value vars)
+    mkExpected : Maybe (Glued vars) -> Core (Glued vars)
     mkExpected (Just ty) = pure ty
     mkExpected Nothing
         = do nm <- genName "delayTy"
@@ -107,10 +107,10 @@ delayElab : {vars : _} ->
             {auto u : Ref UST UState} ->
             {auto e : Ref EST (EState vars)} ->
             FC -> RigCount -> Env Term vars ->
-            (expected : Maybe (Value vars)) ->
+            (expected : Maybe (Glued vars)) ->
             (pri : DelayReason) ->
-            Core (Term vars, Value vars) ->
-            Core (Term vars, Value vars)
+            Core (Term vars, Glued vars) ->
+            Core (Term vars, Glued vars)
 delayElab {vars} fc rig env exp pri elab
     = do ust <- get UST
          let nos = noSolve ust -- remember the holes we shouldn't solve
@@ -129,7 +129,7 @@ delayElab {vars} fc rig env exp pri elab
                                                   pure res)) :: ) }
          pure (dtm, expected)
   where
-    mkExpected : Maybe (Value vars) -> Core (Value vars)
+    mkExpected : Maybe (Glued vars) -> Core (Glued vars)
     mkExpected (Just ty) = pure ty
     mkExpected Nothing
         = do nm <- genName "delayTy"
@@ -149,7 +149,7 @@ ambiguous (InRHS _ _ err) = ambiguous err
 ambiguous (WhenUnifying _ _ _ _ _ err) = ambiguous err
 ambiguous _ = False
 
-zipArgs : Spine vars -> Spine vars -> Core (List (Value vars, Value vars))
+zipArgs : Spine vars -> Spine vars -> Core (List (NF vars, NF vars))
 zipArgs [<] _ = pure []
 zipArgs _ [<] = pure []
 zipArgs (as :< a) (bs :< b)
@@ -159,7 +159,7 @@ zipArgs (as :< a) (bs :< b)
 mutual
   mismatchNF : {auto c : Ref Ctxt Defs} ->
                {vars : _} ->
-               Value vars -> Value vars -> Core Bool
+               NF vars -> NF vars -> Core Bool
   mismatchNF (VTCon _ xn _ xargs) (VTCon _ yn _ yargs)
       = if xn /= yn
            then pure True
@@ -177,13 +177,12 @@ mutual
 
   mismatch : {auto c : Ref Ctxt Defs} ->
              {vars : _} ->
-             (Value vars, Value vars) -> Core Bool
-  mismatch (x, y)
-      = mismatchNF !(expand x) !(expand y)
+             (NF vars, NF vars) -> Core Bool
+  mismatch (x, y) = mismatchNF x y
 
 contra : {auto c : Ref Ctxt Defs} ->
          {vars : _} ->
-         Value vars -> Value vars -> Core Bool
+         NF vars -> NF vars -> Core Bool
 -- Unlike 'impossibleOK', any mismatch indicates an unrecoverable error
 contra (VTCon _ xn xa xargs) (VTCon _ yn ya yargs)
     = if xn /= yn

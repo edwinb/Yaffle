@@ -14,15 +14,15 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   processDataCon fc tycon (tag, RConDecl n rty)
       = do checkUndefined fc n
            ty <- check erased [<] rty (topType fc)
-           checkIsTy !(nf [<] ty)
+           checkIsTy !(expand !(nf [<] ty))
            arity <- getArity [<] ty
            let dinf = MkDataConInfo Nothing
            idx <- addDef n (newDef fc n linear [] ty Public (DCon dinf tag arity))
            pure (Resolved idx)
     where
-      checkIsTy : Value [<] -> Core ()
+      checkIsTy : NF [<] -> Core ()
       checkIsTy (VBind fc _ (Pi _ _ _ _) sc)
-          = checkIsTy !(sc (VErased fc False))
+          = checkIsTy !(expand !(sc (VErased fc False)))
       checkIsTy (VTCon fc cn _ _)
           = when (!(toResolvedNames cn) /= !(toResolvedNames tycon)) $
                throw (BadDataConType fc n tycon)
@@ -47,12 +47,6 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       mkTags : Int -> List a -> List (Int, a)
       mkTags i [] = []
       mkTags i (x :: xs) = (i, x) :: mkTags (i + 1) xs
-
-      checkIsType : Value [<] -> Core ()
-      checkIsType (VBind fc _ (Pi _ _ _ _) sc)
-          = checkIsType !(sc (VErased fc False))
-      checkIsType (VType fc _) = pure ()
-      checkIsType _ = throw (BadTypeConType fc n)
 
   processTyDecl : FC -> RigCount -> Name -> RawC -> Core ()
   processTyDecl fc c n rty

@@ -544,7 +544,7 @@ getArgName : {vars : _} ->
                           -- so we don't invent a default
                           -- name that duplicates it
              List Name -> -- names bound so far
-             Value vars -> Core String
+             Glued vars -> Core String
 getArgName defs x bound allvars ty
     = do defnames <- findNames !(expand ty)
          pure $ getName x defnames allvars
@@ -562,7 +562,7 @@ getArgName defs x bound allvars ty
     defaultNames : List String
     defaultNames = ["x", "y", "z", "w", "v", "s", "t", "u"]
 
-    findNames : Value vars -> Core (List String)
+    findNames : NF vars -> Core (List String)
     findNames (VBind _ x (Pi _ _ _ _) _)
         = pure (filter notBound ["f", "g"])
     findNames (VTCon _ n _ _)
@@ -598,7 +598,7 @@ getArgName defs x bound allvars ty
 export
 getArgNames : {vars : _} ->
               {auto c : Ref Ctxt Defs} ->
-              Defs -> List Name -> List Name -> Env Term vars -> Value vars ->
+              Defs -> List Name -> List Name -> Env Term vars -> NF vars ->
               Core (List String)
 getArgNames defs bound allvars env (VBind fc x (Pi _ _ p ty) sc)
     = do ns <- case p of

@@ -36,9 +36,10 @@ processDataOpt fc ndef External
 processDataOpt fc ndef NoNewtype
     = pure ()
 
+{-
 checkRetType : {auto c : Ref Ctxt Defs} ->
-               Env Term vars -> Value vars ->
-               (Value vars -> Core ()) -> Core ()
+               Env Term vars -> Glued vars ->
+               (Glued vars -> Core ()) -> Core ()
 checkRetType env (VBind fc x (Pi _ _ _ ty) sc) chk
     = do defs <- get Ctxt
          checkRetType env !(expand !(sc (VErased fc False))) chk

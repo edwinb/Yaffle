@@ -23,7 +23,7 @@ import Libraries.Data.NameMap
 -- when solving a metavariable applied to arguments
 -- ASSUMPTION: VApp has been reduced first
 getVars : {vars : _} ->
-          List Nat -> SnocList (Value vars) -> Maybe (SnocList (Var vars))
+          List Nat -> SnocList (NF vars) -> Maybe (SnocList (Var vars))
 getVars got [<] = Just [<]
 getVars got (xs :< VLocal fc r idx v [<])
     = if inArgs idx got then Nothing
@@ -113,26 +113,19 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   -}
   export
   patternEnv : {vars : _} ->
-               Env Term vars -> SnocList (Value vars) ->
+               Env Term vars -> SnocList (Glued vars) ->
                Core (Maybe (newvars ** (SnocList (Var newvars),
                                        SubVars newvars vars)))
   patternEnv {vars} env args
       = do -- Make sure the arguments are evaluated enough to know whether
            -- they're variables (this is an assumption made by getVars)
-           args' <- traverseSnocList evalApp args
-           pure $ case getVars [] args of
+           args' <- traverseSnocList expand args
+           pure $ case getVars [] args' of
                  Nothing => Nothing
                  Just vs =>
                    let (newvars ** svs) = toSubVars _ vs in
                      Just (newvars ** (updateVars vs svs, svs))
     where
-      evalApp : Value vars -> Core (Value vars)
-      evalApp val@(VApp _ _ _ _ nf)
-          = do Just nf' <- nf
-                    | Nothing => pure val
-               evalApp nf'
-      evalApp tm = pure tm
-
       -- Update the variable list to point into the sub environment
       -- (All of these will succeed because the SubVars we have comes from
       -- the list of variable uses! It's not stated in the type, though.)

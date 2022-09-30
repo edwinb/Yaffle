@@ -128,7 +128,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
              Env Term (vars ++ bound) ->
              Name -> List Name ->
              (conApp : Term (vars ++ bound)) ->
-             (conTy : Value vars) ->
+             (conTy : Glued vars) ->
              (rhs : RawC) ->
              (scr : Term (vars ++ bound)) ->
              (scrTy : Term (vars ++ bound)) ->

@@ -18,18 +18,18 @@ record Prim where
   totality : Totality
 
 binOp : (Constant -> Constant -> Maybe Constant) ->
-        {vars : _} -> Vect 2 (Value vars) -> Maybe (Value vars)
+        {vars : _} -> Vect 2 (NF vars) -> Maybe (NF vars)
 binOp fn [VPrimVal fc x, VPrimVal _ y]
     = map (VPrimVal fc) (fn x y)
 binOp _ _ = Nothing
 
 unaryOp : (Constant -> Maybe Constant) ->
-          {vars : _} -> Vect 1 (Value vars) -> Maybe (Value vars)
+          {vars : _} -> Vect 1 (NF vars) -> Maybe (NF vars)
 unaryOp fn [VPrimVal fc x]
     = map (VPrimVal fc) (fn x)
 unaryOp _ _ = Nothing
 
-castString : Vect 1 (Value vars) -> Maybe (Value vars)
+castString : Vect 1 (NF vars) -> Maybe (NF vars)
 castString [VPrimVal fc (I i)] = Just (VPrimVal fc (Str (show i)))
 castString [VPrimVal fc (I8 i)] = Just (VPrimVal fc (Str (show i)))
 castString [VPrimVal fc (I16 i)] = Just (VPrimVal fc (Str (show i)))
@@ -44,7 +44,7 @@ castString [VPrimVal fc (Ch i)] = Just (VPrimVal fc (Str (stripQuotes (show i)))
 castString [VPrimVal fc (Db i)] = Just (VPrimVal fc (Str (show i)))
 castString _ = Nothing
 
-castInteger : Vect 1 (Value vars) -> Maybe (Value vars)
+castInteger : Vect 1 (NF vars) -> Maybe (NF vars)
 castInteger [VPrimVal fc (I i)] = Just (VPrimVal fc (BI (cast i)))
 castInteger [VPrimVal fc (I8 i)] = Just (VPrimVal fc (BI (cast i)))
 castInteger [VPrimVal fc (I16 i)] = Just (VPrimVal fc (BI (cast i)))
@@ -59,7 +59,7 @@ castInteger [VPrimVal fc (Db i)] = Just (VPrimVal fc (BI (cast i)))
 castInteger [VPrimVal fc (Str i)] = Just (VPrimVal fc (BI (cast i)))
 castInteger _ = Nothing
 
-castInt : Vect 1 (Value vars) -> Maybe (Value vars)
+castInt : Vect 1 (NF vars) -> Maybe (NF vars)
 castInt [VPrimVal fc (I8 i)] = Just (VPrimVal fc (I (cast i)))
 castInt [VPrimVal fc (I16 i)] = Just (VPrimVal fc (I (cast i)))
 castInt [VPrimVal fc (I32 i)] = Just (VPrimVal fc (I (cast i)))
@@ -87,47 +87,47 @@ constantIntegerValue (B32 i) = Just $ cast i
 constantIntegerValue (B64 i) = Just $ cast i
 constantIntegerValue _       = Nothing
 
-castBits8 : Vect 1 (Value vars) -> Maybe (Value vars)
+castBits8 : Vect 1 (NF vars) -> Maybe (NF vars)
 castBits8 [VPrimVal fc constant] =
     VPrimVal fc . B8 . cast <$> constantIntegerValue constant
 castBits8 _ = Nothing
 
-castBits16 : Vect 1 (Value vars) -> Maybe (Value vars)
+castBits16 : Vect 1 (NF vars) -> Maybe (NF vars)
 castBits16 [VPrimVal fc constant] =
     VPrimVal fc . B16 . cast <$> constantIntegerValue constant
 castBits16 _ = Nothing
 
-castBits32 : Vect 1 (Value vars) -> Maybe (Value vars)
+castBits32 : Vect 1 (NF vars) -> Maybe (NF vars)
 castBits32 [VPrimVal fc constant] =
     VPrimVal fc . B32 . cast <$> constantIntegerValue constant
 castBits32 _ = Nothing
 
-castBits64 : Vect 1 (Value vars) -> Maybe (Value vars)
+castBits64 : Vect 1 (NF vars) -> Maybe (NF vars)
 castBits64 [VPrimVal fc constant] =
     VPrimVal fc . B64 . cast <$> constantIntegerValue constant
 castBits64 _ = Nothing
 
-castInt8 : Vect 1 (Value vars) -> Maybe (Value vars)
+castInt8 : Vect 1 (NF vars) -> Maybe (NF vars)
 castInt8 [VPrimVal fc constant] =
     VPrimVal fc . I8 . cast <$> constantIntegerValue constant
 castInt8 _ = Nothing
 
-castInt16 : Vect 1 (Value vars) -> Maybe (Value vars)
+castInt16 : Vect 1 (NF vars) -> Maybe (NF vars)
 castInt16 [VPrimVal fc constant] =
     VPrimVal fc . I16 . cast <$> constantIntegerValue constant
 castInt16 _ = Nothing
 
-castInt32 : Vect 1 (Value vars) -> Maybe (Value vars)
+castInt32 : Vect 1 (NF vars) -> Maybe (NF vars)
 castInt32 [VPrimVal fc constant] =
     VPrimVal fc . I32 . cast <$> constantIntegerValue constant
 castInt32 _ = Nothing
 
-castInt64 : Vect 1 (Value vars) -> Maybe (Value vars)
+castInt64 : Vect 1 (NF vars) -> Maybe (NF vars)
 castInt64 [VPrimVal fc constant] =
     VPrimVal fc . I64 . cast <$> constantIntegerValue constant
 castInt64 _ = Nothing
 
-castDouble : Vect 1 (Value vars) -> Maybe (Value vars)
+castDouble : Vect 1 (NF vars) -> Maybe (NF vars)
 castDouble [VPrimVal fc (I i)] = Just (VPrimVal fc (Db (cast i)))
 castDouble [VPrimVal fc (I8 i)] = Just (VPrimVal fc (Db (cast i)))
 castDouble [VPrimVal fc (I16 i)] = Just (VPrimVal fc (Db (cast i)))
@@ -141,7 +141,7 @@ castDouble [VPrimVal fc (BI i)] = Just (VPrimVal fc (Db (cast i)))
 castDouble [VPrimVal fc (Str i)] = Just (VPrimVal fc (Db (cast i)))
 castDouble _ = Nothing
 
-castChar : Vect 1 (Value vars) -> Maybe (Value vars)
+castChar : Vect 1 (NF vars) -> Maybe (NF vars)
 castChar [VPrimVal fc (I i)] = Just (VPrimVal fc (Ch (cast i)))
 castChar [VPrimVal fc (I8 i)] = Just (VPrimVal fc (Ch (cast i)))
 castChar [VPrimVal fc (I16 i)] = Just (VPrimVal fc (Ch (cast i)))
@@ -154,45 +154,45 @@ castChar [VPrimVal fc (B64 i)] = Just (VPrimVal fc (Ch (cast i)))
 castChar [VPrimVal fc (BI i)] = Just (VPrimVal fc (Ch (cast i)))
 castChar _ = Nothing
 
-strLength : Vect 1 (Value vars) -> Maybe (Value vars)
+strLength : Vect 1 (NF vars) -> Maybe (NF vars)
 strLength [VPrimVal fc (Str s)] = Just (VPrimVal fc (I (cast (length s))))
 strLength _ = Nothing
 
-strHead : Vect 1 (Value vars) -> Maybe (Value vars)
+strHead : Vect 1 (NF vars) -> Maybe (NF vars)
 strHead [VPrimVal fc (Str "")] = Nothing
 strHead [VPrimVal fc (Str str)]
     = Just (VPrimVal fc (Ch (assert_total (prim__strHead str))))
 strHead _ = Nothing
 
-strTail : Vect 1 (Value vars) -> Maybe (Value vars)
+strTail : Vect 1 (NF vars) -> Maybe (NF vars)
 strTail [VPrimVal fc (Str "")] = Nothing
 strTail [VPrimVal fc (Str str)]
     = Just (VPrimVal fc (Str (assert_total (prim__strTail str))))
 strTail _ = Nothing
 
-strIndex : Vect 2 (Value vars) -> Maybe (Value vars)
+strIndex : Vect 2 (NF vars) -> Maybe (NF vars)
 strIndex [VPrimVal fc (Str str), VPrimVal _ (I i)]
     = if i >= 0 && integerToNat (cast i) < length str
          then Just (VPrimVal fc (Ch (assert_total (prim__strIndex str i))))
          else Nothing
 strIndex _ = Nothing
 
-strCons : Vect 2 (Value vars) -> Maybe (Value vars)
+strCons : Vect 2 (NF vars) -> Maybe (NF vars)
 strCons [VPrimVal fc (Ch x), VPrimVal _ (Str y)]
     = Just (VPrimVal fc (Str (strCons x y)))
 strCons _ = Nothing
 
-strAppend : Vect 2 (Value vars) -> Maybe (Value vars)
+strAppend : Vect 2 (NF vars) -> Maybe (NF vars)
 strAppend [VPrimVal fc (Str x), VPrimVal _ (Str y)]
     = Just (VPrimVal fc (Str (x ++ y)))
 strAppend _ = Nothing
 
-strReverse : Vect 1 (Value vars) -> Maybe (Value vars)
+strReverse : Vect 1 (NF vars) -> Maybe (NF vars)
 strReverse [VPrimVal fc (Str x)]
     = Just (VPrimVal fc (Str (reverse x)))
 strReverse _ = Nothing
 
-strSubstr : Vect 3 (Value vars) -> Maybe (Value vars)
+strSubstr : Vect 3 (NF vars) -> Maybe (NF vars)
 strSubstr [VPrimVal fc (I start), VPrimVal _ (I len), VPrimVal _ (Str str)]
     = Just (VPrimVal fc (Str (prim__strSubstr start len str)))
 strSubstr _ = Nothing
@@ -452,51 +452,51 @@ gt (Ch x) (Ch y) = pure $ toInt (x > y)
 gt (Db x) (Db y) = pure $ toInt (x > y)
 gt _ _ = Nothing
 
-doubleOp : (Double -> Double) -> Vect 1 (Value vars) -> Maybe (Value vars)
+doubleOp : (Double -> Double) -> Vect 1 (NF vars) -> Maybe (NF vars)
 doubleOp f [VPrimVal fc (Db x)] = Just (VPrimVal fc (Db (f x)))
 doubleOp f _ = Nothing
 
-doubleExp : Vect 1 (Value vars) -> Maybe (Value vars)
+doubleExp : Vect 1 (NF vars) -> Maybe (NF vars)
 doubleExp = doubleOp exp
 
-doubleLog : Vect 1 (Value vars) -> Maybe (Value vars)
+doubleLog : Vect 1 (NF vars) -> Maybe (NF vars)
 doubleLog = doubleOp log
 
-doublePow : {vars : _ } -> Vect 2 (Value vars) -> Maybe (Value vars)
+doublePow : {vars : _ } -> Vect 2 (NF vars) -> Maybe (NF vars)
 doublePow = binOp pow'
     where pow' : Constant -> Constant -> Maybe Constant
           pow' (Db x) (Db y) = pure $ Db (pow x y)
           pow' _ _ = Nothing
 
-doubleSin : Vect 1 (Value vars) -> Maybe (Value vars)
+doubleSin : Vect 1 (NF vars) -> Maybe (NF vars)
 doubleSin = doubleOp sin
 
-doubleCos : Vect 1 (Value vars) -> Maybe (Value vars)
+doubleCos : Vect 1 (NF vars) -> Maybe (NF vars)
 doubleCos = doubleOp cos
 
-doubleTan : Vect 1 (Value vars) -> Maybe (Value vars)
+doubleTan : Vect 1 (NF vars) -> Maybe (NF vars)
 doubleTan = doubleOp tan
 
-doubleASin : Vect 1 (Value vars) -> Maybe (Value vars)
+doubleASin : Vect 1 (NF vars) -> Maybe (NF vars)
 doubleASin = doubleOp asin
 
-doubleACos : Vect 1 (Value vars) -> Maybe (Value vars)
+doubleACos : Vect 1 (NF vars) -> Maybe (NF vars)
 doubleACos = doubleOp acos
 
-doubleATan : Vect 1 (Value vars) -> Maybe (Value vars)
+doubleATan : Vect 1 (NF vars) -> Maybe (NF vars)
 doubleATan = doubleOp atan
 
-doubleSqrt : Vect 1 (Value vars) -> Maybe (Value vars)
+doubleSqrt : Vect 1 (NF vars) -> Maybe (NF vars)
 doubleSqrt = doubleOp sqrt
 
-doubleFloor : Vect 1 (Value vars) -> Maybe (Value vars)
+doubleFloor : Vect 1 (NF vars) -> Maybe (NF vars)
 doubleFloor = doubleOp floor
 
-doubleCeiling : Vect 1 (Value vars) -> Maybe (Value vars)
+doubleCeiling : Vect 1 (NF vars) -> Maybe (NF vars)
 doubleCeiling = doubleOp ceiling
 
 -- Only reduce for concrete values
-believeMe : Vect 3 (Value vars) -> Maybe (Value vars)
+believeMe : Vect 3 (NF vars) -> Maybe (NF vars)
 believeMe [_, _, val@(VDCon{})] = Just val
 believeMe [_, _, val@(VTCon{})] = Just val
 believeMe [_, _, val@(VPrimVal{})] = Just val
@@ -548,7 +548,7 @@ crashTy
       pi "msg" top Explicit (PrimVal emptyFC $ PrT StringType) $
       Local emptyFC Nothing _ (Later First)
 
-castTo : PrimType -> Vect 1 (Value vars) -> Maybe (Value vars)
+castTo : PrimType -> Vect 1 (NF vars) -> Maybe (NF vars)
 castTo IntType = castInt
 castTo Int8Type = castInt8
 castTo Int16Type = castInt16
@@ -566,7 +566,7 @@ castTo WorldType = const Nothing
 
 export
 getOp : {0 arity : Nat} -> PrimFn arity ->
-        {vars : SnocList Name} -> Vect arity (Value vars) -> Maybe (Value vars)
+        {vars : SnocList Name} -> Vect arity (NF vars) -> Maybe (NF vars)
 getOp (Add ty) = binOp add
 getOp (Sub ty) = binOp sub
 getOp (Mul ty) = binOp mul

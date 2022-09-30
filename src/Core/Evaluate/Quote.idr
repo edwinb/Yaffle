@@ -40,7 +40,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 
   quoteGen : {bound, vars : _} ->
              Strategy -> Bounds bound -> Env Term vars ->
-             Value vars -> Core (Term (vars ++ bound))
+             Value f vars -> Core (Term (vars ++ bound))
 
   -- probably ought to make traverse work on SnocList/Vect too
   quoteSpine : {bound, vars : _} ->
@@ -51,7 +51,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       = pure $ !(quoteSpine s bounds env args) :<
                (fc, q, !(quoteGen s bounds env arg))
 
-  mkTmpVar : FC -> Name -> Value vars
+  mkTmpVar : FC -> Name -> Glued vars
   mkTmpVar fc n = VApp fc Bound n [<] (pure Nothing)
 
   quoteAlt : {bound, vars : _} ->
@@ -90,7 +90,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 
   quotePi : {bound, vars : _} ->
             Strategy -> Bounds bound -> Env Term vars ->
-            PiInfo (Value vars) -> Core (PiInfo (Term (vars ++ bound)))
+            PiInfo (Glued vars) -> Core (PiInfo (Term (vars ++ bound)))
   quotePi s bounds env Explicit = pure Explicit
   quotePi s bounds env Implicit = pure Implicit
   quotePi s bounds env AutoImplicit = pure AutoImplicit
@@ -100,7 +100,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 
   quoteBinder : {bound, vars : _} ->
                 Strategy -> Bounds bound -> Env Term vars ->
-                Binder (Value vars) -> Core (Binder (Term (vars ++ bound)))
+                Binder (Glued vars) -> Core (Binder (Term (vars ++ bound)))
   quoteBinder s bounds env (Lam fc r p ty)
       = do ty' <- quoteGen s bounds env ty
            p' <- quotePi s bounds env p
@@ -128,7 +128,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 --   Declared above as:
 --   quoteGen : {bound, vars : _} ->
 --              Strategy -> Bounds bound -> Env Term vars ->
---              Value vars -> Core (Term (vars ++ bound))
+--              Value f vars -> Core (Term (vars ++ bound))
   quoteGen s bounds env (VLam fc x c p ty sc)
       = do var <- genName "qv"
            p' <- quotePi s bounds env p
@@ -188,12 +188,12 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
                                 pure $ applySpine (Ref fc nt n) sp'
                         else quoteGen s bounds env v
     where
-      isBinder : Value vars -> Core Bool
+      isBinder : Value f vars -> Core Bool
       isBinder (VLam fc _ _ _ _ sc) = pure True
       isBinder (VBind{}) = pure True
       isBinder _ = pure False
 
-      blockedApp : Value vars -> Core Bool
+      blockedApp : Value f vars -> Core Bool
       blockedApp (VLam fc _ _ _ _ sc)
           = blockedApp !(sc (VErased fc False))
       blockedApp (VCase{}) = pure True
@@ -268,7 +268,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
            pure $ PrimOp fc fn args'
     where
       -- No traverse for Vect in Core...
-      quoteArgs : Vect n (Value vars) -> Core (Vect n (Term (vars ++ bound)))
+      quoteArgs : Vect n (Value f vars) -> Core (Vect n (Term (vars ++ bound)))
       quoteArgs [] = pure []
       quoteArgs (a :: as)
           = pure $ !(quoteGen s bounds env a) :: !(quoteArgs as)
@@ -279,33 +279,33 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 
 parameters {auto c : Ref Ctxt Defs}
   quoteStrategy : {vars : _} ->
-            Strategy -> Env Term vars -> Value vars -> Core (Term vars)
+            Strategy -> Env Term vars -> Value f vars -> Core (Term vars)
   quoteStrategy s env val
       = do q <- newRef QVar 0
            quoteGen s None env val
 
   export
   quoteNF : {vars : _} ->
-            Env Term vars -> Value vars -> Core (Term vars)
+            Env Term vars -> Value f vars -> Core (Term vars)
   quoteNF = quoteStrategy NF
 
   export
   quoteHNF : {vars : _} ->
-          Env Term vars -> Value vars -> Core (Term vars)
+          Env Term vars -> Value f vars -> Core (Term vars)
   quoteHNF = quoteStrategy HNF
 
   -- Keep quoting while we're still going under binders
   export
   quoteBinders : {vars : _} ->
-          Env Term vars -> Value vars -> Core (Term vars)
+          Env Term vars -> Value f vars -> Core (Term vars)
   quoteBinders = quoteStrategy Binders
 
   export
   quoteHoles : {vars : _} ->
-          Env Term vars -> Value vars -> Core (Term vars)
+          Env Term vars -> Value f vars -> Core (Term vars)
   quoteHoles = quoteStrategy ExpandHoles
 
   export
   quote : {vars : _} ->
-          Env Term vars -> Value vars -> Core (Term vars)
+          Env Term vars -> Value f vars -> Core (Term vars)
   quote = quoteStrategy BlockApp

@@ -69,8 +69,8 @@ elabTermSub : {inner, vars : _} ->
               Int -> ElabMode -> List ElabOpt ->
               NestedNames vars -> Env Term vars ->
               Env Term inner -> SubVars inner vars ->
-              RawImp -> Maybe (Value vars) ->
-              Core (Term vars, Value vars)
+              RawImp -> Maybe (Glued vars) ->
+              Core (Term vars, Glued vars)
 elabTermSub {vars} defining mode opts nest env env' sub tm ty
     = do let incase = elem InCase opts
          let inPE = elem InPartialEval opts
@@ -178,8 +178,8 @@ elabTerm : {vars : _} ->
            {auto u : Ref UST UState} ->
            Int -> ElabMode -> List ElabOpt ->
            NestedNames vars -> Env Term vars ->
-           RawImp -> Maybe (Value vars) ->
-           Core (Term vars, Value vars)
+           RawImp -> Maybe (Glued vars) ->
+           Core (Term vars, Glued vars)
 elabTerm defining mode opts nest env tm ty
     = elabTermSub defining mode opts nest env env SubRefl tm ty
 
@@ -191,7 +191,7 @@ checkTermSub : {inner, vars : _} ->
                Int -> ElabMode -> List ElabOpt ->
                NestedNames vars -> Env Term vars ->
                Env Term inner -> SubVars inner vars ->
-               RawImp -> Value vars ->
+               RawImp -> Glued vars ->
                Core (Term vars)
 checkTermSub defining mode opts nest env env' sub tm ty
     = do defs <- case mode of
@@ -242,7 +242,7 @@ checkTerm : {vars : _} ->
             {auto u : Ref UST UState} ->
             Int -> ElabMode -> List ElabOpt ->
             NestedNames vars -> Env Term vars ->
-            RawImp -> Value vars ->
+            RawImp -> Glued vars ->
             Core (Term vars)
 checkTerm defining mode opts nest env tm ty
     = checkTermSub defining mode opts nest env env SubRefl tm ty

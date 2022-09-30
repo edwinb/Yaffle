@@ -302,7 +302,7 @@ mustBePoly fc env tm ty = update EST { polyMetavars $= ((fc, env, tm, ty) :: ) }
 -- type. If we know this, we can possibly infer some argument types before
 -- elaborating them, which might help us disambiguate things more easily.
 export
-concrete : Env Term vars -> Value vars -> Core Bool
+concrete : Env Term vars -> NF vars -> Core Bool
 concrete env (VBind fc _ (Pi _ _ _ _) sc)
     = do sc' <- sc (VErased fc False)
          concrete env !(expand sc')
@@ -593,8 +593,8 @@ exactlyOne' : {vars : _} ->
               {auto u : Ref UST UState} ->
               {auto e : Ref EST (EState vars)} ->
               Bool -> FC -> Env Term vars ->
-              List (Maybe Name, Core (Term vars, Value vars)) ->
-              Core (Term vars, Value vars)
+              List (Maybe Name, Core (Term vars, Glued vars)) ->
+              Core (Term vars, Glued vars)
 exactlyOne' allowCons fc env [(tm, elab)] = elab
 exactlyOne' {vars} allowCons fc env all
     = do elabs <- successful allowCons all
@@ -616,7 +616,7 @@ exactlyOne' {vars} allowCons fc env all
                           [(_, res)] => Right res
                           _ => Left (map snd rs)
 
-    getRes : ((Term vars, Value vars), Defs, st) -> (Defs, Term vars)
+    getRes : ((Term vars, Glued vars), Defs, st) -> (Defs, Term vars)
     getRes ((tm, _), defs, thisst) = (defs, tm)
 
     getDepthError : Error -> Maybe Error
@@ -631,7 +631,7 @@ exactlyOne' {vars} allowCons fc env all
     -- If they've all failed, collect all the errors
     -- If more than one succeeded, report the ambiguity
     altError : List (Maybe Name, Error) ->
-               List ((Term vars, Value vars), Defs, st) ->
+               List ((Term vars, Glued vars), Defs, st) ->
                Error
     altError ls []
         = case depthError ls of
@@ -646,8 +646,8 @@ exactlyOne : {vars : _} ->
              {auto u : Ref UST UState} ->
              {auto e : Ref EST (EState vars)} ->
              FC -> Env Term vars ->
-             List (Maybe Name, Core (Term vars, Value vars)) ->
-             Core (Term vars, Value vars)
+             List (Maybe Name, Core (Term vars, Glued vars)) ->
+             Core (Term vars, Glued vars)
 exactlyOne = exactlyOne' True
 
 export
@@ -656,8 +656,8 @@ anyOne : {vars : _} ->
          {auto m : Ref MD Metadata} ->
          {auto u : Ref UST UState} ->
          {auto e : Ref EST (EState vars)} ->
-         FC -> List (Maybe Name, Core (Term vars, Value vars)) ->
-         Core (Term vars, Value vars)
+         FC -> List (Maybe Name, Core (Term vars, Glued vars)) ->
+         Core (Term vars, Glued vars)
 anyOne fc [] = throw (GenericMsg fc "No elaborators provided")
 anyOne fc [(tm, elab)] = elab
 anyOne fc ((tm, elab) :: es) = try elab (anyOne fc es)
@@ -672,8 +672,8 @@ check : {vars : _} ->
         {auto e : Ref EST (EState vars)} ->
         RigCount -> ElabInfo ->
         NestedNames vars -> Env Term vars -> RawImp ->
-        Maybe (Value vars) ->
-        Core (Term vars, Value vars)
+        Maybe (Glued vars) ->
+        Core (Term vars, Glued vars)
 
 -- As above, but doesn't add any implicit lambdas, forces, delays, etc
 export
@@ -683,8 +683,8 @@ checkImp : {vars : _} ->
            {auto u : Ref UST UState} ->
            {auto e : Ref EST (EState vars)} ->
            RigCount -> ElabInfo ->
-           NestedNames vars -> Env Term vars -> RawImp -> Maybe (Value vars) ->
-           Core (Term vars, Value vars)
+           NestedNames vars -> Env Term vars -> RawImp -> Maybe (Glued vars) ->
+           Core (Term vars, Glued vars)
 
 -- Implemented in TTImp.ProcessFile
 export
@@ -705,7 +705,7 @@ convertWithLazy
           {auto u : Ref UST UState} ->
           {auto e : Ref EST (EState vars)} ->
           (withLazy : Bool) ->
-          FC -> ElabInfo -> Env Term vars -> Value vars -> Value vars ->
+          FC -> ElabInfo -> Env Term vars -> Value f vars -> Value f' vars ->
           Core UnifyResult
 convertWithLazy withLazy fc elabinfo env x y
     = let umode : UnifyInfo
