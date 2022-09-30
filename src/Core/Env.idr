@@ -108,21 +108,23 @@ abstractFullEnvType fc (env :< b) tm
     = let bnd = Pi fc (multiplicity b) Explicit (binderType b)
       in abstractFullEnvType fc env (Bind fc _ bnd tm)
 
-divWEnv : Env Term vars -> Env Term vars
-divWEnv [<] = [<]
-divWEnv (env :< b) = divWEnv env :< setMultiplicity b (rigDivW $ multiplicity b)
+restrictWEnv : Env Term vars -> Env Term vars
+restrictWEnv [<] = [<]
+restrictWEnv (env :< b) = restrictWEnv env :< setMultiplicity b (rigRestrictW $ multiplicity b)
 
--- Dividing multiplicities in context
--- We use division to push the ambient quantity p onto the context:
+-- Restriction makes p-annotated variables that do not support at least q
+-- copies unavailable at runtime
+--
+-- We use restriction to push the ambient quantity p onto the context:
 --
 --    X |- e :p A
 -- =================
 -- X \ p |- e :|p| A
 --
--- where |p| is `relevance p`
+-- where |p| is `presence p`
 --
 -- Note: when p is Rig0, all context quantities are ignored.
 export
-divEnv : Env Term vars -> RigCount -> Env Term vars
-divEnv env RigW = divWEnv env
-divEnv env _ = env
+restrictEnv : Env Term vars -> RigCount -> Env Term vars
+restrictEnv env RigW = restrictWEnv env
+restrictEnv env _ = env

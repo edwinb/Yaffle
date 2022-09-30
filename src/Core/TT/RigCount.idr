@@ -18,16 +18,18 @@ rigMult a Rig1 = a
 rigMult _ _ = RigW
 
 export
-rigDivW : RigCount -> RigCount
-rigDivW Rig1 = Rig0
-rigDivW a = a
+rigRestrictW : RigCount -> RigCount
+rigRestrictW RigW = RigW
+rigRestrictW _ = Rig0
 
--- rigDiv a b is largest c s.t c * b <= a
+-- rigRestrict a b is
+--  a if b <= a
+--  0 otherwise
 export
-rigDiv : RigCount -> RigCount -> RigCount
-rigDiv a Rig0 = RigW
-rigDiv a Rig1 = a
-rigDiv a RigW = rigDivW a
+rigRestrict : RigCount -> RigCount -> RigCount
+rigRestrict a Rig0 = a
+rigRestrict a Rig1 = a
+rigRestrict a RigW = rigRestrictW a
 
 export
 Show RigCount where
@@ -98,9 +100,9 @@ branchVal : Lazy b -> Lazy b -> RigCount -> b
 branchVal yes no rig = if isRigOther rig then yes else no
 
 export
-relevance : RigCount -> RigCount
-relevance Rig0 = Rig0
-relevance _ = Rig1
+presence : RigCount -> RigCount
+presence Rig0 = Rig0
+presence _ = Rig1
 
 export
 lub : RigCount -> RigCount -> RigCount
