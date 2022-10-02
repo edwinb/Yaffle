@@ -53,6 +53,7 @@ modules
     TTImp.ProcessBuiltin,
     TTImp.ProcessData,
     TTImp.ProcessFile,
+    TTImp.ProcessType,
     TTImp.TTImp,
     TTImp.Utils,
 

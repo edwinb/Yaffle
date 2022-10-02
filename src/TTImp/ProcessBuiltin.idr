@@ -119,20 +119,33 @@ termConMatch (Erased _ _) (Erased _ _) = True -- return type can't erased?
 termConMatch (TType _ _) (TType _ _) = True
 termConMatch _ _ = False
 
-{-
 ||| Check a type is strict.
 isStrict : Term vs -> Bool
 isStrict (Local _ _ _ _) = True
 isStrict (Ref _ _ _) = True
-isStrict (Meta _ _ i args) = all isStrict args
+isStrict (Meta _ _ i args) = all isStrict (map snd args)
 isStrict (Bind _ _ b s) = isStrict (binderType b) && isStrict s
-isStrict (App _ f x) = isStrict f && isStrict x
-isStrict (As _ _ a p) = isStrict a && isStrict p
+isStrict (App _ f _ x) = isStrict f && isStrict x
+isStrict (As _ _ _ p) = isStrict p
+isStrict (Case _ _ _ _ alts) = all isStrictAlt alts
+  where
+    isStrictScope : forall vs . CaseScope vs -> Bool
+    isStrictScope (RHS tm) = isStrict tm
+    isStrictScope (Arg _ _ sc) = isStrictScope sc
+
+    isStrictAlt : forall vs . CaseAlt vs -> Bool
+    isStrictAlt (ConCase _ _ _ sc) = isStrictScope sc
+    isStrictAlt (DelayCase _ _ _ tm) = isStrict tm
+    isStrictAlt (ConstCase _ _ tm) = isStrict tm
+    isStrictAlt (DefaultCase _ tm) = isStrict tm
 isStrict (TDelayed _ _ _) = False
 isStrict (TDelay _ _ f x) = isStrict f && isStrict x
 isStrict (TForce _ _ tm) = isStrict tm
 isStrict (PrimVal _ _) = True
+isStrict (PrimOp _ _ _) = True
 isStrict (Erased _ _) = True
+isStrict (Unmatched _ _) = True
+isStrict (Impossible _) = True
 isStrict (TType _ _) = True
 
 ||| Get the name and definition of a list of names.
@@ -153,9 +166,9 @@ isNatural fc n = do
     defs <- get Ctxt
     Just gdef <- lookupCtxtExact n defs.gamma
         | Nothing => undefinedName EmptyFC n
-    let TCon _ _ _ _ _ _ cons _ = gdef.definition
+    let TCon ti a = gdef.definition
         | _ => pure False
-    consDefs <- getConsGDef fc cons
+    consDefs <- getConsGDef fc (datacons ti)
     pure $ all hasNatFlag consDefs
   where
     isNatFlag : DefFlag -> Bool
@@ -199,7 +212,7 @@ checkNatCons c cons ty fc = case !(foldr checkCon (pure (Nothing, Nothing)) cons
     checkCon : (Name, GlobalDef) -> Core (Maybe Name, Maybe Name) -> Core (Maybe Name, Maybe Name)
     checkCon (n, gdef) cons = do
         (zero, succ) <- cons
-        let DCon _ arity _ = gdef.definition
+        let DCon _ _ arity = gdef.definition
             | def => throw $ GenericMsg fc $ "Expected data constructor, found:" ++ showDefType def
         case arity `minus` length gdef.eraseArgs of
             0 => case zero of
@@ -223,10 +236,10 @@ processBuiltinNatural fc name = do
         | ns => ambiguousName fc name $ (\(n, _, _) => n) <$> ns
     False <- isNatural fc n
         | True => pure ()
-    let TCon _ _ _ _ _ _ dcons _ = gdef.definition
+    let TCon ti _ = gdef.definition
         | def => throw $ GenericMsg fc
             $ "Expected a type constructor, found " ++ showDefType def ++ "."
-    cons <- getConsGDef fc dcons
+    cons <- getConsGDef fc (datacons ti)
     checkNatCons ds.gamma cons n fc
 
 ||| Check a `%builtin NaturalToInteger` pragma is correct.
@@ -239,7 +252,7 @@ processNatToInteger fc fn = do
     log "builtin.NaturalToInteger" 5 $ "Processing %builtin NaturalToInteger " ++ show_fn ++ "."
     [(_ , i, gdef)] <- lookupCtxtName fn ds.gamma
         | ns => ambiguousName fc fn $ (\(n, _, _) => n) <$> ns
-    let PMDef _ args _ cases _ = gdef.definition
+    let Function _ _ = gdef.definition
         | def => throw $ GenericMsg fc
             $ "Expected function definition, found " ++ showDefType def ++ "."
     type <- toFullNames gdef.type
@@ -267,7 +280,7 @@ processIntegerToNat fc fn = do
     [(_, i, gdef)] <- lookupCtxtName fn ds.gamma
         | ns => ambiguousName fc fn $ (\(n, _, _) => n) <$> ns
     type <- toFullNames gdef.type
-    let PMDef _ _ _ _ _ = gdef.definition
+    let Function _ _ = gdef.definition
         | def => throw $ GenericMsg fc
             $ "Expected function definition, found " ++ showDefType def ++ "."
     logTerm "builtin.IntegerToNatural" 25 ("Type of " ++ show_fn) type

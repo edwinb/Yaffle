@@ -2,6 +2,11 @@ Thanks for your interest! There is still significant work to be done on the
 core before accepting contributions generally, but there are a number of
 TODOs throughout for which I would welcome some help. Currently these are:
 
+* Any missing support functions for TT to be ported from existing Idris 2.
+  I currently know about:
+    - Core.mapTermM
+* Tidy up Show instance for 'Term'
+* Pretty printing of Term, TTImp and Raw syntax
 * Please review the rules implemented in Core/Typecheck/Check.idr
     - Especially regarding quantities and universe levels
     - Needs fix: Test tt/unify004 will only work properly if scrutinees of
@@ -16,11 +21,6 @@ TODOs throughout for which I would welcome some help. Currently these are:
     - I haven't always done this while porting large chunks from Idris 2,
       in the interests of making progress, but for the sake of tidiness and
       readability, it would be nice.
-* Any missing support functions for TT to be ported from existing Idris 2
-    - I will add these as they are needed, but it's even better if they're
-      already done :). Mostly they'll be the same, with the addition of
-      case alternatives. Experience so far is that case alternatives in the
-      new representation are easier to process...
 * Implement TTC instances
 * Implement 'checkConstraints' in Core.TT.Universes. This should check
   whether the `uconstraints` are consistent and instantiate the names standing
@@ -30,8 +30,6 @@ TODOs throughout for which I would welcome some help. Currently these are:
     - For the moment it always succeeds. I am adding constraints as I work
       through unification/type checking.
 * Implement an alternative conversion checker which is type-directed
-* Tidy up Show instance for 'Term'
-* Pretty printing of Term, TTImp and Raw syntax
 * Do the parser for Core Syntax properly.
     - It is just a quick hack to allow setting up testing, experimentation, etc.
     - It would be still be nice if it got past the totality checker
@@ -46,7 +44,6 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
-* Index 'Value' by whether it has been 'expanded'
 * Continue TTImp elaborator
 * Unification details (which will come up during elaboration...):
   - Inlining things with linear quantities in the context
@@ -67,4 +64,4 @@ edwinb's next steps:
 * ???
 * PROFIT
 
-(Last updated 16th September 2022)
+(Last updated 30th September 2022)
