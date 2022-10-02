@@ -149,6 +149,8 @@ data FnOpt' : Type -> Type where
      ExternFn : FnOpt' nm
      -- Defined externally, list calling conventions
      ForeignFn : List (RawImp' nm) -> FnOpt' nm
+     -- Mark for export to a foreign language, list calling conventions
+     ForeignExport : List (RawImp' nm) -> FnOpt' nm
      -- assume safe to cancel arguments in unification
      Invertible : FnOpt' nm
      Totality : TotalReq -> FnOpt' nm
@@ -410,6 +412,7 @@ mutual
     show (GlobalHint t) = "%globalhint " ++ show t
     show ExternFn = "%extern"
     show (ForeignFn cs) = "%foreign " ++ showSep " " (map show cs)
+    show (ForeignExport cs) = "%export " ++ showSep " " (map show cs)
     show Invertible = "%invertible"
     show (Totality Total) = "total"
     show (Totality CoveringOnly) = "covering"
@@ -435,6 +438,7 @@ mutual
     (GlobalHint x) == (GlobalHint y) = x == y
     ExternFn == ExternFn = True
     (ForeignFn xs) == (ForeignFn ys) = True -- xs == ys
+    (ForeignExport xs) == (ForeignExport ys) = True -- xs == ys
     Invertible == Invertible = True
     (Totality tot_lhs) == (Totality tot_rhs) = tot_lhs == tot_rhs
     Macro == Macro = True

@@ -418,6 +418,7 @@ initDefs
            , userHoles = empty
            , warnings = []
            , schemeEvalLoaded = False
+           , foreignExports = empty
            }
 
 parameters {auto c : Ref Ctxt Defs}

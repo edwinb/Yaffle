@@ -198,7 +198,7 @@ addLHS loc outerenvlen env tm
 findEntryWith : (NonEmptyFC -> a -> Bool) -> List (NonEmptyFC, a) -> Maybe (NonEmptyFC, a)
 findEntryWith = find . uncurry
 
-parameters {c : Ref Ctxt Defs} {m : Ref MD Metadata}
+parameters {auto c : Ref Ctxt Defs} {auto m : Ref MD Metadata}
 
   export
   addNameType : {vars : _} ->
@@ -257,7 +257,7 @@ parameters {c : Ref Ctxt Defs} {m : Ref MD Metadata}
            put MD $ {semanticHighlighting
                        := (fromList newDecors) `union` posmap} meta
 
-parameters {m : Ref MD Metadata}
+parameters {auto m : Ref MD Metadata}
   export
   setHoleLHS : ClosedTerm -> Core ()
   setHoleLHS tm = update MD { currentLHS := Just tm }

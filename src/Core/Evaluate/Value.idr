@@ -80,6 +80,27 @@ data Value : Form -> SnocList Name -> Type where
      VImpossible : FC -> Value f vars
      VType    : FC -> Name -> Value f vars
 
+export
+getLoc : Value f vars -> FC
+getLoc (VLam fc x y z ty sc) = fc
+getLoc (VBind fc x y sc) = fc
+getLoc (VApp fc x y sx z) = fc
+getLoc (VLocal fc x idx p sx) = fc
+getLoc (VMeta fc x y xs sx z) = fc
+getLoc (VDCon fc x tag arity sx) = fc
+getLoc (VTCon fc x arity sx) = fc
+getLoc (VAs fc x y z) = fc
+getLoc (VCase fc x sc scTy xs) = fc
+getLoc (VDelayed fc x y) = fc
+getLoc (VDelay fc x y z) = fc
+getLoc (VForce fc x y sx) = fc
+getLoc (VPrimVal fc x) = fc
+getLoc (VPrimOp fc x xs) = fc
+getLoc (VErased fc imp) = fc
+getLoc (VUnmatched fc x) = fc
+getLoc (VImpossible fc) = fc
+getLoc (VType fc x) = fc
+
 -- If a value is an App or Meta node, then it might be reducible. Expand it
 -- just enough that we have the right top level node.
 -- The 'believe_me' are there to save us deconstructing and reconstructing

@@ -20,14 +20,13 @@ import Data.List1
 import Data.String
 import Libraries.Data.NameMap
 
-{-
 %default covering
 
-getRetTy : Defs -> NF [] -> Core Name
-getRetTy defs (NBind fc _ (Pi _ _ _ _) sc)
-    = getRetTy defs !(sc defs (toClosure defaultOpts [] (Erased fc False)))
-getRetTy defs (NTCon _ n _ _ _) = pure n
-getRetTy defs ty
+getRetTy : NF [<] -> Core Name
+getRetTy (VBind fc _ (Pi _ _ _ _) sc)
+    = getRetTy !(expand !(sc (VErased fc False)))
+getRetTy (VTCon _ n _ _) = pure n
+getRetTy ty
     = throw (GenericMsg (getLoc ty)
              "Can only add hints for concrete return types")
 
@@ -53,7 +52,7 @@ processFnOpt fc True ndef (Hint d)
     = do defs <- get Ctxt
          Just ty <- lookupTyExact ndef (gamma defs)
               | Nothing => undefinedName fc ndef
-         target <- getRetTy defs !(nf defs [] ty)
+         target <- getRetTy !(expand !(nf [<] ty))
          addHintFor fc target ndef d False
 processFnOpt fc _ ndef (Hint d)
     = do log "elab" 5 $ "Adding local hint " ++ show !(toFullNames ndef)
@@ -90,7 +89,7 @@ processFnOpt fc _ ndef (SpecArgs ns)
     = do defs <- get Ctxt
          Just gdef <- lookupCtxtExact ndef (gamma defs)
               | Nothing => undefinedName fc ndef
-         nty <- nf defs [] (type gdef)
+         nty <- expand !(nf [<] (type gdef))
          ps <- getNamePos 0 nty
          ddeps <- collectDDeps nty
          specs <- collectSpec [] ddeps ps nty
@@ -106,14 +105,13 @@ processFnOpt fc _ ndef (SpecArgs ns)
                               else insertDeps (pos :: acc) ps ns
 
     -- Collect the argument names which the dynamic args depend on
-    collectDDeps : NF [] -> Core (List Name)
-    collectDDeps (NBind tfc x (Pi _ _ _ nty) sc)
+    collectDDeps : NF [<] -> Core (List Name)
+    collectDDeps (VBind tfc x (Pi _ _ _ nty) sc)
         = do defs <- get Ctxt
-             empty <- clearDefs defs
-             sc' <- sc defs (toClosure defaultOpts [] (Ref tfc Bound x))
+             sc' <- expand !(sc (VApp tfc Bound x [<] (pure Nothing)))
              if x `elem` ns
                 then collectDDeps sc'
-                else do aty <- quote empty [] nty
+                else do aty <- quote [<] nty
                         -- Get names depended on by nty
                         let deps = keys (getRefs (UN Underscore) aty)
                         rest <- collectDDeps sc'
@@ -122,51 +120,57 @@ processFnOpt fc _ ndef (SpecArgs ns)
 
     -- Return names the type depends on, and whether it's a parameter
     mutual
-      getDepsArgs : Bool -> List (NF []) -> NameMap Bool ->
+      getDepsArgs : Bool -> SnocList (NF [<]) -> NameMap Bool ->
                     Core (NameMap Bool)
-      getDepsArgs inparam [] ns = pure ns
-      getDepsArgs inparam (a :: as) ns
+      getDepsArgs inparam [<] ns = pure ns
+      getDepsArgs inparam (as :< a) ns
           = do ns' <- getDeps inparam a ns
                getDepsArgs inparam as ns'
 
-      getDeps : Bool -> NF [] -> NameMap Bool ->
+      getDeps : Bool -> NF [<] -> NameMap Bool ->
                 Core (NameMap Bool)
-      getDeps inparam (NBind _ x (Pi _ _ _ pty) sc) ns
+      getDeps inparam (VLam _ x _ _ ty sc) ns
           = do defs <- get Ctxt
-               ns' <- getDeps inparam !(evalClosure defs pty) ns
-               sc' <- sc defs (toClosure defaultOpts [] (Erased fc False))
-               getDeps inparam sc' ns'
-      getDeps inparam (NBind _ x b sc) ns
-          = do defs <- get Ctxt
-               ns' <- getDeps False !(evalClosure defs (binderType b)) ns
-               sc' <- sc defs (toClosure defaultOpts [] (Erased fc False))
+               ns' <- getDeps False !(expand ty) ns
+               sc' <- expand !(sc (VErased fc False))
                getDeps False sc' ns
-      getDeps inparam (NApp _ (NRef Bound n) args) ns
+      getDeps inparam (VBind _ x (Pi _ _ _ pty) sc) ns
           = do defs <- get Ctxt
-               ns' <- getDepsArgs False !(traverse (evalClosure defs . snd) args) ns
+               ns' <- getDeps inparam !(expand pty) ns
+               sc' <- expand !(sc (VErased fc False))
+               getDeps inparam sc' ns'
+      getDeps inparam (VBind _ x b sc) ns
+          = do defs <- get Ctxt
+               ns' <- getDeps False !(expand (binderType b)) ns
+               sc' <- expand !(sc (VErased fc False))
+               getDeps False sc' ns
+      getDeps inparam (VApp _ Bound n args _) ns
+          = do defs <- get Ctxt
+               ns' <- getDepsArgs False !(traverseSnocList spineVal args) ns
                pure (insert n inparam ns')
-      getDeps inparam (NDCon _ n t a args) ns
+      getDeps inparam (VDCon _ n t a args) ns
           = do defs <- get Ctxt
-               getDepsArgs False !(traverse (evalClosure defs . snd) args) ns
-      getDeps inparam (NTCon _ n t a args) ns
+               getDepsArgs False !(traverseSnocList spineVal args) ns
+      getDeps inparam (VTCon _ n a args) ns
           = do defs <- get Ctxt
                params <- case !(lookupDefExact n (gamma defs)) of
-                              Just (TCon _ _ ps _ _ _ _ _) => pure ps
+                              Just (TCon ti a) => pure (paramPos ti)
                               _ => pure []
-               let (ps, ds) = splitPs 0 params (map snd args)
-               ns' <- getDepsArgs True !(traverse (evalClosure defs) ps) ns
-               getDepsArgs False !(traverse (evalClosure defs) ds) ns'
+               let (ps, ds) = splitPs 0 params
+                                      (cast !(traverseSnocList spineVal args))
+               ns' <- getDepsArgs True ps ns
+               getDepsArgs False ds ns'
         where
           -- Split into arguments in parameter position, and others
-          splitPs : Nat -> List Nat -> List (Closure []) ->
-                    (List (Closure []), List (Closure []))
-          splitPs n params [] = ([], [])
+          splitPs : Nat -> List Nat -> List (NF [<]) ->
+                    (SnocList (NF [<]), SnocList (NF [<]))
+          splitPs n params [] = ([<], [<])
           splitPs n params (x :: xs)
               = let (ps', ds') = splitPs (1 + n) params xs in
                     if n `elem` params
-                       then (x :: ps', ds')
-                       else (ps', x :: ds')
-      getDeps inparam (NDelayed _ _ t) ns = getDeps inparam t ns
+                       then (ps' :< x, ds')
+                       else (ps', ds' :< x)
+      getDeps inparam (VDelayed _ _ t) ns = getDeps inparam !(expand t) ns
       getDeps inparams nf ns = pure ns
 
     -- If the name of an argument is in the list of specialisable arguments,
@@ -176,13 +180,12 @@ processFnOpt fc _ ndef (SpecArgs ns)
                   List Name -> -- things depended on by dynamic args
                                -- We're assuming  it's a short list, so just use
                                -- List and don't worry about duplicates.
-                  List (Name, Nat) -> NF [] -> Core (List Nat)
-    collectSpec acc ddeps ps (NBind tfc x (Pi _ _ _ nty) sc)
+                  List (Name, Nat) -> NF [<] -> Core (List Nat)
+    collectSpec acc ddeps ps (VBind tfc x (Pi _ _ _ nty) sc)
         = do defs <- get Ctxt
-             empty <- clearDefs defs
-             sc' <- sc defs (toClosure defaultOpts [] (Ref tfc Bound x))
+             sc' <- expand !(sc (VApp tfc Bound x [<] (pure Nothing)))
              if x `elem` ns
-                then do deps <- getDeps True !(evalClosure defs nty) NameMap.empty
+                then do deps <- getDeps True !(expand nty) NameMap.empty
                         -- Get names depended on by nty
                         -- Keep the ones which are either:
                         --  * parameters
@@ -195,28 +198,26 @@ processFnOpt fc _ ndef (SpecArgs ns)
                 else collectSpec acc ddeps ps sc'
     collectSpec acc ddeps ps _ = pure acc
 
-    getNamePos : Nat -> NF [] -> Core (List (Name, Nat))
-    getNamePos i (NBind tfc x (Pi _ _ _ _) sc)
+    getNamePos : Nat -> NF [<] -> Core (List (Name, Nat))
+    getNamePos i (VBind tfc x (Pi _ _ _ _) sc)
         = do defs <- get Ctxt
-             ns' <- getNamePos (1 + i) !(sc defs (toClosure defaultOpts [] (Erased tfc False)))
+             ns' <- getNamePos (1 + i) !(expand !(sc (VErased tfc False)))
              pure ((x, i) :: ns')
     getNamePos _ _ = pure []
 
 getFnString : {auto c : Ref Ctxt Defs} ->
               {auto m : Ref MD Metadata} ->
               {auto u : Ref UST UState} ->
-              {auto s : Ref Syn SyntaxInfo} ->
-              {auto o : Ref ROpts REPLOpts} ->
                RawImp -> Core String
 getFnString (IPrimVal _ (Str st)) = pure st
 getFnString tm
     = do inidx <- resolveName (UN $ Basic "[foreign]")
          let fc = getFC tm
-         let gstr = gnf [] (PrimVal fc $ PrT StringType)
-         etm <- checkTerm inidx InExpr [] (MkNested []) [] tm gstr
+         gstr <- nf [<] (PrimVal fc $ PrT StringType)
+         etm <- checkTerm inidx InExpr [] (MkNested []) [<] tm gstr
          defs <- get Ctxt
-         case !(nf defs [] etm) of
-              NPrimVal fc (Str st) => pure st
+         case !(nf [<] etm) of
+              VPrimVal fc (Str st) => pure st
               _ => throw (GenericMsg fc "%foreign calling convention must evaluate to a String")
 
 -- If it's declared as externally defined, set the definition to
@@ -227,19 +228,17 @@ initDef : {vars : _} ->
           {auto c : Ref Ctxt Defs} ->
           {auto m : Ref MD Metadata} ->
           {auto u : Ref UST UState} ->
-          {auto s : Ref Syn SyntaxInfo} ->
-          {auto o : Ref ROpts REPLOpts} ->
           FC -> Name -> Env Term vars -> Term vars -> List FnOpt -> Core Def
 initDef fc n env ty []
     = do addUserHole False n
          pure None
 initDef fc n env ty (ExternFn :: opts)
     = do defs <- get Ctxt
-         a <- getArity defs env ty
+         a <- getArity env ty
          pure (ExternDef a)
 initDef fc n env ty (ForeignFn cs :: opts)
     = do defs <- get Ctxt
-         a <- getArity defs env ty
+         a <- getArity env ty
          cs' <- traverse getFnString cs
          pure (ForeignDef a cs')
 -- In this case, nothing to initialise to, but we do need to process the
@@ -264,36 +263,36 @@ initDef fc n env ty (_ :: opts) = initDef fc n env ty opts
 -- generalising partially evaluated definitions and (potentially) in interactive
 -- editing
 findInferrable : {auto c : Ref Ctxt Defs} ->
-                 Defs -> NF [] -> Core (List Nat)
-findInferrable defs ty = fi 0 0 [] [] ty
+                 NF [<] -> Core (List Nat)
+findInferrable ty = fi 0 0 [] [] ty
   where
     mutual
       -- Add to the inferrable arguments from the given type. An argument is
       -- inferrable if it's guarded by a constructor, or on its own
       findInf : List Nat -> List (Name, Nat) ->
-                NF [] -> Core (List Nat)
-      findInf acc pos (NApp _ (NRef Bound n) [])
+                NF [<] -> Core (List Nat)
+      findInf acc pos (VApp _ Bound n [<] _)
           = case lookup n pos of
                  Nothing => pure acc
                  Just p => if p `elem` acc then pure acc else pure (p :: acc)
-      findInf acc pos (NDCon _ _ _ _ args)
-          = do args' <- traverse (evalClosure defs . snd) args
+      findInf acc pos (VDCon _ _ _ _ args)
+          = do args' <- traverseSnocList spineVal args
                findInfs acc pos args'
-      findInf acc pos (NTCon _ _ _ _ args)
-          = do args' <- traverse (evalClosure defs . snd) args
+      findInf acc pos (VTCon _ _ _ args)
+          = do args' <- traverseSnocList spineVal args
                findInfs acc pos args'
-      findInf acc pos (NDelayed _ _ t) = findInf acc pos t
+      findInf acc pos (VDelayed _ _ t) = findInf acc pos !(expand t)
       findInf acc _ _ = pure acc
 
-      findInfs : List Nat -> List (Name, Nat) -> List (NF []) -> Core (List Nat)
-      findInfs acc pos [] = pure acc
-      findInfs acc pos (n :: ns) = findInf !(findInfs acc pos ns) pos n
+      findInfs : List Nat -> List (Name, Nat) -> SnocList (NF [<]) -> Core (List Nat)
+      findInfs acc pos [<] = pure acc
+      findInfs acc pos (ns :< n) = findInf !(findInfs acc pos ns) pos n
 
-    fi : Nat -> Int -> List (Name, Nat) -> List Nat -> NF [] -> Core (List Nat)
-    fi pos i args acc (NBind fc x (Pi _ _ _ aty) sc)
+    fi : Nat -> Int -> List (Name, Nat) -> List Nat -> NF [<] -> Core (List Nat)
+    fi pos i args acc (VBind fc x (Pi _ _ _ aty) sc)
         = do let argn = MN "inf" i
-             sc' <- sc defs (toClosure defaultOpts [] (Ref fc Bound argn))
-             acc' <- findInf acc args !(evalClosure defs aty)
+             sc' <- expand !(sc (VApp fc Bound argn [<] (pure Nothing)))
+             acc' <- findInf acc args !(expand aty)
              rest <- fi (1 + pos) (1 + i) ((argn, pos) :: args) acc' sc'
              pure rest
     fi pos i args acc ret = findInf acc args ret
@@ -303,8 +302,6 @@ processType : {vars : _} ->
               {auto c : Ref Ctxt Defs} ->
               {auto m : Ref MD Metadata} ->
               {auto u : Ref UST UState} ->
-              {auto s : Ref Syn SyntaxInfo} ->
-              {auto o : Ref ROpts REPLOpts} ->
               List ElabOpt -> NestedNames vars -> Env Term vars ->
               FC -> RigCount -> Visibility ->
               List FnOpt -> ImpTy -> Core ()
@@ -327,27 +324,21 @@ processType {vars} eopts nest env fc rig vis opts (MkImpTy tfc nameFC n_in ty_ra
              wrapErrorC eopts (InType fc n) $
                    checkTerm idx InType (HolesOkay :: eopts) nest env
                              (IBindHere fc (PI erased) ty_raw)
-                             (gType fc u)
-         logTermNF "declare.type" 3 ("Type of " ++ show n) [] (abstractFullEnvType tfc env ty)
+                             (VType fc u)
+         logTermNF "declare.type" 3 ("Type of " ++ show n) [<] (abstractFullEnvType tfc env ty)
 
          def <- initDef fc n env ty opts
          let fullty = abstractFullEnvType tfc env ty
 
          (erased, dterased) <- findErased fullty
          defs <- get Ctxt
-         empty <- clearDefs defs
-         infargs <- findInferrable empty !(nf defs [] fullty)
+         infargs <- findInferrable !(expand !(nf [<] fullty))
 
          ignore $ addDef (Resolved idx)
                 ({ eraseArgs := erased,
                    safeErase := dterased,
                    inferrable := infargs }
                  (newDef fc n rig vars fullty vis def))
-         -- Flag it as checked, because we're going to check the clauses
-         -- from the top level.
-         -- But, if it's a case block, it'll be checked as part of the top
-         -- level check so don't set the flag.
-         unless (InCase `elem` eopts) $ setLinearCheck idx True
 
          log "declare.type" 2 $ "Setting options for " ++ show n ++ ": " ++ show opts
          let name = Resolved idx

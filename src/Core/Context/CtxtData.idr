@@ -307,6 +307,9 @@ record Defs where
   warnings : List Warning
        -- ^ as yet unreported warnings
   schemeEvalLoaded : Bool
+  foreignExports : NameMap (List (String, String))
+       -- ^ For functions which are callable from a foreign language. This
+       -- maps names to a pair of the back end and the exported function name
 
 -- Label for context references
 export

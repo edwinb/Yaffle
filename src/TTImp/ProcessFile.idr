@@ -29,8 +29,8 @@ parameters {auto c : Ref Ctxt Defs}
   process : {vars : _} ->
             List ElabOpt ->
             NestedNames vars -> Env Term vars -> ImpDecl -> Core ()
---   process eopts nest env (IClaim fc rig vis opts ty)
---       = processType eopts nest env fc rig vis opts ty
+  process eopts nest env (IClaim fc rig vis opts ty)
+      = processType eopts nest env fc rig vis opts ty
   process eopts nest env (IData fc vis mbtot ddef)
       = processData eopts nest env fc vis mbtot ddef
 --   process eopts nest env (IDef fc fname def)
