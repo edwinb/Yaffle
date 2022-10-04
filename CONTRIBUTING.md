@@ -45,6 +45,9 @@ TODOs throughout for which I would welcome some help. Currently these are:
 edwinb's next steps:
 
 * Continue TTImp elaborator
+  - Port all the missing imports in TTImp.ProcessDef
+  - Complete ProcessDef
+  - Implement 'check', elaboration of RawImp to TT
 * Unification details (which will come up during elaboration...):
   - Inlining things with linear quantities in the context
   - We don't need 'inlineOnly' in the context any more, so remove once

@@ -12,6 +12,7 @@ import TTImp.BindImplicits
 import TTImp.Parser
 import TTImp.ProcessBuiltin
 import TTImp.ProcessData
+import TTImp.ProcessDef
 import TTImp.ProcessType
 import TTImp.TTImp
 import TTImp.Elab.Check
