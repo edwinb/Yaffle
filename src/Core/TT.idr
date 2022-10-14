@@ -310,9 +310,8 @@ insertNames out ns (TForce fc x y)
 insertNames out ns (PrimVal fc c) = PrimVal fc c
 insertNames out ns (PrimOp fc x xs)
     = PrimOp fc x (map (insertNames out ns) xs)
-insertNames out ns (Erased fc imp) = Erased fc imp
+insertNames out ns (Erased fc why) = Erased fc (insertNames out ns <$> why)
 insertNames out ns (Unmatched fc x) = Unmatched fc x
-insertNames out ns (Impossible fc) = Impossible fc
 insertNames out ns (TType fc u) = TType fc u
 
 -- Declared above, mutual with insertNames
@@ -432,9 +431,8 @@ shrinkTerm (TForce fc r x) prf
 shrinkTerm (PrimVal fc c) prf = Just (PrimVal fc c)
 shrinkTerm (PrimOp fc fn args) prf
    = Just (PrimOp fc fn !(traverse (\arg => shrinkTerm arg prf) args))
-shrinkTerm (Erased fc i) prf = Just (Erased fc i)
+shrinkTerm (Erased fc why) prf = Erased fc <$> traverse (`shrinkTerm` prf) why
 shrinkTerm (Unmatched fc s) prf = Just (Unmatched fc s)
-shrinkTerm (Impossible fc) prf = Just (Impossible fc)
 shrinkTerm (TType fc u) prf = Just (TType fc u)
 
 namespace Bounds
@@ -508,9 +506,8 @@ mkLocals outer bs (TForce fc r x)
 mkLocals outer bs (PrimVal fc c) = PrimVal fc c
 mkLocals outer bs (PrimOp fc fn args)
     = PrimOp fc fn (map (mkLocals outer bs) args)
-mkLocals outer bs (Erased fc i) = Erased fc i
+mkLocals outer bs (Erased fc why) = Erased fc (mkLocals outer bs <$> why)
 mkLocals outer bs (Unmatched fc s) = Unmatched fc s
-mkLocals outer bs (Impossible fc) = Impossible fc
 mkLocals outer bs (TType fc u) = TType fc u
 
 mkLocalsCaseScope
@@ -687,9 +684,8 @@ namespace SubstEnv
   substEnv outer env (TForce fc r x) = TForce fc r (substEnv outer env x)
   substEnv outer env (PrimVal fc c) = PrimVal fc c
   substEnv outer env (PrimOp fc op args) = ?todoPrimOp
-  substEnv outer env (Erased fc i) = Erased fc i
-  substEnv outer env (Unmatched fc s) = Unmatched fc s
-  substEnv outer env (Impossible fc) = Impossible fc
+  substEnv outer env (Erased fc i) = Erased fc (substEnv outer env <$> i)
+  substEnv outer env (Unmatched fc str) = Unmatched fc str
   substEnv outer env (TType fc u) = TType fc u
 
   substCaseScope : SizeOf outer ->
@@ -762,7 +758,6 @@ addMetas res ns (PrimOp fc op args) = addMetaArgs ns args
     addMetaArgs ns (t :: ts) = addMetaArgs (addMetas res ns t) ts
 addMetas res ns (Erased fc i) = ns
 addMetas res ns (Unmatched fc str) = ns
-addMetas res ns (Impossible fc) = ns
 addMetas res ns (TType fc u) = ns
 
 -- Get the metavariable names in a term
@@ -819,7 +814,6 @@ addRefs ua at ns (PrimOp fc op args) = addRefArgs ns args
     addRefArgs ns (t :: ts) = addRefArgs (addRefs ua at ns t) ts
 addRefs ua at ns (Erased fc i) = ns
 addRefs ua at ns (Unmatched fc str) = ns
-addRefs ua at ns (Impossible fc) = ns
 addRefs ua at ns (TType fc u) = ns
 
 -- As above, but for references. Also flag whether a name is under an
@@ -880,9 +874,10 @@ mutual
         showApp (TForce _ _ tm) [] = "%Force " ++ show tm
         showApp (PrimVal _ c) [] = show c
         showApp (PrimOp _ op args) [] = show op ++ show args
-        showApp (Erased _ _) [] = "[__]"
+        showApp (Erased _ Placeholder) [] = "[__]"
+        showApp (Erased _ Impossible) [] = "impossible"
+        showApp (Erased _ (Dotted t)) [] = ".(\{showApp t []})"
         showApp (Unmatched _ str) [] = "Unmatched: " ++ show str
-        showApp (Impossible _) [] = "impossible"
         showApp (TType _ u) [] = "Type"
         showApp f args@(_ :: _)
           = "(" ++ assert_total (show f) ++ " " ++

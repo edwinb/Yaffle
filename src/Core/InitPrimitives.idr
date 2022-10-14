@@ -19,7 +19,7 @@ mkFn i Z op args
     mkLoc (MkVar p) = Local EmptyFC Nothing _ p
 mkFn i (S k) op args
     = Bind EmptyFC (MN "arg" i)
-           (Lam EmptyFC RigW Explicit (Erased EmptyFC False))
+           (Lam EmptyFC RigW Explicit (Erased EmptyFC Placeholder))
            (mkFn (i + 1) k
                  (rewrite sym (plusSuccRightSucc k done) in op)
                  (MkVar First :: map later args))

@@ -195,7 +195,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 
       blockedApp : Value f vars -> Core Bool
       blockedApp (VLam fc _ _ _ _ sc)
-          = blockedApp !(sc (VErased fc False))
+          = blockedApp !(sc (VErased fc Placeholder))
       blockedApp (VCase{}) = pure True
       blockedApp _ = pure False
   quoteGen {bound} s bounds env (VLocal fc mlet idx p sp)
@@ -272,9 +272,8 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       quoteArgs [] = pure []
       quoteArgs (a :: as)
           = pure $ !(quoteGen s bounds env a) :: !(quoteArgs as)
-  quoteGen s bounds env (VErased fc i) = pure $ Erased fc i
+  quoteGen s bounds env (VErased fc why) = Erased fc <$> traverse @{%search} @{CORE} (quoteGen s bounds env) why
   quoteGen s bounds env (VUnmatched fc str) = pure $ Unmatched fc str
-  quoteGen s bounds env (VImpossible fc) = pure $ Impossible fc
   quoteGen s bounds env (VType fc n) = pure $ TType fc n
 
 parameters {auto c : Ref Ctxt Defs}

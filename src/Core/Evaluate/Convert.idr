@@ -201,9 +201,10 @@ parameters {auto c : Ref Ctxt Defs}
                     | False => pure False
                convArgs xs ys
       convArgs _ _ = pure False
+  convGen s env (VErased _ (Dotted t)) u = convGen s env t u
+  convGen s env t (VErased _ (Dotted u)) = convGen s env t u
   convGen s env (VErased _ _) _ = pure True
   convGen s env _ (VErased _ _) = pure True
-  convGen s env (VImpossible _) (VImpossible _) = pure True
   convGen s env (VType fc n) (VType fc' n')
       = do addConstraint (ULE fc n fc' n')
            pure True

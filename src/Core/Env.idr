@@ -133,7 +133,7 @@ export
 mkEnvOnto : FC -> (xs : SnocList Name) -> Env Term ys -> Env Term (ys ++ xs)
 mkEnvOnto fc [<] vs = vs
 mkEnvOnto fc (ns :< n) vs
-   = mkEnvOnto fc ns vs :< PVar fc top Explicit (Erased fc False)
+   = mkEnvOnto fc ns vs :< PVar fc top Explicit (Erased fc Placeholder)
 
 -- Make a dummy environment, if we genuinely don't care about the values
 -- and types of the contents.
@@ -141,4 +141,4 @@ mkEnvOnto fc (ns :< n) vs
 export
 mkEnv : FC -> (vs : SnocList Name) -> Env Term vs
 mkEnv fc [<] = [<]
-mkEnv fc (ns :< n) = mkEnv fc ns :< PVar fc top Explicit (Erased fc False)
+mkEnv fc (ns :< n) = mkEnv fc ns :< PVar fc top Explicit (Erased fc Placeholder)

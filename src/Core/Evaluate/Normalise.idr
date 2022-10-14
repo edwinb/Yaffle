@@ -163,6 +163,8 @@ parameters {auto c : Ref Ctxt Defs}
             List (CaseAlt (vars ++ free)) ->
             Core (Glued vars) -> -- what to do if stuck
             Core (Glued vars)
+  tryAlts locs env (VErased _ (Dotted v)) alts stuck
+      = tryAlts locs env v alts stuck
   tryAlts {vars} locs env sc@(VDCon _ _ t a sp) (ConCase _ _ t' cscope :: as) stuck
       = if t == t' then evalCaseScope locs (cast sp) cscope
            else tryAlts locs env sc as stuck
@@ -323,9 +325,8 @@ parameters {auto c : Ref Ctxt Defs}
       evalArgs [] = pure []
       evalArgs (a :: as) = pure $ !(eval locs env a) :: !(evalArgs as)
 
-  eval locs env (Erased fc i) = pure $ VErased fc i
+  eval locs env (Erased fc why) = VErased fc <$> traverse @{%search} @{CORE} (eval locs env) why
   eval locs env (Unmatched fc str) = pure $ VUnmatched fc str
-  eval locs env (Impossible fc) = pure $ VImpossible fc
   eval locs env (TType fc n) = pure $ VType fc n
 
   export
