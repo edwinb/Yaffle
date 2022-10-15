@@ -10,13 +10,21 @@ import Core.Unify.State
 
 parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
 
+  readQs : NF [<] -> Core (List RigCount)
+  readQs (VBind fc x (Pi _ c _ _) sc)
+      = do rest <- readQs !(expand !(sc (VErased fc False)))
+           pure (c :: rest)
+  readQs _ = pure []
+
   processDataCon : FC -> Name -> (Int, RawCon) -> Core Name
   processDataCon fc tycon (tag, RConDecl n rty)
       = do checkUndefined fc n
            ty <- check erased [<] rty (topType fc)
-           checkIsTy !(expand !(nf [<] ty))
+           tnf <- expand !(nf [<] ty)
+           checkIsTy tnf
            arity <- getArity [<] ty
-           let dinf = MkDataConInfo Nothing
+           qs <- readQs tnf
+           let dinf = MkDataConInfo qs Nothing
            idx <- addDef n (newDef fc n linear [<] ty Public (DCon dinf tag arity))
            pure (Resolved idx)
     where

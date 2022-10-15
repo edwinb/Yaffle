@@ -694,13 +694,18 @@ mutual -- Bah, they are all mutual and we can't forward declare implementations 
         = pure (DefaultCase fc !(resolved gam x))
 
   export
+  HasNames a => HasNames (RigCount, a) where
+    full gam (c, t) = pure $ (c, !(full gam t))
+    resolved gam (c, t) = pure $ (c, !(resolved gam t))
+
+  export
   HasNames (Term vars) where
     full gam (Ref fc x (Resolved i))
         = do Just gdef <- lookupCtxtExact (Resolved i) gam
                   | Nothing => pure (Ref fc x (Resolved i))
              pure (Ref fc x (fullname gdef))
     full gam (Meta fc x i xs)
-        = do xs <- traverse (\ (c, tm) => pure (c, !(full gam tm))) xs
+        = do xs <- traverse (full gam) xs
              pure $ case !(lookupCtxtExact (Resolved i) gam) of
                Nothing => Meta fc x i xs
                Just gdef => Meta fc (fullname gdef) i xs
@@ -729,7 +734,7 @@ mutual -- Bah, they are all mutual and we can't forward declare implementations 
                   | Nothing => pure (Ref fc x n)
              pure (Ref fc x (Resolved i))
     resolved gam (Meta fc x y xs)
-        = do xs' <- traverse (\ (c, tm) => pure (c, !(resolved gam tm))) xs
+        = do xs' <- traverse (resolved gam) xs
              let Just i = getNameID x gam
                  | Nothing => pure (Meta fc x y xs')
              pure (Meta fc x i xs')

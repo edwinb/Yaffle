@@ -24,6 +24,13 @@ Show TFileError where
   show (TTFileErr str) = str
 
 public export
+data CaseError = DifferingArgNumbers
+               | DifferingTypes
+               | MatchErased (vars ** (Env Term vars, Term vars))
+               | NotFullyApplied Name
+               | UnknownType
+
+public export
 data Error : Type where
      CantConvert : {vars : _} ->
                    FC -> Defs -> Env Term vars ->
@@ -49,6 +56,8 @@ data Error : Type where
      NotFunctionType : {vars : _} ->
                    FC -> Defs -> Env Term vars ->
                    Term vars -> Error
+     CaseCompile : FC -> Name -> CaseError -> Error
+
      LinearUsed : FC -> Nat -> Name -> Error
      LinearMisuse : FC -> Name -> RigCount -> RigCount -> Error
 
@@ -129,6 +138,18 @@ Show Error where
   show (AlreadyDefined fc n) = show fc ++ ":" ++ show n ++ " is already defined"
   show (NotFunctionType fc defs env t)
       = show fc ++ ":" ++ show t ++ " is not a function type"
+  show (CaseCompile fc n DifferingArgNumbers)
+      = show fc ++ ":Patterns for " ++ show n ++ " have different numbers of arguments"
+  show (CaseCompile fc n DifferingTypes)
+      = show fc ++ ":Patterns for " ++ show n ++ " require matching on different types"
+  show (CaseCompile fc n UnknownType)
+      = show fc ++ ":Can't infer type to match in " ++ show n
+  show (CaseCompile fc n (MatchErased (_ ** (env, tm))))
+      = show fc ++ ":Attempt to match on erased argument " ++ show tm ++
+                   " in " ++ show n
+  show (CaseCompile fc n (NotFullyApplied c))
+      = show fc ++ ":Constructor " ++ show c ++ " is not fully applied"
+
   show (LinearUsed fc count n)
       = show fc ++ ":There are " ++ show count ++ " uses of linear name " ++ show n
   show (LinearMisuse fc n exp ctx)

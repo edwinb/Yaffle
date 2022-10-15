@@ -114,12 +114,19 @@ addData vars vis tidx (MkData (MkCon dfc tyn arity tycon) datacons)
     conVisibility Export = Private
     conVisibility x = x
 
+    readQs : NF [<] -> Core (List RigCount)
+    readQs (VBind fc x (Pi _ c _ _) sc)
+        = do rest <- readQs !(expand !(sc (VErased fc False)))
+             pure (c :: rest)
+    readQs _ = pure []
+
     addDataConstructors : (tag : Int) -> List Constructor ->
                           Context -> Core Context
     addDataConstructors tag [] gam = pure gam
     addDataConstructors tag (MkCon fc n a ty :: cs) gam
-        = do let condef = newDef fc n top vars ty (conVisibility vis)
-                                 (DCon defaultDataConInfo tag a)
+        = do qs <- readQs !(expand !(nf [<] ty))
+             let condef = newDef fc n top vars ty (conVisibility vis)
+                                 (DCon (defaultDataConInfo qs) tag a)
              -- Check 'n' is undefined
              Nothing <- lookupCtxtExact n gam
                  | Just gdef => throw (AlreadyDefined fc n)

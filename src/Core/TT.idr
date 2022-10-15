@@ -2,14 +2,55 @@ module Core.TT
 
 import public Core.TT.TT
 
+import Data.List
+import Data.Nat
 import Data.SnocList
 import Data.SnocList.Operations
-import Data.Nat
 import Data.Vect
 
 import Libraries.Data.NameMap
 
 %default covering
+
+-- Check equality, ignoring variable naming and universes
+export
+total
+eqTerm : Term vs -> Term vs' -> Bool
+eqTerm (Local _ _ idx _) (Local _ _ idx' _) = idx == idx'
+eqTerm (Ref _ _ n) (Ref _ _ n') = n == n'
+eqTerm (Meta _ _ i args) (Meta _ _ i' args')
+    = i == i' && assert_total
+         (all (uncurry eqTerm) (zip (map snd args) (map snd args')))
+eqTerm (Bind _ _ b sc) (Bind _ _ b' sc')
+    = assert_total (eqBinderBy eqTerm b b') && eqTerm sc sc'
+eqTerm (App _ f _ a) (App _ f' _ a') = eqTerm f f' && eqTerm a a'
+eqTerm (As _ _ a p) (As _ _ a' p') = eqTerm p p'
+eqTerm (Case _ _ sc ty alts) (Case _ _ sc' ty' alts')
+    = eqTerm sc sc' && eqTerm ty ty' &&
+          assert_total (all (uncurry eqAlt) (zip alts alts'))
+  where
+    eqScope : forall vs, vs' . CaseScope vs -> CaseScope vs' -> Bool
+    eqScope (RHS tm) (RHS tm') = eqTerm tm tm'
+    eqScope (Arg _ _ sc) (Arg _ _ sc') = eqScope sc sc'
+    eqScope _ _ = False
+
+    eqAlt : CaseAlt vs -> CaseAlt vs' -> Bool
+    eqAlt (ConCase _ n tag sc) (ConCase _ n' tag' sc') = tag == tag' && eqScope sc sc'
+    eqAlt (DelayCase _ ty arg tm) (DelayCase _ ty' arg' tm') = eqTerm tm tm'
+    eqAlt (ConstCase _ c tm) (ConstCase _ c' tm') = c == c' && eqTerm tm tm'
+    eqAlt (DefaultCase _ tm) (DefaultCase _ tm') = eqTerm tm tm'
+    eqAlt _ _ = False
+eqTerm (TDelayed _ _ t) (TDelayed _ _ t') = eqTerm t t'
+eqTerm (TDelay _ _ t x) (TDelay _ _ t' x') = eqTerm t t' && eqTerm x x'
+eqTerm (TForce _ _ t) (TForce _ _ t') = eqTerm t t'
+eqTerm (PrimVal _ c) (PrimVal _ c') = c == c'
+eqTerm (Erased _ i) (Erased _ i') = i == i'
+eqTerm (TType _ _) (TType _ _) = True
+eqTerm _ _ = False
+
+export
+Eq (Term vars) where
+  (==) = eqTerm
 
 public export
 reverseOnto : SnocList a -> SnocList a -> SnocList a
@@ -315,19 +356,19 @@ insertNames out ns (Unmatched fc x) = Unmatched fc x
 insertNames out ns (Impossible fc) = Impossible fc
 insertNames out ns (TType fc u) = TType fc u
 
+insertNamesScope : forall outer . SizeOf outer -> SizeOf ns ->
+              CaseScope (inner ++ outer) ->
+              CaseScope (inner ++ ns ++ outer)
+insertNamesScope out ns (RHS tm) = RHS (insertNames out ns tm)
+insertNamesScope out ns (Arg r x sc)
+    = Arg r x (insertNamesScope (suc out) ns sc)
+
 -- Declared above, mutual with insertNames
 -- insertNamesAlt : SizeOf outer -> SizeOf ns ->
 --                  CaseAlt (outer ++ inner) ->
 --                  CaseAlt (outer ++ (ns ++ inner))
 insertNamesAlt out sns (ConCase fc n t scope)
-    = ConCase fc n t (insertScope out sns scope)
-  where
-    insertScope : forall outer . SizeOf outer -> SizeOf ns ->
-                  CaseScope (inner ++ outer) ->
-                  CaseScope (inner ++ ns ++ outer)
-    insertScope out ns (RHS tm) = RHS (insertNames out ns tm)
-    insertScope out ns (Arg r x sc)
-        = Arg r x (insertScope (suc out) ns sc)
+    = ConCase fc n t (insertNamesScope out sns scope)
 insertNamesAlt out ns (DelayCase fc ty arg scope)
     = DelayCase fc ty arg (insertNames (suc (suc out)) ns scope)
 insertNamesAlt out ns (ConstCase fc c scope)
@@ -542,13 +583,85 @@ refToLocal : (x : Name) -> (new : Name) -> Term vars -> Term (vars :< new)
 refToLocal x new tm = refsToLocals (Add new x None) tm
 
 export
+isNVar : (n : Name) -> (ns : SnocList Name) -> Maybe (NVar n ns)
+isNVar n [<] = Nothing
+isNVar n (ms :< m)
+    = case nameEq n m of
+           Nothing   => map later (isNVar n ms)
+           Just Refl => pure (MkNVar First)
+
+export
+isVar : (n : Name) -> (ns : SnocList Name) -> Maybe (Var ns)
+isVar n ns = do
+  MkNVar v <- isNVar n ns
+  pure (MkVar v)
+
+-- Replace any Ref Bound in a type with appropriate local
+export
+resolveNames : (vars : SnocList Name) -> Term vars -> Term vars
+resolveNames vars (Ref fc Bound name)
+    = case isNVar name vars of
+           Just (MkNVar prf) => Local fc (Just False) _ prf
+           _ => Ref fc Bound name
+resolveNames vars (Meta fc n i xs)
+    = Meta fc n i (map (\ (c, t) => (c, resolveNames vars t)) xs)
+resolveNames vars (Bind fc x b scope)
+    = Bind fc x (map (resolveNames vars) b) (resolveNames (vars :< x) scope)
+resolveNames vars (App fc fn c arg)
+    = App fc (resolveNames vars fn) c (resolveNames vars arg)
+resolveNames vars (As fc s v@(AsLoc{}) pat)
+    = As fc s v (resolveNames vars pat)
+resolveNames vars (Case fc c sc scty alts)
+    = Case fc c (resolveNames vars sc) (resolveNames vars scty)
+                (map (resolveAlt vars) alts)
+  where
+    resolveScope : (vars : SnocList Name) -> CaseScope vars -> CaseScope vars
+    resolveScope vars (RHS tm) = RHS (resolveNames vars tm)
+    resolveScope vars (Arg c x sc) = Arg c x (resolveScope (vars :< x) sc)
+
+    resolveAlt : (vars : SnocList Name) -> CaseAlt vars -> CaseAlt vars
+    resolveAlt vars (ConCase fc x tag sc)
+        = ConCase fc x tag (resolveScope vars sc)
+    resolveAlt vars (DelayCase fc ty arg tm)
+        = DelayCase fc ty arg (resolveNames (vars :< arg :< ty) tm)
+    resolveAlt vars (ConstCase fc x tm) = ConstCase fc x (resolveNames vars tm)
+    resolveAlt vars (DefaultCase fc tm) = DefaultCase fc (resolveNames vars tm)
+
+resolveNames vars (As fc s v@(AsRef afc name) pat)
+    = case isNVar name vars of
+           Just (MkNVar prf) => As fc s (AsLoc afc _ prf) (resolveNames vars pat)
+           _ => As fc s v (resolveNames vars pat)
+resolveNames vars (TDelayed fc x y)
+    = TDelayed fc x (resolveNames vars y)
+resolveNames vars (TDelay fc x t y)
+    = TDelay fc x (resolveNames vars t) (resolveNames vars y)
+resolveNames vars (TForce fc r x)
+    = TForce fc r (resolveNames vars x)
+resolveNames vars (PrimOp fc fn args)
+    = PrimOp fc fn (map (resolveNames vars) args)
+resolveNames vars tm = tm
+
+export
 Weaken Term where
   weakenNs p tm = insertNames zero p tm
+
+export
+Weaken CaseScope where
+  weakenNs p sc = insertNamesScope zero p sc
+
+export
+Weaken CaseAlt where
+  weakenNs p sc = insertNamesAlt zero p sc
 
 export
 apply : FC -> Term vars -> List (RigCount, Term vars) -> Term vars
 apply loc fn [] = fn
 apply loc fn ((q, a) :: args) = apply loc (App loc fn q a) args
+
+export
+applySpine : FC -> Term vars -> SnocList (RigCount, Term vars) -> Term vars
+applySpine loc fn [<] = fn
+applySpine loc fn (args :< (q, a)) = App loc (applySpine loc fn args) q a
 
 -- Creates a chain of `App` nodes, each with its own file context
 export
@@ -575,13 +688,11 @@ getFnArgs tm = getFA [] tm
     getFA args tm = (tm, args)
 
 export
-getFnArgsCount : Term vars -> (Term vars, List (RigCount, Term vars))
-getFnArgsCount tm = getFA [] tm
-  where
-    getFA : List (RigCount, Term vars) -> Term vars ->
-            (Term vars, List (RigCount, Term vars))
-    getFA args (App _ f c a) = getFA ((c, a) :: args) f
-    getFA args tm = (tm, args)
+getFnArgsSpine : Term vars -> (Term vars, SnocList (RigCount, Term vars))
+getFnArgsSpine (App _ f c a)
+    = let (fn, sp) = getFnArgsSpine f in
+          (fn, sp :< (c, a))
+getFnArgsSpine tm = (tm, [<])
 
 export
 getFn : Term vars -> Term vars
@@ -716,6 +827,49 @@ namespace SubstEnv
   export
   subst : Term vars -> Term (vars :< x) -> Term vars
   subst val tm = substs [<val] tm
+
+-- Replace an explicit name with a term
+export
+substName : Name -> Term vars -> Term vars -> Term vars
+substName x new (Ref fc nt name)
+    = case nameEq x name of
+           Nothing => Ref fc nt name
+           Just Refl => new
+substName x new (Meta fc n i xs)
+    = Meta fc n i (map (\ (c, t) => (c, substName x new t)) xs)
+-- ASSUMPTION: When we substitute under binders, the name has always been
+-- resolved to a Local, so no need to check that x isn't shadowing
+substName x new (Bind fc y b scope)
+    = Bind fc y (map (substName x new) b) (substName x (weaken new) scope)
+substName x new (App fc fn c arg)
+    = App fc (substName x new fn) c (substName x new arg)
+substName x new (As fc s as pat)
+    = As fc s as (substName x new pat)
+substName x new (Case fc c sc scty alts)
+    = Case fc c (substName x new sc) (substName x new scty)
+           (map (substNameAlt new) alts)
+  where
+    substNameScope : forall vars . Term vars -> CaseScope vars -> CaseScope vars
+    substNameScope new (RHS tm) = RHS (substName x new tm)
+    substNameScope new (Arg c n sc)
+        = Arg c n (substNameScope (weaken new) sc)
+
+    substNameAlt : forall vars . Term vars -> CaseAlt vars -> CaseAlt vars
+    substNameAlt new (ConCase cfc n t sc)
+        = ConCase cfc n t (substNameScope new sc)
+    substNameAlt new (DelayCase fc ty arg rhs)
+        = DelayCase fc ty arg (substName x (weakenNs (suc (suc zero)) new) rhs)
+    substNameAlt new (ConstCase fc c tm) = ConstCase fc c (substName x new tm)
+    substNameAlt new (DefaultCase fc tm) = DefaultCase fc (substName x new tm)
+substName x new (TDelayed fc y z)
+    = TDelayed fc y (substName x new z)
+substName x new (TDelay fc y t z)
+    = TDelay fc y (substName x new t) (substName x new z)
+substName x new (TForce fc r y)
+    = TForce fc r (substName x new y)
+substName x new (PrimOp fc fn args)
+    = PrimOp fc fn (map (substName x new) args)
+substName x new tm = tm
 
 export
 addMetas : (usingResolved : Bool) -> NameMap Bool -> Term vars -> NameMap Bool

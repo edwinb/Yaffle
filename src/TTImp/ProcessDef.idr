@@ -1,6 +1,6 @@
 module TTImp.ProcessDef
 
--- import Core.Case.CaseBuilder
+import Core.Case.Builder
 -- import Core.Case.CaseTree
 -- import Core.Case.CaseTree.Pretty
 import Core.Context

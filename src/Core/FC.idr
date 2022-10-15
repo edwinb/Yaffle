@@ -203,6 +203,44 @@ Eq FC where
   (==) _ _ = False
 
 export
+Ord VirtualIdent where
+  compare Interactive Interactive = EQ
+
+export
+Ord OriginDesc where
+  compare (PhysicalIdrSrc x) (PhysicalIdrSrc y) = compare x y
+  compare (PhysicalPkgSrc x) (PhysicalPkgSrc y) = compare x y
+  compare (Virtual x) (Virtual y) = compare x y
+  compare x y = compare (tag x) (tag y)
+     where
+       tag : OriginDesc -> Int
+       tag (PhysicalIdrSrc{}) = 0
+       tag (PhysicalPkgSrc{}) = 1
+       tag (Virtual{}) = 2
+
+export
+Ord FC where
+  compare EmptyFC EmptyFC = EQ
+  compare (MkFC i s e) (MkFC i' s' e')
+      = case compare s s' of
+             EQ => case compare e e' of
+                        EQ => compare i i'
+                        x => x
+             x => x
+  compare (MkVirtualFC i s e) (MkVirtualFC i' s' e')
+      = case compare s s' of
+             EQ => case compare e e' of
+                        EQ => compare i i'
+                        x => x
+             x => x
+  compare x y = compare (tag x) (tag y)
+    where
+      tag : FC -> Int
+      tag EmptyFC = 0
+      tag (MkFC{}) = 1
+      tag (MkVirtualFC{}) = 2
+
+export
 Show FC where
   show EmptyFC = "EmptyFC"
   show (MkFC ident startPos endPos) = show ident ++ ":" ++

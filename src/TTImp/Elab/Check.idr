@@ -230,26 +230,26 @@ strengthenedEState {n} {vars} c e fc env
     -- never actualy *use* that hole - this process is only to ensure that the
     -- unbound implicit doesn't depend on any variables it doesn't have
     -- in scope.
-    removeArgVars : List (RigCount, Term (vs :< n)) ->
-                    Maybe (List (RigCount, Term vs))
-    removeArgVars [] = pure []
-    removeArgVars ((c, Local fc r (S k) p) :: args)
+    removeArgVars : SnocList (RigCount, Term (vs :< n)) ->
+                    Maybe (SnocList (RigCount, Term vs))
+    removeArgVars [<] = pure [<]
+    removeArgVars (args :< (c, Local fc r (S k) p))
         = do args' <- removeArgVars args
-             pure ((c, Local fc r _ (dropLater p)) :: args')
-    removeArgVars ((c, Local fc r Z p) :: args)
+             pure (args' :< (c, Local fc r _ (dropLater p)))
+    removeArgVars (args :< (c, Local fc r Z p))
         = removeArgVars args
-    removeArgVars ((c, a) :: args)
+    removeArgVars (args :< (c, a))
         = do a' <- shrinkTerm a (DropCons SubRefl)
              args' <- removeArgVars args
-             pure ((c, a') :: args')
+             pure (args' :< (c, a'))
 
     removeArg : Term (vs :< n) -> Maybe (Term vs)
     removeArg tm
-        = case getFnArgsCount tm of
+        = case getFnArgsSpine tm of
                (f, args) =>
                    do args' <- removeArgVars args
                       f' <- shrinkTerm f (DropCons SubRefl)
-                      pure (apply (getLoc f) f' args')
+                      pure (applySpine (getLoc f) f' args')
 
     strTms : Defs -> (Name, ImplBinding (vars :< n)) ->
              Core (Name, ImplBinding vars)

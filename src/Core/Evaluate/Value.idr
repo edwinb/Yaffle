@@ -81,6 +81,10 @@ data Value : Form -> SnocList Name -> Type where
      VType    : FC -> Name -> Value f vars
 
 export
+vRef : FC -> NameType -> Name -> Value f vars
+vRef fc nt n = VApp fc nt n [<] (pure Nothing)
+
+export
 getLoc : Value f vars -> FC
 getLoc (VLam fc x y z ty sc) = fc
 getLoc (VBind fc x y sc) = fc

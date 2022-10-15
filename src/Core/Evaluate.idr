@@ -164,6 +164,41 @@ parameters {auto c : Ref Ctxt Defs}
         Core (Term vars)
   replace = replace' 0
 
+  -- If the term is an application of a primitive conversion (fromInteger etc)
+  -- and it's applied to a constant, fully normalise the term.
+  export
+  normalisePrims : {vs : _} ->
+                   -- size heuristic for when to unfold
+                   (Constant -> Bool) ->
+                   -- view to check whether an argument is a constant
+                   (arg -> Maybe Constant) ->
+                   -- Reduce everything (True) or just public export (False)
+                   Bool ->
+                   -- list of primitives
+                   List Name ->
+                   -- view of the potential redex
+                   (n : Name) ->          -- function name
+                   (args : SnocList arg) ->   -- arguments from inside out (arg1, ..., argk)
+                   -- actual term to evaluate if needed
+                   (tm : Term vs) ->      -- original term (n arg1 ... argk)
+                   Env Term vs ->         -- evaluation environment
+                   -- output only evaluated if primitive
+                   Core (Maybe (Term vs))
+--   normalisePrims boundSafe viewConstant all prims n args tm env
+--      = do let True = isPrimName prims !(getFullName n) -- is a primitive
+--                 | _ => pure Nothing
+--           let (mc :: _) = reverse args -- with at least one argument
+--                 | _ => pure Nothing
+--           let (Just c) = viewConstant mc -- that is a constant
+--                 | _ => pure Nothing
+--           let True = boundSafe c -- that we should expand
+--                 | _ => pure Nothing
+--           defs <- get Ctxt
+--           tm <- if all
+--                    then normaliseAll defs env tm
+--                    else normalise defs env tm
+--           pure (Just tm)
+
   export
   etaContract : {vars : _} -> Term vars -> Core (Term vars)
   etaContract tm = do

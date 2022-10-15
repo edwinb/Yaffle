@@ -9,6 +9,9 @@ modules
 
     -- The core type theory and support
     Core.Binary,
+    Core.Case.Builder,
+    Core.Case.Patterns,
+    Core.Case.Util,
     Core.Check.Linear,
     Core.Check.Typecheck,
     Core.Check.Support,

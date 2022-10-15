@@ -28,6 +28,8 @@ defaultFI = MkFnInfo NotHole False False
 public export
 record DataConInfo where
   constructor MkDataConInfo
+  quantities : List RigCount
+               -- Quantities on arguments
   newTypeArg : Maybe (Bool, Nat)
                -- if it's the only constructor, and only one argument is
                -- non-Rig0, flag it here.
@@ -39,8 +41,8 @@ record DataConInfo where
                -- happen)
 
 export
-defaultDataConInfo : DataConInfo
-defaultDataConInfo = MkDataConInfo Nothing
+defaultDataConInfo : List RigCount -> DataConInfo
+defaultDataConInfo qs = MkDataConInfo qs Nothing
 
 public export
 record TyConInfo where
