@@ -17,7 +17,8 @@ import Data.Vect
 data QVar : Type where
 
 data Strategy
-  = Reduce -- reduce applications
+  = Reduce (List Namespace) -- reduce applications, as long as we're
+             -- in a namespace where the definition is visible
   | BlockApp -- block all applications. This is for when we've gone under a
              -- case so applications will be stuck
 
@@ -83,13 +84,23 @@ parameters {auto c : Ref Ctxt Defs}
       = do if n == n'
               then convSpine BlockApp env args args'
               else pure False
-  convGen Reduce env x@(VApp _ _ _ _ val) y@(VApp _ _ _ _ val')
+  convGen (Reduce ns) env x@(VApp fc _ n _ val) y@(VApp fc' _ n' _ val')
       = do -- Check without reducing first since it might save a lot of work
            -- on success
            False <- convGen BlockApp env x y | True => pure True
-           Just x <- val  | Nothing => pure False
-           Just y <- val' | Nothing => pure False
-           convGen Reduce env x y
+           Just x <- tryReduce fc n val  | Nothing => pure False
+           Just y <- tryReduce fc' n' val' | Nothing => pure False
+           convGen (Reduce ns) env x y
+    where
+      -- Try reducing the application, but only if the name is one that's
+      -- reducible in any of the given namespaces
+      tryReduce : FC -> Name -> Core (Maybe (Glued vars)) ->
+                  Core (Maybe (Glued vars))
+      tryReduce fc n val
+          = do v <- getVisibility fc n
+               if reducibleInAny ns n v
+                  then val
+                  else pure Nothing
   -- If one is an App and the other isn't, try to reduce the App first
   convGen s env (VApp _ _ _ _ val) y
       = do Just x <- val | Nothing => pure False
@@ -112,13 +123,13 @@ parameters {auto c : Ref Ctxt Defs}
           = do True <- convGen BlockApp env x y | False => pure False
                convScope xs ys
       convScope _ _ = pure False
-  convGen {vars} Reduce env x@(VMeta _ _ _ _ _ val) y@(VMeta _ _ _ _ _ val')
+  convGen {vars} (Reduce ns) env x@(VMeta _ _ _ _ _ val) y@(VMeta _ _ _ _ _ val')
       = do -- Check without reducing first since it might save a lot of work
            -- on success
            False <- convGen BlockApp env x y | True => pure True
            Just x <- val  | Nothing => pure False
            Just y <- val' | Nothing => pure False
-           convGen Reduce env x y
+           convGen (Reduce ns) env x y
   -- If one is a Metavar and the other isn't, try to reduce the Metavar first
   convGen s env (VMeta _ _ _ _ _ val) y
       = do Just x <- val | Nothing => pure False
@@ -215,7 +226,8 @@ parameters {auto c : Ref Ctxt Defs}
               Env Term vars -> Value f vars -> Value f' vars -> Core Bool
     convert env x y
         = do q <- newRef QVar 0
-             convGen Reduce env x y
+             defs <- get Ctxt
+             convGen (Reduce (currentNS defs :: nestedNS defs)) env x y
 
     export
     chkConvert : {vars : _} ->

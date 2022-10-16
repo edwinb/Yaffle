@@ -18,12 +18,20 @@ genName n
          put QVar (i + 1)
          pure (MN n i)
 
+-- nlso need: whether to expand 'export' or just 'public export'
 data Strategy
-  = NF -- full normal form
-  | HNF -- head normal form (block under constructors)
+  = NF (Maybe (List Namespace)) -- full normal form. If a namespace list is
+                                -- given, these are the ones where we can
+                                -- reduce 'export' names
+  | HNF (Maybe (List Namespace)) -- head normal form (block under constructors)
   | Binders -- block after going under all the binders
   | BlockApp -- block all applications
   | ExpandHoles -- block all applications except holes
+
+getNS : Strategy -> Maybe (List Namespace)
+getNS (NF ns) = ns
+getNS (HNF ns) = ns
+getNS _ = Nothing
 
 {-
 On Strategy: when quoting to full NF, we still want to block the body of an
@@ -169,7 +177,15 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       = do sp' <- quoteSpine BlockApp bounds env sp
            pure $ applySpine (Ref fc nt n) sp'
   quoteGen s bounds env (VApp fc nt n sp val)
-      = do Just v <- val
+      = do -- Reduce if it's visible in the current namespace
+           True <- case getNS s of
+                        Nothing => pure True
+                        Just ns => do vis <- getVisibility fc n
+                                      pure $ reducibleInAny ns n vis
+              | False =>
+                  do sp' <- quoteSpine s bounds env sp
+                     pure $ applySpine (Ref fc nt n) sp'
+           Just v <- val
               | Nothing =>
                   do sp' <- quoteSpine s bounds env sp
                      pure $ applySpine (Ref fc nt n) sp'
@@ -227,13 +243,13 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
            quoteGen s bounds env v
   quoteGen s bounds env (VDCon fc n t a sp)
       = do let s' = case s of
-                         HNF => BlockApp
+                         HNF _ => BlockApp
                          _ => s
            sp' <- quoteSpine s' bounds env sp
            pure $ applySpine (Ref fc (DataCon t a) n) sp'
   quoteGen s bounds env (VTCon fc n a sp)
       = do let s' = case s of
-                         HNF => BlockApp
+                         HNF _ => BlockApp
                          _ => s
            sp' <- quoteSpine s' bounds env sp
            pure $ applySpine (Ref fc (TyCon a) n) sp'
@@ -285,14 +301,30 @@ parameters {auto c : Ref Ctxt Defs}
            quoteGen s None env val
 
   export
+  quoteNFall : {vars : _} ->
+            Env Term vars -> Value f vars -> Core (Term vars)
+  quoteNFall = quoteStrategy (NF Nothing)
+
+  export
+  quoteHNFall : {vars : _} ->
+          Env Term vars -> Value f vars -> Core (Term vars)
+  quoteHNFall = quoteStrategy (HNF Nothing)
+
+  export
   quoteNF : {vars : _} ->
             Env Term vars -> Value f vars -> Core (Term vars)
-  quoteNF = quoteStrategy NF
+  quoteNF env val
+      = do defs <- get Ctxt
+           quoteStrategy (NF (Just (currentNS defs :: nestedNS defs)))
+                         env val
 
   export
   quoteHNF : {vars : _} ->
-          Env Term vars -> Value f vars -> Core (Term vars)
-  quoteHNF = quoteStrategy HNF
+            Env Term vars -> Value f vars -> Core (Term vars)
+  quoteHNF env val
+      = do defs <- get Ctxt
+           quoteStrategy (HNF (Just (currentNS defs :: nestedNS defs)))
+                         env val
 
   -- Keep quoting while we're still going under binders
   export

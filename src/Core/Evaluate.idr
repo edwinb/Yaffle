@@ -30,6 +30,22 @@ parameters {auto c : Ref Ctxt Defs}
            quoteHNF env val
 
   export
+  normaliseAll
+      : {vars : _} ->
+        Env Term vars -> Term vars -> Core (Term vars)
+  normaliseAll env tm
+      = do val <- nf env tm
+           quoteNFall env val
+
+  export
+  normaliseHNFall
+      : {vars : _} ->
+        Env Term vars -> Term vars -> Core (Term vars)
+  normaliseHNFall env tm
+      = do val <- nf env tm
+           quoteHNFall env val
+
+  export
   normaliseHoles
       : {vars : _} ->
         Env Term vars -> Term vars -> Core (Term vars)
@@ -184,20 +200,19 @@ parameters {auto c : Ref Ctxt Defs}
                    Env Term vs ->         -- evaluation environment
                    -- output only evaluated if primitive
                    Core (Maybe (Term vs))
---   normalisePrims boundSafe viewConstant all prims n args tm env
---      = do let True = isPrimName prims !(getFullName n) -- is a primitive
---                 | _ => pure Nothing
---           let (mc :: _) = reverse args -- with at least one argument
---                 | _ => pure Nothing
---           let (Just c) = viewConstant mc -- that is a constant
---                 | _ => pure Nothing
---           let True = boundSafe c -- that we should expand
---                 | _ => pure Nothing
---           defs <- get Ctxt
---           tm <- if all
---                    then normaliseAll defs env tm
---                    else normalise defs env tm
---           pure (Just tm)
+  normalisePrims boundSafe viewConstant all prims n args tm env
+     = do let True = isPrimName prims !(getFullName n) -- is a primitive
+                | _ => pure Nothing
+          let (_ :< mc) = reverse args -- with at least one argument
+                | _ => pure Nothing
+          let (Just c) = viewConstant mc -- that is a constant
+                | _ => pure Nothing
+          let True = boundSafe c -- that we should expand
+                | _ => pure Nothing
+          tm <- if all
+                   then normaliseAll env tm
+                   else normalise env tm
+          pure (Just tm)
 
   export
   etaContract : {vars : _} -> Term vars -> Core (Term vars)

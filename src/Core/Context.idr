@@ -20,6 +20,7 @@ import Libraries.Text.Distance.Levenshtein
 
 import System.Directory
 
+export
 getVisibility : {auto c : Ref Ctxt Defs} ->
                 FC -> Name -> Core Visibility
 getVisibility fc n
@@ -927,6 +928,19 @@ parameters {auto c : Ref Ctxt Defs}
          put Ctxt ({ toSave $= insert n (),
                      toIR $= insert n ()
                    } defs)
+
+-- private names are only visible in this namespace if their namespace
+-- is the current namespace (or an outer one)
+-- that is: the namespace of 'n' is a parent of nspace
+export
+visibleIn : Namespace -> Name -> Visibility -> Bool
+visibleIn nspace (NS ns n) Private = isParentOf ns nspace
+-- Public and Export names are always visible
+visibleIn nspace n _ = True
+
+export
+visibleInAny : List Namespace -> Name -> Visibility -> Bool
+visibleInAny nss n vis = any (\ns => visibleIn ns n vis) nss
 
 reducibleIn : Namespace -> Name -> Visibility -> Bool
 reducibleIn nspace (NS ns (UN n)) Export = isParentOf ns nspace
