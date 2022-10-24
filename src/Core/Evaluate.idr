@@ -54,6 +54,14 @@ parameters {auto c : Ref Ctxt Defs}
            quoteHoles env val
 
   export
+  normaliseBinders
+      : {vars : _} ->
+        Env Term vars -> Term vars -> Core (Term vars)
+  normaliseBinders env tm
+      = do val <- nf env tm
+           quoteBinders env val
+
+  export
   getArityVal : NF vars -> Core Nat
   getArityVal (VBind fc _ (Pi _ _ _ _) sc)
       = pure $ 1 + !(getArityVal !(expand !(sc (VErased fc False))))

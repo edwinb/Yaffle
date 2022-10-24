@@ -1065,14 +1065,14 @@ patCompile fc fn phase ty [] def
             (\e => pure ([<] ** e))
             def
 patCompile fc fn phase ty (p :: ps) def
-    = do let (ns ** n) = getNames 0 (fst p)
+    = do let (ns ** num) = getNames 0 (fst p)
          pats <- mkPatClausesFrom 0 ns (p :: ps)
          -- higher verbosity: dump the raw data structure
          log "compile.casetree" 10 $ show pats
          i <- newRef PName (the Int 0)
          cases <- match fc fn phase pats
                         (rewrite sym (appendLinLeftNeutral ns) in
-                                 map (TT.weakenNs n) def)
+                                 map (TT.weakenNs num) def)
          pure (_ ** cases)
   where
     mkPatClausesFrom : Int -> (args : SnocList Name) ->
@@ -1213,15 +1213,15 @@ findExtraDefaults ctree@(Case fc c sc scty altsIn)
 
 findExtraDefaults ctree = pure []
 
--- Returns the case tree, and a list of the clauses that aren't reachable
-export
-getPMDef : {auto c : Ref Ctxt Defs} ->
-           FC -> Phase -> Name -> ClosedTerm -> List Clause ->
-           Core (args ** (Term args, List Clause))
+-- Returns the case tree under the yet-to-be-bound lambdas,
+-- and a list of the clauses that aren't reachable
+makePMDef : {auto c : Ref Ctxt Defs} ->
+            FC -> Phase -> Name -> ClosedTerm -> List Clause ->
+            Core (args ** (Term args, List Clause))
 -- If there's no clauses, make a definition with the right number of arguments
 -- for the type, which we can use in coverage checking to ensure that one of
 -- the arguments has an empty type
-getPMDef fc phase fn ty []
+makePMDef fc phase fn ty []
     = do log "compile.casetree.getpmdef" 20 "getPMDef: No clauses!"
          defs <- get Ctxt
          pure (!(getArgs 0 !(expand !(nf [<] ty))) ** (Unmatched fc "No clauses", []))
@@ -1232,7 +1232,7 @@ getPMDef fc phase fn ty []
              sc' <- expand !(sc (VErased fc False))
              pure (!(getArgs i sc') :< MN "arg" i)
     getArgs i _ = pure [<]
-getPMDef fc phase fn ty clauses
+makePMDef fc phase fn ty clauses
     = do let cs = map toClosed (labelPat 0 clauses)
          (_ ** t) <- simpleCase fc phase fn ty Nothing cs
          logC "compile.casetree.getpmdef" 20 $
@@ -1269,3 +1269,32 @@ getPMDef fc phase fn ty clauses
     toClosed :  (String, Clause) -> (ClosedTerm, ClosedTerm)
     toClosed  (pname, MkClause env lhs rhs)
           = (close env pname lhs, close env pname rhs)
+
+-- Returns the case tree, and a list of the clauses that aren't reachable
+export
+getPMDef : {auto c : Ref Ctxt Defs} ->
+           FC -> Phase -> Name -> ClosedTerm -> List Clause ->
+           Core (ClosedTerm, List Clause)
+getPMDef fc p n ty cs
+    = do (args ** (tree, missing)) <- makePMDef fc p n ty cs
+         -- We need to bind lambdas, and we can only do that if we know
+         -- the types of the function arguments, so normalise the type just
+         -- enough to get that
+         nty <- normaliseBinders [<] ty
+         let (tyargs ** env) = mkEnv [<] nty
+         let Just lenOK = checkLengthMatch args tyargs
+             | Nothing => throw (CaseCompile fc n CantResolveType)
+         pure (bindLams env (renameVars tyargs lenOK tree), missing)
+   where
+     mkEnv : {vars : _} -> Env Term vars -> Term vars ->
+             (args ** Env Term args)
+     mkEnv env (Bind _ x b@(Pi pfc c p ty) sc) = mkEnv (env :< b) sc
+     mkEnv env tm = (_ ** env)
+
+     bindLams : {args : _} -> Env Term args -> Term args -> Term [<]
+     bindLams [<] tree = tree
+     bindLams (env :< b) tree
+         = bindLams env (Bind fc _
+                           (Lam fc (multiplicity b)
+                                (piInfo b)
+                                (binderType b)) tree)

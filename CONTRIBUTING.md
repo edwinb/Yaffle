@@ -44,6 +44,7 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
+* Test case tree compiler by supporting patterns in raw TT syntax
 * Continue TTImp elaborator
   - Port all the missing imports in TTImp.ProcessDef
   - Complete ProcessDef

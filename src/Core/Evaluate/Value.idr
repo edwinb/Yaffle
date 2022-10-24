@@ -127,6 +127,10 @@ asGlued : Value f vars -> Glued vars
 asGlued = believe_me -- justification as above
 
 export
+spineArg : (FC, RigCount, Glued vars) -> Glued vars
+spineArg (_, _, val) = val
+
+export
 spineVal : (FC, RigCount, Glued vars) -> Core (NF vars)
 spineVal (_, _, val) = expand val
 

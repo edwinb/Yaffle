@@ -1,12 +1,10 @@
 module TTImp.ProcessDef
 
 import Core.Case.Builder
--- import Core.Case.CaseTree
--- import Core.Case.CaseTree.Pretty
 import Core.Context
 import Core.Context.Log
 import Core.Core
--- import Core.Coverage
+import Core.Coverage
 import Core.Env
 import Core.Hash
 import Core.Check.Linear

@@ -23,6 +23,14 @@ data NameType : Type where
      DataCon : (tag : Tag) -> (arity : Nat) -> NameType
      TyCon   : (arity : Nat) -> NameType
 
+export
+covering
+Show NameType where
+  showPrec d Bound = "Bound"
+  showPrec d Func = "Func"
+  showPrec d (DataCon tag ar) = showCon d "DataCon" $ showArg tag ++ showArg ar
+  showPrec d (TyCon ar) = showCon d "TyCon" $ showArg ar
+
 public export
 data PrimType
     = IntType
@@ -687,6 +695,11 @@ data CaseAlt : SnocList Name -> Type where
      ||| Catch-all case
      DefaultCase : FC -> Term vars -> CaseAlt vars
 
+export
+isDefault : CaseAlt vars -> Bool
+isDefault (DefaultCase _ _) = True
+isDefault _ = False
+
 public export
 data Visibility = Private | Export | Public
 
@@ -856,6 +869,7 @@ isTotal = MkTotality Unchecked IsCovering
 export
 notCovering : Totality
 notCovering = MkTotality Unchecked (MissingCases [])
+
 public export
 record KindedName where
   constructor MkKindedName
@@ -866,6 +880,10 @@ record KindedName where
 export
 defaultKindedName : Name -> KindedName
 defaultKindedName nm = MkKindedName Nothing nm nm
+
+export
+funKindedName : Name -> KindedName
+funKindedName nm = MkKindedName (Just Func) nm nm
 
 export
 Show KindedName where show = show . rawName

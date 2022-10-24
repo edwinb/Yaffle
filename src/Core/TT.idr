@@ -8,6 +8,7 @@ import Data.SnocList
 import Data.SnocList.Operations
 import Data.Vect
 
+import Libraries.Data.LengthMatch
 import Libraries.Data.NameMap
 
 %default covering
@@ -720,12 +721,20 @@ embed : Term vars -> Term (more ++ vars)
 embed tm = believe_me tm
 
 export
-renameNTop : (ms : SnocList Name) -> Term (vars ++ ns) -> Term (vars ++ ms)
-renameNTop ms tm = believe_me tm
+renameNTop : (ms : SnocList Name) ->
+             LengthMatch ns ms ->
+             Term (vars ++ ns) -> Term (vars ++ ms)
+renameNTop ms ok tm = believe_me tm
+
+export
+renameVars : (ms : SnocList Name) ->
+             LengthMatch ns ms ->
+             Term ns -> Term ms
+renameVars ms ok tm = believe_me tm
 
 export
 renameTop : (m : Name) -> Term (vars :< n) -> Term (vars :< m)
-renameTop m tm = renameNTop {ns = [<n]} [<m] tm
+renameTop m tm = renameNTop {ns = [<n]} [<m] (SnocMatch LinMatch) tm
 
 export
 nameAt : {vars : _} -> {idx : Nat} -> (0 p : IsVar n idx vars) -> Name

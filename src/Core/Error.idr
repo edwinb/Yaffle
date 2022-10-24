@@ -26,6 +26,7 @@ Show TFileError where
 public export
 data CaseError = DifferingArgNumbers
                | DifferingTypes
+               | CantResolveType
                | MatchErased (vars ** (Env Term vars, Term vars))
                | NotFullyApplied Name
                | UnknownType
@@ -142,6 +143,8 @@ Show Error where
       = show fc ++ ":Patterns for " ++ show n ++ " have different numbers of arguments"
   show (CaseCompile fc n DifferingTypes)
       = show fc ++ ":Patterns for " ++ show n ++ " require matching on different types"
+  show (CaseCompile fc n CantResolveType)
+      = show fc ++ ":Can't resolve argument types in patterns for " ++ show n
   show (CaseCompile fc n UnknownType)
       = show fc ++ ":Can't infer type to match in " ++ show n
   show (CaseCompile fc n (MatchErased (_ ** (env, tm))))

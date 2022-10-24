@@ -18,7 +18,6 @@ genName n
          put QVar (i + 1)
          pure (MN n i)
 
--- nlso need: whether to expand 'export' or just 'public export'
 data Strategy
   = NF (Maybe (List Namespace)) -- full normal form. If a namespace list is
                                 -- given, these are the ones where we can
