@@ -282,7 +282,11 @@ buildArgs : {auto c : Ref Ctxt Defs} ->
 -- Coming from the case tree builder, we'll always be splitting on a
 -- variable, so coverage checking has to happen at that point, i.e. before
 -- any inlining
--- TODO: Case appears under lambdas
+-- Case blocks appear under lambdas. We only need the case block itself to
+-- be able to construct the application, so we'll only see these at the
+-- top level
+buildArgs defs known not ps (Bind fc x (Lam lfc c p ty) sc)
+    = buildArgs defs (weaken known) (weaken not) ps sc
 buildArgs defs known not ps cs@(Case fc c (Local lfc _ idx el) ty altsIn)
   -- If we've already matched on 'el' in this branch, restrict the alternatives
   -- to the tag we already know. Otherwise, add missing cases and filter out
@@ -364,12 +368,8 @@ getMissing fc n ctree
               show <$> toFullNames pat
         pure (map (applySpine fc (Ref fc Func n)) patss)
 
-{-
-
 -- For the given name, get the names it refers to which are not themselves
 -- covering.
--- Also need to go recursively into case blocks, since we only calculate
--- references for them at the top level clause
 export
 getNonCoveringRefs : {auto c : Ref Ctxt Defs} ->
                      FC -> Name -> Core (List Name)
@@ -378,18 +378,8 @@ getNonCoveringRefs fc n
         Just d <- lookupCtxtExact n (gamma defs)
            | Nothing => undefinedName fc n
         let ds = mapMaybe noAssert (toList (refersTo d))
-        let cases = filter isCase !(traverse toFullNames ds)
-
-        -- Case blocks aren't recursive, so we're safe!
-        cbad <- traverse (getNonCoveringRefs fc) cases
-        topbad <- filterM (notCovering defs) ds
-        pure (topbad ++ concat cbad)
+        filterM (notCovering defs) ds
   where
-    isCase : Name -> Bool
-    isCase (NS _ n) = isCase n
-    isCase (CaseBlock _ _) = True
-    isCase _ = False
-
     noAssert : (Name, Bool) -> Maybe Name
     noAssert (n, True) = Nothing
     noAssert (n, False) = Just n
@@ -409,7 +399,7 @@ match : Term vs -> Term vs -> Bool
 match (Local _ _ i _) _ = True
 match (Ref _ Bound n) _ = True
 match (Ref _ _ n) (Ref _ _ n') = n == n'
-match (App _ f a) (App _ f' a') = match f f' && match a a'
+match (App _ f _ a) (App _ f' _ a') = match f f' && match a a'
 match (As _ _ _ p) (As _ _ _ p') = match p p'
 match (As _ _ _ p) p' = match p p'
 match (TDelayed _ _ t) (TDelayed _ _ t') = match t t'
@@ -425,26 +415,28 @@ match _ _ = False
 eraseApps : {auto c : Ref Ctxt Defs} ->
             Term vs -> Core (Term vs)
 eraseApps {vs} tm
-    = case getFnArgs tm of
+    = case getFnArgsSpine tm of
            (Ref fc Bound n, args) =>
-                do args' <- traverse eraseApps args
-                   pure (apply fc (Ref fc Bound n) args')
+                do args' <- traverseSnocList (\ (c, arg) => pure (c, !(eraseApps arg))) args
+                   pure (applySpine fc (Ref fc Bound n) args')
            (Ref fc nt n, args) =>
                 do defs <- get Ctxt
                    mgdef <- lookupCtxtExact n (gamma defs)
                    let eargs = maybe [] eraseArgs mgdef
-                   args' <- traverse eraseApps (dropPos fc 0 eargs args)
-                   pure (apply fc (Ref fc nt n) args')
+                   args' <- traverseSnocList (\ (c, arg) => pure (c, !(eraseApps arg)))
+                                  (dropPos fc 0 eargs args)
+                   pure (applySpine fc (Ref fc nt n) args')
            (tm, args) =>
-                do args' <- traverse eraseApps args
-                   pure (apply (getLoc tm) tm args')
+                do args' <- traverseSnocList (\ (c, arg) => pure (c, !(eraseApps arg))) args
+                   pure (applySpine (getLoc tm) tm args')
   where
-    dropPos : FC -> Nat -> List Nat -> List (Term vs) -> List (Term vs)
-    dropPos fc i ns [] = []
-    dropPos fc i ns (x :: xs)
+    dropPos : FC -> Nat -> List Nat -> SnocList (RigCount, Term vs) ->
+              SnocList (RigCount, Term vs)
+    dropPos fc i ns [<] = [<]
+    dropPos fc i ns (xs :< (c, x))
         = if i `elem` ns
-             then Erased fc False :: dropPos fc (S i) ns xs
-             else x :: dropPos fc (S i) ns xs
+             then dropPos fc (S i) ns xs :< (c, Erased fc False)
+             else dropPos fc (S i) ns xs :< (c, x)
 
 -- if tm would be matched by trylhs, then it's not an impossible case
 -- because we've already got it. Ignore anything in erased position.
@@ -457,16 +449,16 @@ clauseMatches env tm trylhs
           pure $ match !(toResolvedNames lhs) !(toResolvedNames trylhs)
   where
     mkSubstEnv : {vars : _} ->
-                 FC -> Int -> Env Term vars -> SubstEnv vars []
-    mkSubstEnv fc i [] = Nil
-    mkSubstEnv fc i (v :: vs)
-       = Ref fc Bound (MN "cov" i) :: mkSubstEnv fc (i + 1) vs
+                 FC -> Int -> Env Term vars -> SubstEnv vars [<]
+    mkSubstEnv fc i [<] = [<]
+    mkSubstEnv fc i (vs :< v)
+       = mkSubstEnv fc (i + 1) vs :< Ref fc Bound (MN "cov" i)
 
     close : {vars : _} ->
             FC -> Env Term vars -> Term vars -> ClosedTerm
     close {vars} fc env tm
         = substs (mkSubstEnv fc 0 env)
-              (rewrite appendNilRightNeutral vars in tm)
+              (rewrite appendLinLeftNeutral vars in tm)
 
 export
 checkMatched : {auto c : Ref Ctxt Defs} ->
@@ -484,7 +476,7 @@ checkMatched cs ulhs
   where
     tryClauses : List Clause -> ClosedTerm -> Core (Maybe ClosedTerm)
     tryClauses [] ulhs
-        = do logTermNF "coverage" 10 "Nothing matches" [] ulhs
+        = do logTermNF "coverage" 10 "Nothing matches" [<] ulhs
              pure $ Just ulhs
     tryClauses (MkClause env lhs _ :: cs) ulhs
         = if !(clauseMatches env lhs ulhs)

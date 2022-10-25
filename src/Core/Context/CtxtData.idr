@@ -165,6 +165,14 @@ record GlobalDef where
   evaldef : Maybe CompiledTerm
 
 export
+refersTo : GlobalDef -> NameMap Bool
+refersTo def = maybe empty id (refersToM def)
+
+export
+refersToRuntime : GlobalDef -> NameMap Bool
+refersToRuntime def = maybe empty id (refersToRuntimeM def)
+
+export
 TTC GlobalDef where
   toBuf d = ?todo1
   fromBuf = ?todo2

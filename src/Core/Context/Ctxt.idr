@@ -792,6 +792,14 @@ HasNames Def where
   resolved gam x = pure x
 
 export
+HasNames Clause where
+  full gam (MkClause env lhs rhs)
+     = pure $ MkClause !(full gam env) !(full gam lhs) !(full gam rhs)
+
+  resolved gam (MkClause env lhs rhs)
+    = [| MkClause (resolved gam env) (resolved gam lhs) (resolved gam rhs) |]
+
+export
 HasNames PartialReason where
   full gam NotStrictlyPositive = pure NotStrictlyPositive
   full gam (BadCall ns) = pure $ BadCall !(traverse (full gam) ns)
