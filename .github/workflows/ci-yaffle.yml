@@ -34,7 +34,7 @@ jobs:
         run: |
           git clone https://github.com/idris-lang/Idris2.git
           cd Idris2
-          git checkout 23e3695d
+          git checkout 102d7ebc
           make bootstrap SCHEME=chezscheme
           make install
       - name: Build Yaffle
