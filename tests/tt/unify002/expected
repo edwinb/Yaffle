@@ -1,13 +1,13 @@
-Yaffle> (Cons Integer Z 5 (Nil Integer)) : (Vect (S ?Main.{_:1}_[]) ?Main.{_:0}_[])
+Yaffle> (Cons Integer Z 5 (Nil Integer))
 TIMING : 0.000s
 Yaffle> (Cons ?Main.{_:3}_[] ?Main.{_:4}_[] 5 (Nil ?Main.{_:5}_[])) : (Vect (S Z) Integer)
 TIMING : 0.000s
 Yaffle> Success
 TIMING : 0.000s
-Yaffle> \(y : [__]) => y[0] : ((y : Nat) -> Nat)
+Yaffle> \(y : [__]) => y[0]
 TIMING : 0.000s
 Yaffle> Success
 TIMING : 0.000s
-Yaffle> \(x : [__]) => x[0] : ((x : Nat) -> Nat)
+Yaffle> \(x : [__]) => x[0]
 TIMING : 0.000s
 Yaffle> Bye for now!

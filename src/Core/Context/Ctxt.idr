@@ -676,7 +676,7 @@ mutual -- Bah, they are all mutual and we can't forward declare implementations 
   export
   HasNames (CaseAlt vars) where
     full gam (ConCase fc x tag y)
-        = pure (ConCase fc x tag !(full gam y))
+        = pure (ConCase fc !(full gam x) tag !(full gam y))
     full gam (DelayCase fc ty arg x)
         = pure (DelayCase fc ty arg !(full gam x))
     full gam (ConstCase fc c x)
@@ -685,7 +685,7 @@ mutual -- Bah, they are all mutual and we can't forward declare implementations 
         = pure (DefaultCase fc !(full gam x))
 
     resolved gam (ConCase fc x tag y)
-        = pure (ConCase fc x tag !(resolved gam y))
+        = pure (ConCase fc !(resolved gam x) tag !(resolved gam y))
     resolved gam (DelayCase fc ty arg x)
         = pure (DelayCase fc ty arg !(resolved gam x))
     resolved gam (ConstCase fc c x)

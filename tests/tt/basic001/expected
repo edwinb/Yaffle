@@ -1,11 +1,11 @@
-False : Bool
-True : Bool
-(S (S (S (S (S Z))))) : Nat
-4 : Integer
-(S (S (S (S (S Z))))) : Nat
-intToNat : ((x : Integer) -> Nat)
-2 : Integer
-5 : Integer
-\(x : Nat) => (S (S (plus x[0] (S (S x[0]))))) : ((x : Nat) -> Nat)
-90000 : Integer
+False
+True
+(S (S (S (S (S Z)))))
+4
+(S (S (S (S (S Z)))))
+intToNat
+2
+5
+\(x : Nat) => (S (S (plus x[0] (S (S x[0])))))
+90000
 Yaffle> Bye for now!

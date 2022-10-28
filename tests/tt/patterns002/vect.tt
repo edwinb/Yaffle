@@ -1,0 +1,35 @@
+data Nat : Type where {
+   Z : Nat
+ | S : pi k : Nat . Nat
+}
+
+plus : pi x : Nat . pi y : Nat . Nat;
+plus = lam x. lam y . 
+           case x of
+              Z => y
+            | S k => S (plus k y);
+
+data Vect : pi n : Nat . pi a : Type . Type where {
+     Nil : pi a : Type . Vect Z a
+   | Cons : pi a : Type . pi k : Nat .
+            pi x : a . pi xs : Vect k a . Vect (S k) a
+}
+
+append : pi m : Nat . pi n : Nat . pi a : Type .
+         pi xs : Vect m a . pi ys : Vect n a .
+         Vect (plus m n) a;
+append {
+  n : _, a : _, ys : Vect n a .
+    append _ _ _ (Nil _) ys = ys;
+  n : _, m : _, a : _, x : _, xs : Vect n a, ys : Vect m a .
+    append _ _ _ (Cons _ _ x xs) ys = Cons _ _ x (append _ _ _ xs ys);
+}
+
+testVec1 : Vect (S (S Z)) Integer;
+testVec1 = Cons _ _ 1 (Cons _ _ 2 (Nil _));
+
+testVec2 : Vect (S (S Z)) Integer;
+testVec2 = Cons _ _ 3 (Cons _ _ 4 (Nil _));
+
+append _ _ _ testVec1 testVec2;
+

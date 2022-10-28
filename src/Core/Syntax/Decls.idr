@@ -87,7 +87,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = do (_ ** env) <- processEnv [<] pvars
            (lhs, lhsty) <- infer top env rawlhs
            rhs <- check top env rawrhs lhsty
-           pure (MkClause env lhs rhs)
+           pure (MkClause env !(normaliseHoles env lhs) rhs)
 
   processPat : FC -> Name -> List RawClause -> Core ()
   processPat fc n rawcs

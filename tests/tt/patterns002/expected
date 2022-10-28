@@ -1,0 +1,2 @@
+(Cons Integer (S (S (S Z))) 1 (Cons Integer (S (S Z)) 2 (Cons Integer (S Z) 3 (Cons Integer Z 4 (Nil Integer)))))
+Yaffle> Bye for now!

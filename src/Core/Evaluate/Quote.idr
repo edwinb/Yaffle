@@ -173,7 +173,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       = do sp' <- quoteSpine BlockApp bounds env sp
            pure $ applySpine (Ref fc nt n) sp'
   quoteGen ExpandHoles bounds env (VApp fc nt n sp val)
-      = do sp' <- quoteSpine BlockApp bounds env sp
+      = do sp' <- quoteSpine ExpandHoles bounds env sp
            pure $ applySpine (Ref fc nt n) sp'
   quoteGen s bounds env (VApp fc nt n sp val)
       = do -- Reduce if it's visible in the current namespace

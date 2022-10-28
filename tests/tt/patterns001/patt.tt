@@ -17,6 +17,15 @@ not {
 not True;
 not False;
 
+data Pair : Type where {
+     MkPair : pi x : Integer . pi y : Integer . Pair
+}
+
+proj1 : pi x : Pair . Integer;
+proj1 {
+  x, y . proj1 (MkPair x y) = x;
+}
+
 plus : pi x : Nat . pi y : Nat . Nat;
 plus {
   y    . plus Z y     = y;

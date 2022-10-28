@@ -18,8 +18,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   processEval rawtm
       = do (tm, ty) <- infer erased [<] rawtm
            tmnf <- normaliseAll [<] tm
-           coreLift $ putStrLn $ show !(toFullNames tmnf) ++ " : "
-                                     ++ show !(toFullNames ty)
+           coreLift $ putStrLn $ show !(toFullNames tmnf)
 
   processHNF : RawI -> Core ()
   processHNF rawtm
