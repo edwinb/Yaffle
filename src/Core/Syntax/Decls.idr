@@ -1,5 +1,6 @@
 module Core.Syntax.Decls
 
+import Core.Case.Builder
 import Core.Context
 import Core.Error
 import Core.Evaluate
@@ -73,8 +74,34 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            linearCheck fc (multiplicity def) [<] tm
            updateDef n (const (Just (Function (MkFnInfo NotHole False False) tm)))
 
+  processEnv : {vars : _} -> Env Term vars -> List (RigCount, Name, RawC) ->
+               Core (vars' ** Env Term vars')
+  processEnv env [] = pure (_ ** env)
+  processEnv {vars} env ((c, n, rawty) :: rest)
+      = do ty <- check c env rawty (topType EmptyFC)
+           processEnv {vars = vars :< n}
+                      (env :< PVar (getLoc ty) c Explicit ty) rest
+
+  processClause : RawClause -> Core Clause
+  processClause (RClause fc pvars rawlhs rawrhs)
+      = do (_ ** env) <- processEnv [<] pvars
+           (lhs, lhsty) <- infer top env rawlhs
+           rhs <- check top env rawrhs lhsty
+           pure (MkClause env lhs rhs)
+
+  processPat : FC -> Name -> List RawClause -> Core ()
+  processPat fc n rawcs
+      = do defs <- get Ctxt
+           Just gdef <- lookupCtxtExact n (gamma defs)
+                | Nothing => throw (UndefinedName fc n)
+           cs <- traverse processClause rawcs
+           (tree, unreachable) <- getPMDef fc (CompileTime (multiplicity gdef)) n
+                                           (type gdef) cs
+           updateDef n (const (Just (Function (MkFnInfo NotHole False False) tree)))
+
   export
   processDecl : RawDecl -> Core ()
   processDecl (RData fc d) = processData fc d
   processDecl (RTyDecl fc c n ty) = processTyDecl fc c n ty
   processDecl (RDef fc n def) = processDef fc n def
+  processDecl (RPatt fc n cs) = processPat fc n cs

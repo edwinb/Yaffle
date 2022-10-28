@@ -55,6 +55,11 @@ edwinb's next steps:
     unification works and inlining metavariables works as it should
   - Implement auto-implicit search
 * Implement/port the missing interfaces for TTC/HasNames
+* Coverage checking of case blocks
+  - We used to do this by knowing that functions referred to a case function.
+    Now we'll need to do something slightly different, so make sure it's
+    tested properly, where there's a non-covering case block inside a function
+    where the top level cases are covering..
 * Check TTCs work
   - Note on string table: Sometimes we shortcut TTC loading (when all we're
     interested in is which modules it imports), in which case we'd not actually

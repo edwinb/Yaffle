@@ -1,0 +1,4 @@
+False : Bool
+True : Bool
+(S (S (S (S (S Z))))) : Nat
+Yaffle> Bye for now!

@@ -54,15 +54,6 @@ Eq (Term vars) where
   (==) = eqTerm
 
 public export
-reverseOnto : SnocList a -> SnocList a -> SnocList a
-reverseOnto acc [<] = acc
-reverseOnto acc (sx :< x) = reverseOnto (acc :< x) sx
-
-public export
-reverse : SnocList a -> SnocList a
-reverse = reverseOnto [<]
-
-public export
 revOnto : (xs, vs : SnocList a) -> reverseOnto xs vs = xs ++ reverse vs
 revOnto xs [<] = Refl
 revOnto xs (vs :< v)

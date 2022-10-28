@@ -240,11 +240,53 @@ fnDef fname
          symbol ";"
          pure (RDef (MkFC fname start end) n d)
 
+pbind : OriginDesc -> Rule (RigCount, Name, RawC)
+pbind fname
+    = do c <- option top rig01
+         n <- name
+         symbol ":"
+         ty <- rawc fname
+         pure (c, n, ty)
+  <|> do start <- location
+         c <- option top rig01
+         n <- name
+         end <- location
+         pure (c, n, RImplicit (MkFC fname start end))
+
+pbinds : OriginDesc -> EmptyRule (List (RigCount, Name, RawC))
+pbinds fname
+    = do ps <- sepBy1 (symbol ",") (pbind fname)
+         symbol "."
+         pure (head ps :: tail ps)
+   <|> pure []
+
+patClause : OriginDesc -> Rule RawClause
+patClause fname
+    = do start <- location
+         pats <- pbinds fname
+         lhs <- rawi fname
+         symbol "="
+         rhs <- rawc fname
+         symbol ";"
+         end <- location
+         pure (RClause (MkFC fname start end) pats lhs rhs)
+
+patDef : OriginDesc -> Rule RawDecl
+patDef fname
+    = do start <- location
+         n <- name
+         symbol "{"
+         cs <- many (patClause fname)
+         symbol "}"
+         end <- location
+         pure (RPatt (MkFC fname start end) n cs)
+
 rawDecl : OriginDesc -> Rule RawDecl
 rawDecl fname
      = tyDecl fname
    <|> dataDecl fname
    <|> fnDef fname
+   <|> patDef fname
 
 export
 command : OriginDesc -> Rule Command

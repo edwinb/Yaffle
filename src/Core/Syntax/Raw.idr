@@ -42,10 +42,18 @@ data RawData : Type where
      RDataDecl : Name -> RawC -> List RawCon -> RawData
 
 public export
+data RawClause : Type where
+     RClause : FC -> List (RigCount, Name, RawC) -> -- pattern variables
+               RawI -> -- LHS
+               RawC -> -- RHS
+               RawClause
+
+public export
 data RawDecl : Type where
      RData   : FC -> RawData -> RawDecl
      RTyDecl : FC -> RigCount -> Name -> RawC -> RawDecl
      RDef    : FC -> Name -> RawC -> RawDecl
+     RPatt   : FC -> Name -> List RawClause -> RawDecl
 
 -- Top level commands at the TT shell
 public export
@@ -123,10 +131,16 @@ Show RawData where
             ++ showSep " | " (map show cons) ++ " }"
 
 export
+Show RawClause where
+  show (RClause _ ns lhs rhs)
+      = show ns ++ " " ++ show lhs ++ " = " ++ show rhs
+
+export
 Show RawDecl where
   show (RData _ d) = show d
   show (RTyDecl _ c n d) = prefixRig01 c ++ show n ++ " : " ++ show d ++ ";"
   show (RDef _ n d) = show n ++ " = " ++ show d ++ ";"
+  show (RPatt _ n cs) = show n ++ " { " ++ showSep "\n" (map show cs) ++ " }"
 
 export
 Show Command where
