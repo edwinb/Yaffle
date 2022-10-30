@@ -331,9 +331,8 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       updateIVars ivs (PrimVal fc c) = Just (PrimVal fc c)
       updateIVars ivs (PrimOp fc fn args)
           = Just (PrimOp fc fn !(traverse (updateIVars ivs) args))
-      updateIVars ivs (Erased fc i) = Just (Erased fc i)
+      updateIVars ivs (Erased fc why) = Erased fc <$> traverse (updateIVars ivs) why
       updateIVars ivs (Unmatched fc s) = Just (Unmatched fc s)
-      updateIVars ivs (Impossible fc) = Just (Impossible fc)
       updateIVars ivs (TType fc u) = Just (TType fc u)
 
       mkDef : {vs, newvars : _} ->
@@ -342,7 +341,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
               Core (Maybe (Term vs))
       mkDef (v :: vs) vars soln (Bind bfc x (Pi fc c _ ty) sc)
          = do sc' <- mkDef vs (ICons (Just v) vars) soln sc
-              pure $ (Bind bfc x (Lam fc c Explicit (Erased bfc False)) <$> sc')
+              pure $ (Bind bfc x (Lam fc c Explicit (Erased bfc Placeholder)) <$> sc')
       mkDef vs vars soln (Bind bfc x b@(Let _ c val ty) sc)
          = do mbsc' <- mkDef vs (ICons Nothing vars) soln sc
               flip traverseOpt mbsc' $ \sc' =>

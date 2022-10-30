@@ -44,16 +44,15 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
-* Test case tree compiler by supporting patterns in raw TT syntax
 * Continue TTImp elaborator
   - Port all the missing imports in TTImp.ProcessDef
   - Complete ProcessDef
   - Implement 'check', elaboration of RawImp to TT
+* Port and test auto-search (TT REPL command)
 * Unification details (which will come up during elaboration...):
   - Inlining things with linear quantities in the context
   - We don't need 'inlineOnly' in the context any more, so remove once
     unification works and inlining metavariables works as it should
-  - Implement auto-implicit search
 * Implement/port the missing interfaces for TTC/HasNames
 * Coverage checking of case blocks
   - We used to do this by knowing that functions referred to a case function.

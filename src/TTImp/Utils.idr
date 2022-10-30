@@ -604,7 +604,7 @@ getArgNames defs bound allvars env (VBind fc x (Pi _ _ p ty) sc)
     = do ns <- case p of
                     Explicit => pure [!(getArgName defs x bound allvars ty)]
                     _ => pure []
-         sc' <- sc (VErased fc False)
+         sc' <- sc (VErased fc Placeholder)
          sc' <- expand sc'
          pure $ ns ++ !(getArgNames defs bound (map (UN . Basic) ns ++ allvars) env sc')
 getArgNames defs bound allvars env val = pure []

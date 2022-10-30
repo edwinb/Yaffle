@@ -31,7 +31,7 @@ mkClosedElab {vars = vars :< x} fc (env :< b) elab
     = mkClosedElab fc env
           (do (sc', _) <- elab
               let b' = newBinder b
-              pure (Bind fc x b' sc', VErased fc False))
+              pure (Bind fc x b' sc', VErased fc Placeholder))
   where
     -- in 'abstractEnvType' we get a Pi binder (so we'll need a Lambda) for
     -- everything except 'Let', so make the appropriate corresponding binder

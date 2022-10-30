@@ -116,7 +116,7 @@ addData vars vis tidx (MkData (MkCon dfc tyn arity tycon) datacons)
 
     readQs : NF [<] -> Core (List RigCount)
     readQs (VBind fc x (Pi _ c _ _) sc)
-        = do rest <- readQs !(expand !(sc (VErased fc False)))
+        = do rest <- readQs !(expand !(sc (VErased fc Placeholder)))
              pure (c :: rest)
     readQs _ = pure []
 

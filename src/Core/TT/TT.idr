@@ -501,6 +501,42 @@ data Binder : Type -> Type where
      -- the type of pattern bound variables
      PVTy : FC -> RigCount -> (ty : type) -> Binder type
 
+%name Binder bd
+
+public export
+data WhyErased a
+  = Placeholder
+  | Impossible
+  | Dotted a
+
+export
+Eq a => Eq (WhyErased a) where
+  Placeholder == Placeholder = True
+  Impossible == Impossible = False
+  Dotted x == Dotted y = x == y
+  _ == _ = False
+
+%name WhyErased why
+
+export
+Functor WhyErased where
+  map f = \case
+    Placeholder => Placeholder
+    Impossible => Impossible
+    Dotted a => Dotted (f a)
+
+export
+Foldable WhyErased where
+  foldr c n (Dotted a) = c a n
+  foldr c n _ = n
+
+export
+Traversable WhyErased where
+  traverse f = \case
+    Placeholder => pure Placeholder
+    Impossible => pure Impossible
+    Dotted a => Dotted <$> f a
+
 export
 isLet : Binder t -> Bool
 isLet (Let _ _ _ _) = True
@@ -636,10 +672,8 @@ data Term : SnocList Name -> Type where
      TForce : FC -> LazyReason -> Term vars -> Term vars
      PrimVal : FC -> (c : Constant) -> Term vars
      PrimOp : FC -> PrimFn arity -> Vect arity (Term vars) -> Term vars
-     Erased : FC -> (imp : Bool) -> -- True == impossible term, for coverage checker
-              Term vars
+     Erased : FC -> WhyErased (Term vars) -> Term vars
      Unmatched : FC -> String -> Term vars -- error from a partialmatch
-     Impossible : FC -> Term vars -- impossible case
      TType : FC -> Name -> -- universe variable
              Term vars
 
@@ -663,7 +697,6 @@ getLoc (PrimVal fc _) = fc
 getLoc (PrimOp fc _ _) = fc
 getLoc (Erased fc _) = fc
 getLoc (Unmatched fc _) = fc
-getLoc (Impossible fc) = fc
 getLoc (TType fc _) = fc
 
 -- Constraints between names representing universe levels. Record the
