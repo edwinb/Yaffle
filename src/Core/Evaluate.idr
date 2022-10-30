@@ -64,7 +64,7 @@ parameters {auto c : Ref Ctxt Defs}
   export
   getArityVal : NF vars -> Core Nat
   getArityVal (VBind fc _ (Pi _ _ _ _) sc)
-      = pure $ 1 + !(getArityVal !(expand !(sc (VErased fc False))))
+      = pure $ 1 + !(getArityVal !(expand !(sc (VErased fc Placeholder))))
   getArityVal _ = pure 0
 
   export

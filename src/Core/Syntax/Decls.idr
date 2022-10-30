@@ -31,7 +31,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
     where
       checkIsTy : NF [<] -> Core ()
       checkIsTy (VBind fc _ (Pi _ _ _ _) sc)
-          = checkIsTy !(expand !(sc (VErased fc False)))
+          = checkIsTy !(expand !(sc (VErased fc Placeholder)))
       checkIsTy (VTCon fc cn _ _)
           = when (!(toResolvedNames cn) /= !(toResolvedNames tycon)) $
                throw (BadDataConType fc n tycon)

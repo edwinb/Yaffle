@@ -26,7 +26,7 @@ detagSafe defs (VTCon _ n _ args)
     notErased : Nat -> List Nat -> SnocList (NF [<]) -> Bool
     notErased i [] _ = True -- Don't need an index available
     notErased i ns [<] = False
-    notErased i ns (rest :< VErased _ True)
+    notErased i ns (rest :< VErased _ Impossible)
         = notErased (i + 1) ns rest -- Can't detag here, look elsewhere
     notErased i ns (rest :< _) -- Safe to detag via this argument
         = elem i ns || notErased (i + 1) ns rest
@@ -38,7 +38,7 @@ findErasedFrom defs pos (VBind fc x (Pi _ c _ aty) scf)
     = do -- In the scope, use 'Erased fc True' to mean 'argument is erased'.
          -- It's handy here, because we can use it to tell if a detaggable
          -- argument position is available
-         sc <- scf (VErased fc (isErased c))
+         sc <- scf (VErased fc (ifThenElse (isErased c) Impossible Placeholder))
          (erest, dtrest) <- findErasedFrom defs (1 + pos) !(expand sc)
          let dt' = if !(detagSafe defs !(expand aty))
                       then (pos :: dtrest) else dtrest

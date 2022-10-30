@@ -24,7 +24,7 @@ import Libraries.Data.NameMap
 
 getRetTy : NF [<] -> Core Name
 getRetTy (VBind fc _ (Pi _ _ _ _) sc)
-    = getRetTy !(expand !(sc (VErased fc False)))
+    = getRetTy !(expand !(sc (VErased fc Placeholder)))
 getRetTy (VTCon _ n _ _) = pure n
 getRetTy ty
     = throw (GenericMsg (getLoc ty)
@@ -132,17 +132,17 @@ processFnOpt fc _ ndef (SpecArgs ns)
       getDeps inparam (VLam _ x _ _ ty sc) ns
           = do defs <- get Ctxt
                ns' <- getDeps False !(expand ty) ns
-               sc' <- expand !(sc (VErased fc False))
+               sc' <- expand !(sc (VErased fc Placeholder))
                getDeps False sc' ns
       getDeps inparam (VBind _ x (Pi _ _ _ pty) sc) ns
           = do defs <- get Ctxt
                ns' <- getDeps inparam !(expand pty) ns
-               sc' <- expand !(sc (VErased fc False))
+               sc' <- expand !(sc (VErased fc Placeholder))
                getDeps inparam sc' ns'
       getDeps inparam (VBind _ x b sc) ns
           = do defs <- get Ctxt
                ns' <- getDeps False !(expand (binderType b)) ns
-               sc' <- expand !(sc (VErased fc False))
+               sc' <- expand !(sc (VErased fc Placeholder))
                getDeps False sc' ns
       getDeps inparam (VApp _ Bound n args _) ns
           = do defs <- get Ctxt
@@ -201,7 +201,7 @@ processFnOpt fc _ ndef (SpecArgs ns)
     getNamePos : Nat -> NF [<] -> Core (List (Name, Nat))
     getNamePos i (VBind tfc x (Pi _ _ _ _) sc)
         = do defs <- get Ctxt
-             ns' <- getNamePos (1 + i) !(expand !(sc (VErased tfc False)))
+             ns' <- getNamePos (1 + i) !(expand !(sc (VErased tfc Placeholder)))
              pure ((x, i) :: ns')
     getNamePos _ _ = pure []
 

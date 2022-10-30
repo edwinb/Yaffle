@@ -145,7 +145,6 @@ isStrict (PrimVal _ _) = True
 isStrict (PrimOp _ _ _) = True
 isStrict (Erased _ _) = True
 isStrict (Unmatched _ _) = True
-isStrict (Impossible _) = True
 isStrict (TType _ _) = True
 
 ||| Get the name and definition of a list of names.

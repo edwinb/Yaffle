@@ -75,9 +75,8 @@ data Value : Form -> SnocList Name -> Type where
      VForce   : FC -> LazyReason -> Glued vars -> Spine vars -> Value f vars
      VPrimVal : FC -> Constant -> Value f vars
      VPrimOp  : FC -> PrimFn ar -> Vect ar (Glued vars) -> Value f vars
-     VErased  : FC -> (imp : Bool) -> Value f vars
+     VErased  : FC -> WhyErased (Value f vars) -> Value f vars
      VUnmatched : FC -> String -> Value f vars
-     VImpossible : FC -> Value f vars
      VType    : FC -> Name -> Value f vars
 
 export
@@ -102,7 +101,6 @@ getLoc (VPrimVal fc x) = fc
 getLoc (VPrimOp fc x xs) = fc
 getLoc (VErased fc imp) = fc
 getLoc (VUnmatched fc x) = fc
-getLoc (VImpossible fc) = fc
 getLoc (VType fc x) = fc
 
 -- If a value is an App or Meta node, then it might be reducible. Expand it

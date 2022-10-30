@@ -218,7 +218,7 @@ parameters {auto c : Ref Ctxt Defs}
             -- they are cached in App nodes.
           = do let env'
                    = env :<
-                     PVar fc (rigMult scrig c) Explicit (Erased fc False)
+                     PVar fc (rigMult scrig c) Explicit (Erased fc Placeholder)
                u' <- lcheckScope env' sc
                let used = count 0 u'
                checkUsageOK EmptyFC used x (rigMult (rigMult scrig c) rig)
@@ -227,8 +227,8 @@ parameters {auto c : Ref Ctxt Defs}
       = do -- See above for why the types are erased
            let env'
                = env :<
-                 PVar fc erased Implicit (Erased fc False) :<
-                 PVar fc scrig Explicit (Erased fc False)
+                 PVar fc erased Implicit (Erased fc Placeholder) :<
+                 PVar fc scrig Explicit (Erased fc Placeholder)
            u' <- lcheck rig env' rhs
            let usedt = count 1 u'
            let useda = count 0 u'
@@ -366,9 +366,9 @@ parameters {auto c : Ref Ctxt Defs}
   lcheck rig env (PrimOp fc fn args)
      = do us <- traverseVect (lcheck rig env) args
           pure (concat (toList us))
+  lcheck rig env (Erased _ (Dotted t)) = lcheck rig env t
   lcheck rig env (Erased _ _) = pure [<]
   lcheck rig env (Unmatched _ _) = pure [<]
-  lcheck rig env (Impossible _) = pure [<]
   lcheck rig env (TType _ _) = pure [<]
 
   checkEnvUsage : {vars, done : _} ->

@@ -304,7 +304,7 @@ mustBePoly fc env tm ty = update EST { polyMetavars $= ((fc, env, tm, ty) :: ) }
 export
 concrete : Env Term vars -> NF vars -> Core Bool
 concrete env (VBind fc _ (Pi _ _ _ _) sc)
-    = do sc' <- sc (VErased fc False)
+    = do sc' <- sc (VErased fc Placeholder)
          concrete env !(expand sc')
 concrete env (VDCon _ _ _ _ _) = pure True
 concrete env (VTCon _ _ _ _) = pure True
@@ -400,7 +400,7 @@ uniVar : {auto c : Ref Ctxt Defs} ->
          FC -> Core Name
 uniVar fc
     = do n <- genName "u"
-         idx <- addDef n (newDef fc n erased [<] (Erased fc False) Public None)
+         idx <- addDef n (newDef fc n erased [<] (Erased fc Placeholder) Public None)
          pure (Resolved idx)
 
 export

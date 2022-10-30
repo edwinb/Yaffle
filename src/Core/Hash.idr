@@ -276,6 +276,12 @@ Hashable (PrimFn arity) where
     DoublePow =>
       h `hashWithSalt` 38
 
+export
+Hashable a => Hashable (WhyErased a) where
+  hashWithSalt h Impossible = hashWithSalt h 0
+  hashWithSalt h Placeholder = hashWithSalt h 1
+  hashWithSalt h (Dotted t) = hashWithSalt h 2 `hashWithSalt` t
+
 mutual
   export
   Hashable (AsName vars) where
@@ -309,12 +315,10 @@ mutual
         = h `hashWithSalt` 10 `hashWithSalt` c
     hashWithSalt h (PrimOp fc op t)
         = h `hashWithSalt` 11 `hashWithSalt` op
-    hashWithSalt h (Erased fc _)
-        = hashWithSalt h 12
+    hashWithSalt h (Erased fc why)
+        = hashWithSalt h 12 `hashWithSalt` why
     hashWithSalt h (Unmatched fc s)
         = hashWithSalt h 13 `hashWithSalt` s
-    hashWithSalt h (Impossible fc)
-        = hashWithSalt h 14
     hashWithSalt h (TType fc u)
         = hashWithSalt h 15 `hashWithSalt` u
 
