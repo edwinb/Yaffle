@@ -435,7 +435,7 @@ eraseApps {vs} tm
     dropPos fc i ns [<] = [<]
     dropPos fc i ns (xs :< (c, x))
         = if i `elem` ns
-             then dropPos fc (S i) ns xs :< (c, Erased fc False)
+             then dropPos fc (S i) ns xs :< (c, Erased fc Placeholder)
              else dropPos fc (S i) ns xs :< (c, x)
 
 -- if tm would be matched by trylhs, then it's not an impossible case

@@ -529,11 +529,11 @@ groupCons fc fn pvars cs
     addConG {vars'} {todo'} n tag pargs pats pid rhs []
         = do cty <- if n == UN (Basic "->")
                       then pure $ VBind fc (MN "_" 0) (Pi fc top Explicit (VType fc (MN "top" 0))) $
-                              (\a => pure $ VBind fc (MN "_" 1) (Pi fc top Explicit (VErased fc False))
+                              (\a => pure $ VBind fc (MN "_" 1) (Pi fc top Explicit (VErased fc Placeholder))
                                 (\a => pure $ VType fc (MN "top" 0)))
                       else do defs <- get Ctxt
                               Just t <- lookupTyExact n (gamma defs)
-                                   | Nothing => pure (VErased fc False)
+                                   | Nothing => pure (VErased fc Placeholder)
                               expand !(nf (mkEnv fc vars') (embed t))
              (patnames ** (l, newargs)) <- nextNames {vars=vars'} fc "e" pargs (Just cty)
              -- Update non-linear names in remaining patterns (to keep
@@ -863,8 +863,8 @@ mutual
   match {todo = [<]} fc fn phase [] err
        = maybe (pure (Unmatched fc "No patterns"))
                pure err
-  match {todo = [<]} fc fn phase ((MkPatClause pvars [] pid (Erased _ True)) :: _) err
-       = pure (Impossible fc)
+  match {todo = [<]} fc fn phase ((MkPatClause pvars [] pid (Erased _ Impossible)) :: _) err
+       = pure (Erased fc Impossible)
   match {todo = [<]} fc fn phase ((MkPatClause pvars [] pid rhs) :: _) err
        = pure rhs
 
@@ -992,7 +992,7 @@ mkPat args orig (Ref fc Func n)
                 "Unmatchable function: " ++ show n
               pure $ PUnmatchable (getLoc orig) orig
 mkPat args orig (Bind fc x (Pi _ _ _ s) t)
-    = let t' = subst (Erased fc False) t in
+    = let t' = subst (Erased fc Placeholder) t in
       pure $ PArrow fc x !(mkPat [<] s s) !(mkPat [<] t' t')
 mkPat args orig (App fc fn c arg)
     = do parg <- mkPat [<] arg arg
@@ -1229,7 +1229,7 @@ makePMDef fc phase fn ty []
     getArgs : Int -> NF [<] -> Core (SnocList Name)
     getArgs i (VBind fc x (Pi _ _ _ _) sc)
         = do defs <- get Ctxt
-             sc' <- expand !(sc (VErased fc False))
+             sc' <- expand !(sc (VErased fc Placeholder))
              pure (!(getArgs i sc') :< MN "arg" i)
     getArgs i _ = pure [<]
 makePMDef fc phase fn ty clauses

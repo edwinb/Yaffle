@@ -13,7 +13,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
 
   readQs : NF [<] -> Core (List RigCount)
   readQs (VBind fc x (Pi _ c _ _) sc)
-      = do rest <- readQs !(expand !(sc (VErased fc False)))
+      = do rest <- readQs !(expand !(sc (VErased fc Placeholder)))
            pure (c :: rest)
   readQs _ = pure []
 

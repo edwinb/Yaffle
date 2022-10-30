@@ -36,7 +36,7 @@ match nty (n, i, rty)
     sameRet (VType{}) (VType{}) = pure True
     sameRet nf (VBind fc _ (Pi _ _ _ _) sc)
         = do defs <- get Ctxt
-             sc' <- expand !(sc (VErased fc False))
+             sc' <- expand !(sc (VErased fc Placeholder))
              sameRet nf sc'
     sameRet _ _ = pure False
 

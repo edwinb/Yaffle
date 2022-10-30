@@ -45,7 +45,13 @@ eqTerm (TDelayed _ _ t) (TDelayed _ _ t') = eqTerm t t'
 eqTerm (TDelay _ _ t x) (TDelay _ _ t' x') = eqTerm t t' && eqTerm x x'
 eqTerm (TForce _ _ t) (TForce _ _ t') = eqTerm t t'
 eqTerm (PrimVal _ c) (PrimVal _ c') = c == c'
-eqTerm (Erased _ i) (Erased _ i') = i == i'
+eqTerm (Erased _ i) (Erased _ i') = eqErased i i'
+  where
+    eqErased : WhyErased (Term vs) -> WhyErased (Term vs') -> Bool
+    eqErased Placeholder Placeholder = True
+    eqErased Impossible Impossible = True
+    eqErased (Dotted x) (Dotted y) = eqTerm x y
+    eqErased _ _ = False
 eqTerm (TType _ _) (TType _ _) = True
 eqTerm _ _ = False
 

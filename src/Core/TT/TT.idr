@@ -509,6 +509,13 @@ data WhyErased a
   | Impossible
   | Dotted a
 
+export
+Eq a => Eq (WhyErased a) where
+  Placeholder == Placeholder = True
+  Impossible == Impossible = False
+  Dotted x == Dotted y = x == y
+  _ == _ = False
+
 %name WhyErased why
 
 export
