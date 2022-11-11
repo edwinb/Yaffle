@@ -17,7 +17,8 @@ ttTests = MkTestPool "TT" [] Nothing
        "linear001", "linear002", "linear003", "linear004", "linear005",
        "presence001", "presence002",
        "unify001", "unify002", "unify003",
-       "patterns001", "patterns002"]
+       "patterns001", "patterns002",
+       "sizechange001"]
 
 failingTests : TestPool
 failingTests = MkTestPool "Failing tests (PRs welcome)" [] Nothing

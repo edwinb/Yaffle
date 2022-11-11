@@ -52,6 +52,7 @@ eqTerm (Erased _ i) (Erased _ i') = eqErased i i'
     eqErased Impossible Impossible = True
     eqErased (Dotted x) (Dotted y) = eqTerm x y
     eqErased _ _ = False
+eqTerm (Unmatched _ _) (Unmatched _ _) = True
 eqTerm (TType _ _) (TType _ _) = True
 eqTerm _ _ = False
 
@@ -872,6 +873,50 @@ substName x new (TForce fc r y)
 substName x new (PrimOp fc fn args)
     = PrimOp fc fn (map (substName x new) args)
 substName x new tm = tm
+
+-- Replace a bound variable with a term
+export
+substVar : Var vars -> (new : Term vars) -> Term vars -> Term vars
+substVar (MkVar {i} p) new loc@(Local fc m idx p')
+    = if i == idx
+         then new
+         else loc
+substVar x new (Meta fc n i xs)
+    = Meta fc n i (map (\ (c, t) => (c, substVar x new t)) xs)
+substVar x new (Bind fc y b scope)
+    = Bind fc y (map (substVar x new) b)
+                (substVar (weaken x) (weaken new) scope)
+substVar x new (App fc fn c arg)
+    = App fc (substVar x new fn) c (substVar x new arg)
+substVar x new (As fc s as pat)
+    = As fc s as (substVar x new pat)
+substVar x new (Case fc c sc scty alts)
+    = Case fc c (substVar x new sc) (substVar x new scty)
+           (map (substVarAlt x new) alts)
+  where
+    substVarScope : forall vars . Var vars -> Term vars -> CaseScope vars -> CaseScope vars
+    substVarScope x new (RHS tm) = RHS (substVar x new tm)
+    substVarScope x new (Arg c n sc)
+        = Arg c n (substVarScope (weaken x) (weaken new) sc)
+--
+    substVarAlt : forall vars . Var vars -> Term vars -> CaseAlt vars -> CaseAlt vars
+    substVarAlt x new (ConCase cfc n t sc)
+        = ConCase cfc n t (substVarScope x new sc)
+    substVarAlt x new (DelayCase fc ty arg rhs)
+        = DelayCase fc ty arg
+                    (substVar (weakenNs (suc (suc zero)) x)
+                              (weakenNs (suc (suc zero)) new) rhs)
+    substVarAlt x new (ConstCase fc c tm) = ConstCase fc c (substVar x new tm)
+    substVarAlt x new (DefaultCase fc tm) = DefaultCase fc (substVar x new tm)
+substVar x new (TDelayed fc y z)
+    = TDelayed fc y (substVar x new z)
+substVar x new (TDelay fc y t z)
+    = TDelay fc y (substVar x new t) (substVar x new z)
+substVar x new (TForce fc r y)
+    = TForce fc r (substVar x new y)
+substVar x new (PrimOp fc fn args)
+    = PrimOp fc fn (map (substVar x new) args)
+substVar x new tm = tm
 
 export
 addMetas : (usingResolved : Bool) -> NameMap Bool -> Term vars -> NameMap Bool

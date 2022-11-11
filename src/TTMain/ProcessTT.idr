@@ -7,6 +7,7 @@ import Core.Evaluate
 import Core.Syntax.Decls
 import Core.Syntax.Raw
 import Core.Check.Typecheck
+import Core.Termination
 import Core.Unify.State
 import Core.Unify
 
@@ -48,6 +49,11 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   processLogging lvl
       = addLogLevel (Just lvl)
 
+  processSizeChange : Name -> Core ()
+  processSizeChange n
+      = do calls <- calculateSizeChange EmptyFC n
+           coreLift $ printLn calls
+
   export
   processCommand : Command -> Core ()
   processCommand (Decl d) = processDecl d
@@ -56,4 +62,5 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   processCommand (Check tm) = processCheck tm
   processCommand (Unify x y) = processUnify x y
   processCommand (Logging x) = processLogging x
+  processCommand (SizeChange n) = processSizeChange n
   processCommand Quit = pure ()

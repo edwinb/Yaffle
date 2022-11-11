@@ -1,0 +1,1 @@
+$1 -tt patt.tt < input

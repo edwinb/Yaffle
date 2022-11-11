@@ -64,6 +64,7 @@ data Command : Type where
      Check : RawI -> Command
      Unify : RawI -> RawI -> Command
      Logging : LogLevel -> Command
+     SizeChange : Name -> Command
      Quit : Command
 
 prefixRig : RigCount -> String
@@ -150,4 +151,5 @@ Show Command where
   show (Check e) = "type " ++ show e
   show (Unify x y) = "unify " ++ show x ++ " " ++ show y
   show (Logging i) = "logging " ++ show i
+  show (SizeChange n) = "sc " ++ show n
   show Quit = "quit"

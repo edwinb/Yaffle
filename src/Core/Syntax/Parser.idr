@@ -318,6 +318,11 @@ command fname
          symbol ";"
          pure (Logging (mkLogLevel' Nothing (fromInteger x)))
   <|> do symbol ":"
+         exactIdent "sc"
+         x <- name
+         symbol ";"
+         pure (SizeChange x)
+  <|> do symbol ":"
          exactIdent "q"
          symbol ";"
          pure Quit

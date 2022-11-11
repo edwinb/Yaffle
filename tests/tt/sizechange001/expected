@@ -1,0 +1,5 @@
+False
+True
+[plus: [Just (0, Smaller), Just (1, Same)]]
+[ack: [Just (0, Smaller), Nothing], ack: [Just (0, Same), Just (1, Smaller)]]
+Yaffle> Bye for now!

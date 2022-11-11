@@ -39,6 +39,7 @@ modules
     Core.Syntax.Parser,
     Core.Syntax.Raw, -- raw unchecked syntax lives here
     Core.Syntax.Support,
+    Core.Termination,
     Core.TT,
     Core.TT.Name,
     Core.TT.Namespace,

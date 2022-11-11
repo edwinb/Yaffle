@@ -1,0 +1,44 @@
+data Bool : Type where {
+    False : Bool 
+  | True : Bool
+}
+
+data Nat : Type where {
+   Z : Nat
+ | S : pi k : Nat . Nat
+}
+
+not : pi x : Bool . Bool;
+not {
+  not False = True;
+  not True = False;
+}
+
+not True;
+not False;
+
+data Pair : Type where {
+     MkPair : pi x : Integer . pi y : Integer . Pair
+}
+
+proj1 : pi x : Pair . Integer;
+proj1 {
+  x, y . proj1 (MkPair x y) = x;
+}
+
+plus : pi x : Nat . pi y : Nat . Nat;
+plus {
+  y    . plus Z y     = y;
+  k, y . plus (S k) y = S (plus k y);
+}
+
+:sc plus;
+
+ack : pi x : Nat . pi y : Nat . Nat;
+ack {
+  n    . ack Z n         = S n;
+  m    . ack (S m) Z     = ack m (S Z);
+  m, n . ack (S m) (S n) = ack m (ack (S m) n);
+}
+
+:sc ack;
