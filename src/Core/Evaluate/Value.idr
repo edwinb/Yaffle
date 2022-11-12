@@ -67,7 +67,7 @@ data Value : Form -> SnocList Name -> Type where
      VTCon    : FC -> Name -> (arity : Nat) ->
                 Spine vars -> Value f vars
      VAs      : FC -> UseSide -> Value f vars -> Value f vars -> Value f vars
-     VCase    : FC -> RigCount -> (sc : Glued vars) -> (scTy : Glued vars) ->
+     VCase    : FC -> RigCount -> (sc : NF vars) -> (scTy : Glued vars) ->
                 List (VCaseAlt vars) ->
                 Value f vars
      VDelayed : FC -> LazyReason -> Glued vars -> Value f vars

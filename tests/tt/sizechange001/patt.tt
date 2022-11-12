@@ -41,4 +41,11 @@ ack {
   m, n . ack (S m) (S n) = ack m (ack (S m) n);
 }
 
+ack (S (S (S Z))) (S (S (S Z)));
+
+natToInt : pi x : Nat . Integer;
+natToInt = lam x . case x of
+                      Z => 0
+                    | S k => prim__add_Integer (natToInt k) 1;
+
 :sc ack;

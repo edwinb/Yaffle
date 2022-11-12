@@ -148,7 +148,7 @@ parameters {auto c : Ref Ctxt Defs}
 
   blockedCase : {vars : _} ->
                 FC -> LocalEnv free vars -> Env Term vars ->
-                RigCount -> (sc : Glued vars) -> (scTy : Term (vars ++ free)) ->
+                RigCount -> (sc : NF vars) -> (scTy : Term (vars ++ free)) ->
                 List (CaseAlt (vars ++ free)) ->
                 Core (Glued vars)
   blockedCase fc locs env r sc scTy alts
@@ -191,14 +191,13 @@ parameters {auto c : Ref Ctxt Defs}
 
   evalCase : {vars : _} ->
              FC -> LocalEnv free vars -> Env Term vars ->
-             RigCount -> (sc : Glued vars) -> (scTy : Term (vars ++ free)) ->
+             RigCount -> (sc : NF vars) -> (scTy : Term (vars ++ free)) ->
              List (CaseAlt (vars ++ free)) ->
              Core (Glued vars)
-  evalCase fc locs env r sc_in ty alts
-      = do sc <- expand sc_in
-           if isCanonical sc
-              then tryAlts locs env sc alts (blockedCase fc locs env r sc_in ty alts)
-              else blockedCase fc locs env r sc_in ty alts
+  evalCase fc locs env r sc ty alts
+      = if isCanonical sc
+           then tryAlts locs env sc alts (blockedCase fc locs env r sc ty alts)
+           else blockedCase fc locs env r sc ty alts
     where
       isCanonical : NF vars -> Bool
       isCanonical (VLam{}) = True
@@ -302,9 +301,9 @@ parameters {auto c : Ref Ctxt Defs}
   eval locs env (As fc use _ pat)
       = eval locs env pat
   eval locs env (Case fc r sc ty alts)
-      = do sc' <- eval locs env sc
+      = do sc' <- expand !(eval locs env sc)
            locs' <- case sc of
-                         Local _ _ _ p => pure $ updateEnv locs p (asGlued !(expand sc'))
+                         Local _ _ _ p => pure $ updateEnv locs p (asGlued sc')
                          _ => pure locs
            evalCase fc locs' env r sc' ty alts
   eval locs env (TDelayed fc r tm)

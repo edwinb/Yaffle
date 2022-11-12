@@ -14,6 +14,10 @@ import Data.Vect
 
 %default covering
 
+-- Termination checking follows (more or less)
+-- "The size-change principle for program termination" by Lee, Jones and
+-- Ben-Amram. https://doi.org/10.1145/360204.360210
+
 -- Check that the names a function refers to are terminating
 totRefs : {auto c : Ref Ctxt Defs} ->
           Defs -> List Name -> Core Terminating
