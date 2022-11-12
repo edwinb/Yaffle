@@ -116,7 +116,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       undefinedN n
           = do defs <- get Ctxt
                pure $ case !(lookupDefExact n (gamma defs)) of
-                    Just (Hole _) => True
+                    Just (Hole _ _) => True
                     Just (BySearch _ _ _) => True
                     Just (Guess _ _ _) => True
                     _ => False
@@ -382,7 +382,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                 Nothing =>
                   do Just hdef <- lookupCtxtExact (Resolved mref) (gamma defs)
                         | _ => postponePatVar swap mode fc env mname mref args sp tmnf
-                     let Hole _ = definition hdef
+                     let Hole _ _ = definition hdef
                         | _ => postponePatVar swap mode fc env mname mref args sp tmnf
                      if invertible hdef
                         then unifyHoleApp swap mode fc env mname mref args sp !(expand tmnf)
@@ -390,7 +390,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                 Just (newvars ** (locs, submv)) =>
                   do Just hdef <- lookupCtxtExact (Resolved mref) (gamma defs)
                          | _ => postponePatVar swap mode fc env mname mref args sp tmnf
-                     let Hole _ = definition hdef
+                     let Hole _ _ = definition hdef
                          | _ => postponeS {f=Normal} swap fc mode "Delayed hole" env
                                           (VMeta fc mname mref args sp (pure Nothing))
                                           tmnf
@@ -755,7 +755,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                Just gdef <- lookupCtxtExact n (gamma defs)
                     | _ => pure False
                case definition gdef of
-                    Hole _ => pure (invertible gdef)
+                    Hole _ _ => pure (invertible gdef)
                     BySearch _ _ _ => pure False
                     Guess _ _ _ => pure False
                     _ => pure True
@@ -895,9 +895,9 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
           = do defs <- get Ctxt
                case !(lookupDefExact (Resolved hid) (gamma defs)) of
                     Just (BySearch _ _ _) =>
-                           updateDef (Resolved hid) (const (Just (Hole 0)))
+                           updateDef (Resolved hid) (const (Just (Hole 0 (holeInit False))))
                     Just (Guess _ _ _) =>
-                           updateDef (Resolved hid) (const (Just (Hole 0)))
+                           updateDef (Resolved hid) (const (Just (Hole 0 (holeInit False))))
                     _ => pure ()
 
   -- Check whether any of the given hole references have the same solution
@@ -972,10 +972,10 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                               (\n => do Just ndef <- lookupDefExact n (gamma defs)
                                              | Nothing => undefinedName fc n
                                         pure $ case ndef of
-                                             Hole _ => False
+                                             Hole _ _ => False
                                              _ => True)
                               oldholen
-  --
+
                      -- If any of the things we solved have the same definition,
                      -- we've sneaked a non-linear pattern variable in
                      argsSame <- checkArgsSame (namesSolved cs)

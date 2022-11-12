@@ -58,6 +58,14 @@ record TyConInfo where
   uniqueAuto : Bool  -- should 'auto' implicits check for uniqueness
   external : Bool -- defined externally (e.g. in a C or Scheme library)
 
+public export
+record HoleFlags where
+  constructor MkHoleFlags
+  implbind : Bool -- stands for an implicitly bound name
+
+export
+holeInit : Bool -> HoleFlags
+holeInit b = MkHoleFlags b
 
 public export
 data Def : Type where
@@ -68,6 +76,7 @@ data Def : Type where
     TCon : TyConInfo -> (arity : Nat) -> Def -- type constructor
     Hole : (numlocs : Nat) -> -- Number of locals in scope at binding point
                               -- (mostly to help display)
+           HoleFlags ->
            Def
     BySearch : RigCount -> (maxdepth : Nat) -> (defining : Name) -> Def
          -- ^ a name which will be found via auto-search
@@ -110,7 +119,7 @@ Show Def where
   show (ExternDef arity) = "<external def with arity " ++ show arity ++ ">"
   show (ForeignDef a cs) = "<foreign def with arity " ++ show a ++
                            " " ++ show cs ++">"
-  show (Hole _) = "Hole"
+  show (Hole _ _) = "Hole"
   show (BySearch c depth def) = "Search in " ++ show def
   show (Guess tm _ cs) = "Guess " ++ show tm ++ " when " ++ show cs
   show (UniverseLevel i) = "Universe level #" ++ show i

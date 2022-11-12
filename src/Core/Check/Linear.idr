@@ -157,7 +157,7 @@ parameters {auto c : Ref Ctxt Defs}
                 | Nothing => updateHoleUsageArgs useVar var zs (map snd args)
            -- only update for holes with no definition yet
            case definition gdef of
-                Hole _ =>
+                Hole _ _ =>
                    do let ty = type gdef
                       ty' <- updateHoleType useVar var zs ty (map snd args)
                       updateTy i ty'

@@ -232,9 +232,9 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            pure (Case fc r sc' scTy' alts)
   check rig env (RMeta fc str) exp
       = do let n = UN (mkUserName str)
-           (idx, meta) <- newMeta fc rig env n exp (Hole (length env))
+           (idx, meta) <- newMeta fc rig env n exp (Hole (length env) (holeInit False))
            pure meta
   check rig env (RImplicit fc) exp
       = do n <- genName "_"
-           (idx, meta) <- newMeta fc rig env n exp (Hole (length env))
+           (idx, meta) <- newMeta fc rig env n exp (Hole (length env) (holeInit False))
            pure meta

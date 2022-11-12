@@ -44,15 +44,15 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
-* Termination checker
-  - Tests for basic operation of termination and coverage checking
+* Port and test auto-search (TT REPL command)
 * Implement enough of the Raw term elaborator that we can check type
   declarations
   - i.e. Implement 'check', elaboration of RawImp to TT
+* Termination checker
+  - Tests for basic operation of termination and coverage checking
 * Continue TTImp elaborator
   - Port all the missing imports in TTImp.ProcessDef
   - Complete ProcessDef
-* Port and test auto-search (TT REPL command)
 * Unification details (which will come up during elaboration...):
   - Inlining things with linear quantities in the context
   - We don't need 'inlineOnly' in the context any more, so remove once
