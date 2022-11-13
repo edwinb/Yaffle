@@ -39,6 +39,7 @@ public export
 knownTopics : List (String, Maybe String)
 knownTopics = [
     ("auto", Nothing),
+    ("auto.determining", Just "Checking that interface's determining argument are concrete"),
     ("builtin.Natural", Just "Log each encountered %builtin Natural declaration."),
     ("builtin.NaturalToInteger", Just "Log each encountered %builtin NaturalToInteger declaration."),
     ("builtin.IntegerToNatural", Just "Log each encountered %builtin IntegerToNatural declaration."),

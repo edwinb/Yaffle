@@ -354,3 +354,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                                              ++ " " ++ show (getIVars vars, soln))
               pure (Just soln')
       mkDef _ _ _ _ = pure Nothing
+
+  export
+  solveIfUndefined : {vars : _} ->
+                     Env Term vars -> Term vars -> Term vars -> Core Bool

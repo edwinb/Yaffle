@@ -34,7 +34,7 @@ parameters {auto c : Ref Ctxt Defs}
 third : (s, t, u) -> u
 third (x, y, z) = z
 
-parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
+parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   -- Defined in Core.AutoSearch
   export
   search : {vars : _} ->

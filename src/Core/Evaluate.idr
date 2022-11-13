@@ -61,6 +61,14 @@ parameters {auto c : Ref Ctxt Defs}
       = do val <- nf env tm
            quoteBinders env val
 
+  -- Normalise, but without normalising the types of binders.
+  export
+  normaliseScope : {vars : _} ->
+                   Env Term vars -> Term vars -> Core (Term vars)
+  normaliseScope env (Bind fc n b sc)
+      = pure $ Bind fc n b !(normaliseScope (env :< b) sc)
+  normaliseScope env tm = normalise env tm
+
   export
   getArityVal : NF vars -> Core Nat
   getArityVal (VBind fc _ (Pi _ _ _ _) sc)
