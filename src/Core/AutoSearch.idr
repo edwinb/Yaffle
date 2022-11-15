@@ -380,7 +380,9 @@ searchName fc rigc defaults trying depth def top env target (n, ndef)
          (args, appTy) <- mkArgs fc rigc env nty
          ures <- unify inTerm fc env target appTy
          let [] = constraints ures
-             | _ => throw (CantSolveGoal fc defs [<] top Nothing)
+             | _ => do logNF "auto" 10 "Unify constraints" env target
+                       logNF "auto" 10 ".............with" env appTy
+                       throw (CantSolveGoal fc defs [<] top Nothing)
          ispair <- isPairNF env nty
          let candidate = apply fc (Ref fc namety n) (map metaApp args)
          logTermNF "auto" 10 "Candidate " env candidate

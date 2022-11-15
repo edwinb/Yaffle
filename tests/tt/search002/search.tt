@@ -1,0 +1,22 @@
+data List : pi a : Type . Type where {
+     Nil : pi a : Type . List a
+   | Cons : pi a : Type . pi x : a . pi xs : List a . List a
+}
+
+data Elem : pi a : Type . pi x : a . pi xs : List a . Type where {
+     Here : pi a : Type . pi x : a . pi xs : List a . Elem _ x (Cons _ x xs)
+   | There : pi a : Type . pi x : a . pi y : a . pi xs : List a .
+             pi p : Elem _ x xs . Elem _ x (Cons _ y xs)
+}
+
+data Unit : Type where {
+     MkUnit : Unit
+}
+
+test : Elem _ 4 (Cons _ 4 (Nil _));
+test = Here _ _ _;
+
+:t test;
+test;
+
+:search Elem _ 4 (Cons _ 3 (Cons _ 4 (Nil _)));

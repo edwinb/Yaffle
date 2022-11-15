@@ -1,0 +1,4 @@
+test : (Elem Integer 4 (Cons Integer 4 (Nil Integer)))
+(Here Integer 4 (Nil Integer))
+(There Integer 4 3 (Cons Integer 4 (Nil Integer)) (Here Integer 4 (Nil Integer)))
+Yaffle> Bye for now!

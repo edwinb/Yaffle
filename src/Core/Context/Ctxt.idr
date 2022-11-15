@@ -610,10 +610,11 @@ HasNames a => HasNames (Maybe a) where
 export
 HasNames Name where
   full gam (Resolved i)
-      = case lookup i (staging gam) of
-             Just (Coded _ n _) => pure n
-             Just (Decoded def) => pure (fullname def)
-             Nothing => pure (Resolved i)
+      = do Just gdef <- lookupCtxtExact (Resolved i) gam
+                  -- May occasionally happen when working with metadata.
+                  -- It's harmless, so just silently return the resolved name.
+                | Nothing => pure (Resolved i)
+           pure (fullname gdef)
   full gam n = pure n
 
   resolved gam (Resolved i)

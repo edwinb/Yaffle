@@ -7,7 +7,7 @@ import Core.Evaluate
 import Core.Check.Linear
 import Core.Syntax.Raw
 import Core.Check.Typecheck
-import Core.Unify.State
+import Core.Unify
 
 parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
 
@@ -51,6 +51,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            let tinf = MkTyConInfo [] [] [] cnames Nothing False False
            -- Re-add with the full information
            ignore $ addDef n (newDef fc n top [<] ty Public (TCon tinf arity))
+           traverse_ (\x => addHintFor fc n x True False) cnames
     where
       -- I wanted to zip a Stream with a List...
       mkTags : Int -> List a -> List (Int, a)
@@ -71,6 +72,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            let None = definition def
                 | _ => throw (AlreadyDefined fc n)
            tm <- check (multiplicity def) [<] rtm (type def)
+           solveConstraints inTerm Normal
            linearCheck fc (multiplicity def) [<] tm
            updateDef n (const (Just (Function (MkFnInfo NotHole False False) tm)))
 
@@ -86,7 +88,9 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   processClause (RClause fc pvars rawlhs rawrhs)
       = do (_ ** env) <- processEnv [<] pvars
            (lhs, lhsty) <- infer top env rawlhs
+           solveConstraints inLHS Normal
            rhs <- check top env rawrhs lhsty
+           solveConstraints inTerm Normal
            pure (MkClause env !(normaliseHoles env lhs) rhs)
 
   processPat : FC -> Name -> List RawClause -> Core ()

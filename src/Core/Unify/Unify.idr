@@ -154,7 +154,11 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = do -- Do later arguments first, since they may depend on earlier
            -- arguments and use their solutions.
            cs <- unifyArgs mode loc env cxs cys
-           res <- unify (lower mode) loc env cx cy
+           -- We might know more about cx and cy now, so normalise again to
+           -- reduce any newly solved holes
+           cx' <- nf env !(quote env cx)
+           cy' <- nf env !(quote env cy)
+           res <- unify (lower mode) loc env cx' cy'
            pure (union res cs)
   unifyArgs mode loc env _ _ = ufail loc ""
 
@@ -164,7 +168,11 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
               Core UnifyResult
   unifySpine mode fc env [<] [<] = pure success
   unifySpine mode fc env (cxs :< (_, _, cx)) (cys :< (_, _, cy))
-      = do cs <- unify (lower mode) fc env cx cy
+      = do -- We might know more about cx and cy now, so normalise again to
+           -- reduce any newly solved holes
+           cx' <- nf env !(quote env cx)
+           cy' <- nf env !(quote env cy)
+           cs <- unify (lower mode) fc env cx' cy'
            res <- unifySpine mode fc env cxs cys
            pure (union cs res)
   unifySpine mode fc env _ _ = ufail fc ""
@@ -391,7 +399,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                   do Just hdef <- lookupCtxtExact (Resolved mref) (gamma defs)
                          | _ => postponePatVar swap mode fc env mname mref args sp tmnf
                      let Hole _ _ = definition hdef
-                         | _ => postponeS {f=Normal} swap fc mode "Delayed hole" env
+                         | wat => postponeS {f=Normal} swap fc mode "Delayed hole" env
                                           (VMeta fc mname mref args sp (pure Nothing))
                                           tmnf
                      tm <- quote env tmnf
@@ -866,6 +874,9 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   solveConstraints : UnifyInfo -> (smode : SolveMode) -> Core ()
   solveConstraints umode smode
       = do ust <- get UST
+           log "unify.retry" 5 ("Retrying " ++
+                            show (length (toList (guesses ust))) ++
+                            " constraints")
            progress <- traverse (retryGuess umode smode) (toList (guesses ust))
            when (any id progress) $
                  solveConstraints umode Normal

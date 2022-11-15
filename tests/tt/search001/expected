@@ -1,0 +1,4 @@
+\(x : Integer) => \(y : Unit) => x[1]
+\(x : Integer) => \(y : Unit) => y[0]
+\(x : Integer) => \(y : Integer) => MkUnit
+Yaffle> Bye for now!

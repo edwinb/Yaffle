@@ -39,6 +39,14 @@ getVars got (xs :< VLocal fc r idx v [<])
 getVars got (xs :< VAs _ _ _ p) = getVars got (xs :< p)
 getVars _ (xs :< _) = Nothing
 
+getVarsTm : List Nat -> SnocList (Term vars) -> Maybe (SnocList (Var vars))
+getVarsTm got [<] = Just [<]
+getVarsTm got (xs :< Local fc r idx v)
+    = if idx `elem` got then Nothing
+         else do xs' <- getVarsTm (idx :: got) xs
+                 pure (xs' :< MkVar v)
+getVarsTm _ (xs :< _) = Nothing
+
 -- Make a sublist representing the variables used in the application.
 -- We'll use this to ensure that local variables which appear in a term
 -- are all arguments to a metavariable application for pattern unification
@@ -137,6 +145,28 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                  Nothing => updateVars ps svs
                  Just p' => updateVars ps svs :< p'
 
+  export
+  patternEnvTm : {vars : _} ->
+                 Env Term vars -> SnocList (Term vars) ->
+                 Core (Maybe (newvars ** (SnocList (Var newvars),
+                                         SubVars newvars vars)))
+  patternEnvTm {vars} env args
+      = pure $ case getVarsTm [] args of
+             Nothing => Nothing
+             Just vs =>
+               let (newvars ** svs) = toSubVars _ vs in
+                   Just (newvars ** (updateVars vs svs, svs))
+    where
+      -- Update the variable list to point into the sub environment
+      -- (All of these will succeed because the SubVars we have comes from
+      -- the list of variable uses! It's not stated in the type, though.)
+      updateVars : SnocList (Var vars) -> SubVars newvars vars -> SnocList (Var newvars)
+      updateVars [<] svs = [<]
+      updateVars (ps :< MkVar p) svs
+          = case subElem p svs of
+                 Nothing => updateVars ps svs
+                 Just p' => updateVars ps svs :< p'
+
   -- Check that the metavariable name doesn't occur in the solution.
   -- If it does, normalising might help. If it still does, that's an error.
   export
@@ -205,7 +235,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                  log "unify.instantiate" 5 "Postponed"
                  pure False
 
-           logTerm "unify.instantiate" 5 "Definition" rhs
+           logTerm "unify.instantiate" 5 (show mname ++ " definition:") rhs
            let simpleDef = MkFnInfo (SolvedHole num)
                                      (not (isUserName mname) && isSimple rhs)
                                      False
@@ -355,6 +385,34 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
               pure (Just soln')
       mkDef _ _ _ _ = pure Nothing
 
+  -- update a solution that the machine found with the thing the programmer
+  -- actually wrote! We assume that we've already checked that they unify.
+  export
+  updateSolution : {vars : _} ->
+                   Env Term vars -> Term vars -> Term vars -> Core Bool
+  updateSolution env (Meta fc mname idx args) soln
+      = do defs <- get Ctxt
+           case !(patternEnvTm env (cast (map snd args))) of
+                Nothing => pure False
+                Just (newvars ** (locs, submv)) =>
+                    case shrinkTerm soln submv of
+                         Nothing => pure False
+                         Just stm =>
+                            do Just hdef <- lookupCtxtExact (Resolved idx) (gamma defs)
+                                    | Nothing => throw (InternalError "Can't happen: no definition")
+                               tryInstantiate fc inTerm env mname idx (length args) hdef (toList locs) soln stm
+  updateSolution env metavar soln
+      = pure False
+
   export
   solveIfUndefined : {vars : _} ->
                      Env Term vars -> Term vars -> Term vars -> Core Bool
+  solveIfUndefined env metavar@(Meta fc mname idx args) soln
+      = do defs <- get Ctxt
+           Just (Hole _ _) <- lookupDefExact (Resolved idx) (gamma defs)
+                | _ => pure False
+           updateSolution env metavar soln
+  solveIfUndefined env (Erased _ (Dotted metavar)) soln
+    = solveIfUndefined env metavar soln
+  solveIfUndefined env metavar soln
+      = pure False

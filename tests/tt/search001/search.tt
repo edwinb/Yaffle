@@ -1,0 +1,8 @@
+data Unit : Type where {
+     MkUnit : Unit
+}
+
+
+:search pi x : Integer . pi y : Unit . Integer;
+:search pi x : Integer . pi y : Unit . Unit;
+:search pi x : Integer . pi y : Integer . Unit;

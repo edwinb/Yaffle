@@ -65,6 +65,7 @@ data Command : Type where
      Unify : RawI -> RawI -> Command
      Logging : LogLevel -> Command
      SizeChange : Name -> Command
+     AutoSearch : RawC -> Command
      Quit : Command
 
 prefixRig : RigCount -> String
@@ -152,4 +153,5 @@ Show Command where
   show (Unify x y) = "unify " ++ show x ++ " " ++ show y
   show (Logging i) = "logging " ++ show i
   show (SizeChange n) = "sc " ++ show n
+  show (AutoSearch n) = "search " ++ show n
   show Quit = "quit"

@@ -323,6 +323,11 @@ command fname
          symbol ";"
          pure (SizeChange x)
   <|> do symbol ":"
+         exactIdent "search"
+         tm <- rawc fname
+         symbol ";"
+         pure (AutoSearch tm)
+  <|> do symbol ":"
          exactIdent "q"
          symbol ";"
          pure Quit

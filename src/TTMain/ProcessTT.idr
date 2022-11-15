@@ -1,5 +1,6 @@
 module TTMain.ProcessTT
 
+import Core.AutoSearch
 import Core.Context
 import Core.Env
 import Core.Error
@@ -35,6 +36,12 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            coreLift $ putStrLn $ show !(toFullNames tm) ++ " : "
                                      ++ show !(toFullNames tynf)
 
+  processAutoSearch : RawC -> Core ()
+  processAutoSearch rawty
+      = do ty <- check erased [<] rawty (topType EmptyFC)
+           val <- search EmptyFC top False 50 (UN (mkUserName "(repl)")) ty [<]
+           coreLift $ putStrLn $ show !(toFullNames !(normaliseHoles [<] val))
+
   processUnify : RawI -> RawI -> Core ()
   processUnify rawx rawy
       = do (tmx, tyx) <- infer linear [<] rawx
@@ -63,4 +70,5 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   processCommand (Unify x y) = processUnify x y
   processCommand (Logging x) = processLogging x
   processCommand (SizeChange n) = processSizeChange n
+  processCommand (AutoSearch ty) = processAutoSearch ty
   processCommand Quit = pure ()
