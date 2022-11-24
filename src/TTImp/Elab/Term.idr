@@ -11,12 +11,12 @@ import Core.Unify
 import Core.TT
 
 import TTImp.Elab.Ambiguity
--- import TTImp.Elab.App
+import TTImp.Elab.App
 -- import TTImp.Elab.As
 -- import TTImp.Elab.Binders
 -- import TTImp.Elab.Case
 import TTImp.Elab.Check
--- import TTImp.Elab.Dot
+import TTImp.Elab.Dot
 -- import TTImp.Elab.Hole
 -- import TTImp.Elab.ImplicitBind
 -- import TTImp.Elab.Lazy

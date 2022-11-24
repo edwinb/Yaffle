@@ -4,12 +4,9 @@ import Core.Context
 import Core.Core
 import Core.Env
 import Core.Metadata
-import Core.Normalise
+import Core.Evaluate
 import Core.Unify
 import Core.TT
-
-import Idris.REPL.Opts
-import Idris.Syntax
 
 import TTImp.Elab.Check
 import TTImp.TTImp
@@ -28,7 +25,7 @@ registerDot : {vars : _} ->
               Core (Term vars, Glued vars)
 registerDot rig env fc reason wantedTm gexpty
     = do nm <- genName "dotTm"
-         expty <- getTerm gexpty
+         expty <- quote env gexpty
          metaval <- metaVar fc rig env nm expty
          addDot fc env nm wantedTm reason metaval
          let tm = case reason of
@@ -42,8 +39,6 @@ checkDot : {vars : _} ->
            {auto m : Ref MD Metadata} ->
            {auto u : Ref UST UState} ->
            {auto e : Ref EST (EState vars)} ->
-           {auto s : Ref Syn SyntaxInfo} ->
-           {auto o : Ref ROpts REPLOpts} ->
            RigCount -> ElabInfo ->
            NestedNames vars -> Env Term vars ->
            FC -> DotReason -> RawImp -> Maybe (Glued vars) ->

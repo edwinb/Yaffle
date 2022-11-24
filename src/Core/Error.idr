@@ -42,6 +42,7 @@ data Error : Type where
                     FC -> Defs -> Env Term vars -> Term vars -> Term vars -> Error -> Error
 
      UndefinedName : FC -> Name -> Error
+     InvisibleName : FC -> Name -> Maybe Namespace -> Error
      NoDeclaration : FC -> Name -> Error
      BadTypeConType : FC -> Name -> Error
      BadDataConType : FC -> Name -> Name -> Error
@@ -69,6 +70,8 @@ data Error : Type where
                        FC -> Env Term vars -> Term vars -> List (Term vars) -> Error
      AmbiguityTooDeep : FC -> Name -> List Name -> Error
      AllFailed : List (Maybe Name, Error) -> Error
+     InvalidArgs : {vars : _} ->
+                   FC -> Env Term vars -> List Name -> Term vars -> Error
 
      BadUnboundImplicit : {vars : _} ->
                           FC -> Env Term vars -> Name -> Term vars -> Error
@@ -113,6 +116,10 @@ Show Error where
       = show fc ++ ":When unifying: " ++ show x ++ " and " ++ show y ++ "\n\t" ++ show err
 
   show (UndefinedName fc n) = show fc ++ ":Undefined name " ++ show n
+  show (InvisibleName fc x (Just ns))
+       = show fc ++ ":Name " ++ show x ++ " is inaccessible since " ++
+         show ns ++ " is not explicitly imported"
+  show (InvisibleName fc x _) = show fc ++ ":Name " ++ show x ++ " is private"
   show (NoDeclaration fc x) = show fc ++ ":No type declaration for " ++ show x
   show (BadTypeConType fc n)
        = show fc ++ ":Return type of " ++ show n ++ " must be Type"
@@ -129,6 +136,8 @@ Show Error where
   show (AmbiguityTooDeep fc n ns)
       = show fc ++ ":Ambiguity too deep in " ++ show n ++ " " ++ show ns
   show (AllFailed ts) = "No successful elaboration: " ++ assert_total (show ts)
+  show (InvalidArgs fc env ns tm)
+     = show fc ++ ":" ++ show ns ++ " are not valid arguments in " ++ show tm
 
   show (PatternVariableUnifies fc fct env n x)
       = show fc ++ ":Pattern variable " ++ show n ++ " unifies with " ++ show x

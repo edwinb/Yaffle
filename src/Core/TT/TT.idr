@@ -31,6 +31,12 @@ Show NameType where
   showPrec d (DataCon tag ar) = showCon d "DataCon" $ showArg tag ++ showArg ar
   showPrec d (TyCon ar) = showCon d "TyCon" $ showArg ar
 
+export
+isCon : NameType -> Maybe (Int, Nat)
+isCon (DataCon t a) = Just (t, a)
+isCon (TyCon a) = Just (-1, a)
+isCon _ = Nothing
+
 public export
 data PrimType
     = IntType

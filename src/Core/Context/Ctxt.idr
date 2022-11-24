@@ -47,6 +47,7 @@ initCtxtS s
             , branchDepth = 0
             , staging = empty
             , visibleNS = [partialEvalNS]
+            , allPublic = False
             , inlineOnly = False
             , hidden = empty
             }

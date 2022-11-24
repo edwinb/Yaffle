@@ -1,5 +1,8 @@
 module Core.TT.RigCount
 
+infixl 8 |+|
+infixl 9 |*|
+
 public export
 data RigCount = Rig0 | Rig1 | RigW
 
@@ -16,6 +19,14 @@ rigMult _ Rig0 = Rig0
 rigMult Rig1 a = a
 rigMult a Rig1 = a
 rigMult _ _ = RigW
+
+export
+(|+|) : RigCount -> RigCount -> RigCount
+(|+|) = rigPlus
+
+export
+(|*|) : RigCount -> RigCount -> RigCount
+(|*|) = rigMult
 
 export
 rigRestrictW : RigCount -> RigCount

@@ -89,6 +89,7 @@ knownTopics = [
     ("doc.module", Nothing),
     ("elab", Nothing),
     ("elab.ambiguous", Nothing),
+    ("elab.app.dot", Nothing),
     ("elab.app.var", Nothing),
     ("elab.app.lhs", Nothing),
     ("elab.as", Nothing),

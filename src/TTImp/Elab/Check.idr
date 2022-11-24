@@ -729,3 +729,49 @@ convertWithLazy withLazy fc elabinfo env x y
                   ytm <- quote env y
                   defs <- get Ctxt
                   throw (WhenUnifying fc defs env xtm ytm err))
+
+export
+convert : {vars : _} ->
+          {auto c : Ref Ctxt Defs} ->
+          {auto u : Ref UST UState} ->
+          {auto e : Ref EST (EState vars)} ->
+          FC -> ElabInfo -> Env Term vars -> Glued vars -> Glued vars ->
+          Core UnifyResult
+convert = convertWithLazy False
+
+-- Check whether the type we got for the given type matches the expected
+-- type.
+-- Returns the term and its type.
+-- This may generate new constraints; if so, the term returned is a constant
+-- guarded by the constraints which need to be solved.
+export
+checkExp : {vars : _} ->
+           {auto c : Ref Ctxt Defs} ->
+           {auto u : Ref UST UState} ->
+           {auto e : Ref EST (EState vars)} ->
+           RigCount -> ElabInfo -> Env Term vars -> FC ->
+           (term : Term vars) ->
+           (got : Glued vars) -> (expected : Maybe (Glued vars)) ->
+           Core (Term vars, Glued vars)
+checkExp rig elabinfo env fc tm got (Just exp)
+    = do vs <- convertWithLazy True fc elabinfo env got exp
+         case (constraints vs) of
+              [] => case addLazy vs of
+                         NoLazy => do logTerm "elab" 5 "Solved" tm
+                                      pure (tm, got)
+                         AddForce r => do logTerm "elab" 5 "Force" tm
+                                          logNF "elab" 5 "Got" env got
+                                          logNF "elab" 5 "Exp" env exp
+                                          pure (TForce fc r tm, exp)
+                         AddDelay r => do ty <- quote env got
+                                          logTerm "elab" 5 "Delay" tm
+                                          pure (TDelay fc r ty tm, exp)
+              cs => do logTerm "elab" 5 "Not solved" tm
+                       cty <- quote env exp
+                       ctm <- newConstant fc rig env tm cty cs
+                       case addLazy vs of
+                            NoLazy => pure (ctm, got)
+                            AddForce r => pure (TForce fc r tm, exp)
+                            AddDelay r => do ty <- quote env got
+                                             pure (TDelay fc r ty tm, exp)
+checkExp rig elabinfo env fc tm got Nothing = pure (tm, got)

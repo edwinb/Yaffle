@@ -220,6 +220,19 @@ parameters {auto c : Ref Ctxt Defs}
       visible : Namespace -> Bool
       visible visns = isParentOf visns nspace
 
+  -- set whether all names should be viewed as public. Be careful with this,
+  -- it's not intended for when checking user code! It's meant for allowing
+  -- easy checking of partially evaluated definitions.
+  export
+  setAllPublic : (pub : Bool) -> Core ()
+  setAllPublic pub = update Ctxt { gamma->allPublic := pub }
+
+  export
+  isAllPublic : Core Bool
+  isAllPublic
+      = do defs <- get Ctxt
+           pure (allPublic (gamma defs))
+
   -- Get the next entry id in the context (this is for recording where to go
   -- back to when backtracking in the elaborator)
   export
