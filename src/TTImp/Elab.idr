@@ -12,6 +12,7 @@ import Core.Unify
 
 import TTImp.Elab.Check
 import TTImp.Elab.Delayed
+import TTImp.Elab.Term
 import TTImp.TTImp
 
 import Data.List

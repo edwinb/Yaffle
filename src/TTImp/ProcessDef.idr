@@ -10,7 +10,7 @@ import Core.Hash
 import Core.Check.Linear
 import Core.Metadata
 import Core.Evaluate
--- import Core.Termination
+import Core.Termination
 -- import Core.Transform
 import Core.Unify.State
 

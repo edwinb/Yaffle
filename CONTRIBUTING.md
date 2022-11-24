@@ -44,7 +44,6 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
-* Port and test auto-search (TT REPL command)
 * Implement enough of the Raw term elaborator that we can check type
   declarations
   - i.e. Implement 'check', elaboration of RawImp to TT
