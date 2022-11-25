@@ -59,6 +59,8 @@ data Error : Type where
                    FC -> Defs -> Env Term vars ->
                    Term vars -> Error
      CaseCompile : FC -> Name -> CaseError -> Error
+     MatchTooSpecific : {vars : _} ->
+                        FC -> Env Term vars -> Term vars -> Error
 
      LinearUsed : FC -> Nat -> Name -> Error
      LinearMisuse : FC -> Name -> RigCount -> RigCount -> Error
@@ -161,6 +163,8 @@ Show Error where
                    " in " ++ show n
   show (CaseCompile fc n (NotFullyApplied c))
       = show fc ++ ":Constructor " ++ show c ++ " is not fully applied"
+  show (MatchTooSpecific fc env tm)
+      = show fc ++ ":Can't match on " ++ show tm ++ " as it is has a polymorphic type"
 
   show (LinearUsed fc count n)
       = show fc ++ ":There are " ++ show count ++ " uses of linear name " ++ show n

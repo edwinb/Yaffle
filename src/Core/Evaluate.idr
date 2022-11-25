@@ -70,6 +70,13 @@ parameters {auto c : Ref Ctxt Defs}
   normaliseScope env tm = normalise env tm
 
   export
+  normaliseHolesScope : {vars : _} ->
+                   Env Term vars -> Term vars -> Core (Term vars)
+  normaliseHolesScope env (Bind fc n b sc)
+      = pure $ Bind fc n b !(normaliseHolesScope (env :< b) sc)
+  normaliseHolesScope env tm = normaliseHoles env tm
+
+  export
   getArityVal : NF vars -> Core Nat
   getArityVal (VBind fc _ (Pi _ _ _ _) sc)
       = pure $ 1 + !(getArityVal !(expand !(sc (VErased fc Placeholder))))

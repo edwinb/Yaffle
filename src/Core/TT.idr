@@ -475,6 +475,62 @@ shrinkTerm (Erased fc why) prf = Erased fc <$> traverse (`shrinkTerm` prf) why
 shrinkTerm (Unmatched fc s) prf = Just (Unmatched fc s)
 shrinkTerm (TType fc u) prf = Just (TType fc u)
 
+varEmbedSub : SubVars small vars ->
+              {idx : Nat} -> (0 p : IsVar n idx small) ->
+              Var vars
+varEmbedSub SubRefl y = MkVar y
+varEmbedSub (DropCons prf) y
+    = let MkVar y' = varEmbedSub prf y in
+          MkVar (Later y')
+varEmbedSub (KeepCons prf) First = MkVar First
+varEmbedSub (KeepCons prf) (Later p)
+    = let MkVar p' = varEmbedSub prf p in
+          MkVar (Later p')
+
+export
+embedSub : SubVars small vars -> Term small -> Term vars
+embedSub sub (Local fc x idx y)
+    = let MkVar y' = varEmbedSub sub y in Local fc x _ y'
+embedSub sub (Ref fc x name) = Ref fc x name
+embedSub sub (Meta fc x y xs)
+    = Meta fc x y (map (\ (c, t) => (c, embedSub sub t)) xs)
+embedSub sub (Bind fc x b scope)
+    = Bind fc x (map (embedSub sub) b) (embedSub (KeepCons sub) scope)
+embedSub sub (App fc fn c arg)
+    = App fc (embedSub sub fn) c (embedSub sub arg)
+embedSub sub (As fc s (AsRef afc n) pat)
+    = As fc s (AsRef afc n) (embedSub sub pat)
+embedSub sub (As fc s (AsLoc afc idx y) pat)
+    = let MkVar y' = varEmbedSub sub y in
+          As fc s (AsLoc fc _ y') (embedSub sub pat)
+embedSub sub (Case fc c sc scty alts)
+    = Case fc c (embedSub sub sc) (embedSub sub scty) (map embedSubAlt alts)
+  where
+    embedSubScope : forall small, vars .
+                    SubVars small vars -> CaseScope small -> CaseScope vars
+    embedSubScope sub (RHS tm) = RHS (embedSub sub tm)
+    embedSubScope sub (Arg c x sc) = Arg c x (embedSubScope (KeepCons sub) sc)
+
+    embedSubAlt : CaseAlt small -> CaseAlt vars
+    embedSubAlt (ConCase fc n t sc) = ConCase fc n t (embedSubScope sub sc)
+    embedSubAlt (DelayCase fc t a tm)
+        = DelayCase fc t a (embedSub (KeepCons (KeepCons sub)) tm)
+    embedSubAlt (ConstCase fc c tm) = ConstCase fc c (embedSub sub tm)
+    embedSubAlt (DefaultCase fc tm) = DefaultCase fc (embedSub sub tm)
+
+embedSub sub (TDelayed fc x y) = TDelayed fc x (embedSub sub y)
+embedSub sub (TDelay fc x t y)
+    = TDelay fc x (embedSub sub t) (embedSub sub y)
+embedSub sub (TForce fc r x) = TForce fc r (embedSub sub x)
+embedSub sub (PrimVal fc c) = PrimVal fc c
+embedSub sub (PrimOp fc fn args)
+    = PrimOp fc fn (map (embedSub sub) args)
+embedSub sub (Erased fc Impossible) = Erased fc Impossible
+embedSub sub (Erased fc Placeholder) = Erased fc Placeholder
+embedSub sub (Erased fc (Dotted t)) = Erased fc (Dotted (embedSub sub t))
+embedSub sub (Unmatched fc s) = Unmatched fc s
+embedSub sub (TType fc u) = TType fc u
+
 namespace Bounds
   public export
   data Bounds : SnocList Name -> Type where

@@ -18,7 +18,7 @@ import TTImp.Elab.Binders
 import TTImp.Elab.Check
 import TTImp.Elab.Dot
 -- import TTImp.Elab.Hole
--- import TTImp.Elab.ImplicitBind
+import TTImp.Elab.ImplicitBind
 -- import TTImp.Elab.Lazy
 -- import TTImp.Elab.Local
 -- import TTImp.Elab.Prim
