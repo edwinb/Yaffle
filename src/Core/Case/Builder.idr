@@ -1282,9 +1282,9 @@ getPMDef fc p n ty cs
          -- enough to get that
          nty <- normaliseBinders [<] ty
          let (tyargs ** env) = mkEnv [<] nty
-         let Just lenOK = checkLengthMatch args tyargs
+         let Just lenOK = areVarsCompatible args tyargs
              | Nothing => throw (CaseCompile fc n CantResolveType)
-         pure (bindLams env (renameVars tyargs lenOK tree), missing)
+         pure (bindLams env (renameVars lenOK tree), missing)
    where
      mkEnv : {vars : _} -> Env Term vars -> Term vars ->
              (args ** Env Term args)

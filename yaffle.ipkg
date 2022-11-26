@@ -65,6 +65,7 @@ modules
     TTImp.TTImp.Functor,
     TTImp.Unelab,
     TTImp.Utils,
+    TTImp.WithClause,
 
     -- Elaborating TTImp to the Core TT 
     TTImp.Elab,

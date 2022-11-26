@@ -24,7 +24,7 @@ import TTImp.TTImp
 import TTImp.TTImp.Functor
 import TTImp.ProcessType
 import TTImp.Unelab
--- import TTImp.WithClause
+import TTImp.WithClause
 
 import Data.Either
 import Data.List
