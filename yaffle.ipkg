@@ -40,6 +40,7 @@ modules
     Core.Syntax.Raw, -- raw unchecked syntax lives here
     Core.Syntax.Support,
     Core.Termination,
+    Core.Transform,
     Core.TT,
     Core.TT.Name,
     Core.TT.Namespace,
@@ -66,8 +67,14 @@ modules
 
     -- Elaborating TTImp to the Core TT 
     TTImp.Elab,
+    TTImp.Elab.Ambiguity,
+    TTImp.Elab.App,
+    TTImp.Elab.Binders,
     TTImp.Elab.Check,
     TTImp.Elab.Delayed,
+    TTImp.Elab.Dot,
+    TTImp.Elab.ImplicitBind,
+    TTImp.Elab.Term,
     TTImp.Elab.Utils,
 
     -- Parsing support
