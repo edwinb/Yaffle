@@ -771,17 +771,29 @@ export
 embed : Term vars -> Term (more ++ vars)
 embed tm = believe_me tm
 
+public export
+data CompatibleVars : SnocList Name -> SnocList Name -> Type where
+     CompatPre : CompatibleVars xs xs
+     CompatExt : CompatibleVars xs ys -> CompatibleVars (xs :< n) (ys :< m)
+
+export
+areVarsCompatible : (xs : SnocList Name) -> (ys : SnocList Name) ->
+                    Maybe (CompatibleVars xs ys)
+areVarsCompatible [<] [<] = pure CompatPre
+areVarsCompatible (xs :< x) (ys :< y)
+    = do compat <- areVarsCompatible xs ys
+         pure (CompatExt compat)
+areVarsCompatible _ _ = Nothing
+
+export
+renameVars : CompatibleVars xs ys -> Term xs -> Term ys
+renameVars compat tm = believe_me tm -- no names in term, so it's identity
+
 export
 renameNTop : (ms : SnocList Name) ->
              LengthMatch ns ms ->
              Term (vars ++ ns) -> Term (vars ++ ms)
 renameNTop ms ok tm = believe_me tm
-
-export
-renameVars : (ms : SnocList Name) ->
-             LengthMatch ns ms ->
-             Term ns -> Term ms
-renameVars ms ok tm = believe_me tm
 
 export
 renameTop : (m : Name) -> Term (vars :< n) -> Term (vars :< m)

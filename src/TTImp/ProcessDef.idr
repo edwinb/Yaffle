@@ -19,11 +19,11 @@ import TTImp.Elab
 import TTImp.Elab.Check
 import TTImp.Elab.Utils
 import TTImp.Impossible
--- import TTImp.PartialEval
+-- import TTImp.PartialEval -- Skipping this for now, needs complete redesign
 import TTImp.TTImp
 import TTImp.TTImp.Functor
 import TTImp.ProcessType
--- import TTImp.Unelab
+import TTImp.Unelab
 -- import TTImp.WithClause
 
 import Data.Either
