@@ -1,6 +1,7 @@
 module TTImp.ProcessDef
 
 import Core.Case.Builder
+import Core.Check.Erase
 import Core.Context
 import Core.Context.Log
 import Core.Core
@@ -724,15 +725,6 @@ checkClause {vars} mult vis totreq hashit n opts nest env
              newlhs <- getNewLHS ploc drop nest wname wargnames lhs patlhs
              pure (ImpossibleClause ploc newlhs)
 
-{-
-nameListEq : (xs : List Name) -> (ys : List Name) -> Maybe (xs = ys)
-nameListEq [] [] = Just Refl
-nameListEq (x :: xs) (y :: ys) with (nameEq x y)
-  nameListEq (x :: xs) (x :: ys) | (Just Refl) with (nameListEq xs ys)
-    nameListEq (x :: xs) (x :: xs) | (Just Refl) | Just Refl= Just Refl
-    nameListEq (x :: xs) (x :: ys) | (Just Refl) | Nothing = Nothing
-  nameListEq (x :: xs) (y :: ys) | Nothing = Nothing
-nameListEq _ _ = Nothing
 
 -- Calculate references for the given name, and recursively if they haven't
 -- been calculated already
@@ -742,16 +734,16 @@ calcRefs rt at fn
     = do defs <- get Ctxt
          Just gdef <- lookupCtxtExact fn (gamma defs)
               | _ => pure ()
-         let PMDef r cargs tree_ct tree_rt pats = definition gdef
+         let Function pi tree_ct tree_rt pats = definition gdef
               | _ => pure () -- not a function definition
          let refs : Maybe (NameMap Bool)
                   = if rt then refersToRuntimeM gdef else refersToM gdef
          let Nothing = refs
               | Just _ => pure () -- already done
-         let tree : CaseTree cargs = if rt then tree_rt else tree_ct
-         let metas = CaseTree.getMetas tree
+         let tree : Term [<] = if rt then tree_rt else tree_ct
+         let metas = getMetas tree
          traverse_ addToSave (keys metas)
-         let refs_all = addRefs at metas tree
+         let refs_all = addRefs False at metas tree
          refs <- ifThenElse rt
                     (dropErased (keys refs_all) refs_all)
                     (pure refs_all)
@@ -783,62 +775,30 @@ mkRunTime fc n
          let cov = gdef.totality.isCovering
          -- If it's erased at run time, don't build the tree
          when (not (isErased $ multiplicity gdef)) $ do
-           let PMDef r cargs tree_ct _ pats = definition gdef
+           let Function pi tree_ct _ (Just pats) = definition gdef
                 | _ => pure () -- not a function definition
            let ty = type gdef
            -- Prepare RHS of definitions, by erasing 0-multiplicities, and
            -- finding any applications to specialise (partially evaluate)
-           pats' <- traverse (toErased (location gdef) (getSpec (flags gdef)))
-                             pats
-
-           let clauses_init = map (toClause (location gdef)) pats'
+           pats' <- traverse (toErased (location gdef)) pats
            let clauses = case cov of
-                              MissingCases _ => addErrorCase clauses_init
-                              _ => clauses_init
+                              MissingCases _ => addErrorCase pats'
+                              _ => pats'
+           (tree_rt, _) <- getPMDef (location gdef) RunTime n ty clauses
 
-           (rargs ** (tree_rt, _)) <- getPMDef (location gdef) RunTime n ty clauses
-           logC "compile.casetree" 5 $ do
-             tree_rt <- toFullNames tree_rt
-             pure $ unlines
-               [ show cov ++ ":"
-               , "Runtime tree for " ++ show (fullname gdef) ++ ":"
-               , show (indent 2 $ prettyTree tree_rt)
-               ]
            log "compile.casetree" 10 $ show tree_rt
-           log "compile.casetree.measure" 15 $ show (measure tree_rt)
-
-           let Just Refl = nameListEq cargs rargs
-                   | Nothing => throw (InternalError "WAT")
            ignore $ addDef n $
-                       { definition := PMDef r rargs tree_ct tree_rt pats
+                       { definition := Function pi tree_ct tree_rt (Just pats)
                        } gdef
-           -- If it's a case block, and not already set as inlinable or forced
-           -- to not be inlinable, check if it's safe to inline
-           when (caseName !(toFullNames n) && noInline (flags gdef)) $
-             do inl <- canInlineCaseBlock n
-                when inl $ do
-                  log "compiler.inline.eval" 5 "Marking \{show !(toFullNames n)} for inlining in runtime case tree."
-                  setFlag fc n Inline
   where
-    -- check if the flags contain explicit inline or noinline directives:
-    noInline : List DefFlag -> Bool
-    noInline (Inline :: _)   = False
-    noInline (NoInline :: _) = False
-    noInline (x :: xs) = noInline xs
-    noInline _ = True
-
-    caseName : Name -> Bool
-    caseName (CaseBlock _ _) = True
-    caseName (NS _ n) = caseName n
-    caseName _ = False
-
     mkCrash : {vars : _} -> String -> Term vars
     mkCrash msg
        = apply fc (Ref fc Func (NS builtinNS (UN $ Basic "idris_crash")))
-               [Erased fc False, PrimVal fc (Str msg)]
+               [(erased, Erased fc Placeholder),
+                (top, PrimVal fc (Str msg))]
 
     matchAny : Term vars -> Term vars
-    matchAny (App fc f a) = App fc (matchAny f) (Erased fc False)
+    matchAny (App fc f c a) = App fc (matchAny f) c (Erased fc Placeholder)
     matchAny tm = tm
 
     makeErrorClause : {vars : _} -> Env Term vars -> Term vars -> Clause
@@ -852,31 +812,16 @@ mkRunTime fc n
         = MkClause env lhs rhs :: makeErrorClause env lhs :: []
     addErrorCase (x :: xs) = x :: addErrorCase xs
 
-    getSpec : List DefFlag -> Maybe (List (Name, Nat))
-    getSpec [] = Nothing
-    getSpec (PartialEval n :: _) = Just n
-    getSpec (x :: xs) = getSpec xs
-
-    toErased : FC -> Maybe (List (Name, Nat)) ->
-               (vars ** (Env Term vars, Term vars, Term vars)) ->
-               Core (vars ** (Env Term vars, Term vars, Term vars))
-    toErased fc spec (_ ** (env, lhs, rhs))
-        = do lhs_erased <- linearCheck fc linear True env lhs
-             -- Partially evaluate RHS here, where appropriate
+    toErased : FC -> Clause -> Core Clause
+    toErased fc (MkClause env lhs rhs)
+        = do lhs_erased <- erase linear env lhs
              rhs' <- applyTransforms env rhs
-             rhs' <- applySpecialise env spec rhs'
-             rhs_erased <- linearCheck fc linear True env rhs'
-             pure (_ ** (env, lhs_erased, rhs_erased))
-
-    toClause : FC -> (vars ** (Env Term vars, Term vars, Term vars)) -> Clause
-    toClause fc (_ ** (env, lhs, rhs))
-        = MkClause env lhs rhs
+             rhs_erased <- erase linear env rhs'
+             pure (MkClause env lhs_erased rhs_erased)
 
 compileRunTime : {auto c : Ref Ctxt Defs} ->
                  {auto m : Ref MD Metadata} ->
                  {auto u : Ref UST UState} ->
-                 {auto s : Ref Syn SyntaxInfo} ->
-                 {auto o : Ref ROpts REPLOpts} ->
                  FC -> Name -> Core ()
 compileRunTime fc atotal
     = do defs <- get Ctxt
@@ -884,10 +829,6 @@ compileRunTime fc atotal
          traverse_ (calcRefs True atotal) (toCompileCase defs)
 
          update Ctxt { toCompileCase := [] }
-
-toPats : Clause -> (vs ** (Env Term vs, Term vs, Term vs))
-toPats (MkClause {vars} env lhs rhs)
-    = (_ ** (env, lhs, rhs))
 
 warnUnreachable : {auto c : Ref Ctxt Defs} ->
                   Clause -> Core ()
@@ -906,8 +847,6 @@ lookupOrAddAlias : {vars : _} ->
                    {auto m : Ref MD Metadata} ->
                    {auto c : Ref Ctxt Defs} ->
                    {auto u : Ref UST UState} ->
-                   {auto s : Ref Syn SyntaxInfo} ->
-                   {auto o : Ref ROpts REPLOpts} ->
                    List ElabOpt -> NestedNames vars -> Env Term vars -> FC ->
                    Name -> List ImpClause -> Core (Maybe GlobalDef)
 lookupOrAddAlias eopts nest env fc n [cl@(PatClause _ lhs _)]
@@ -960,8 +899,6 @@ processDef : {vars : _} ->
              {auto c : Ref Ctxt Defs} ->
              {auto m : Ref MD Metadata} ->
              {auto u : Ref UST UState} ->
-             {auto s : Ref Syn SyntaxInfo} ->
-             {auto o : Ref ROpts REPLOpts} ->
              List ElabOpt -> NestedNames vars -> Env Term vars -> FC ->
              Name -> List ImpClause -> Core ()
 processDef opts nest env fc n_in cs_in
@@ -989,13 +926,11 @@ processDef opts nest env fc n_in cs_in
          cs <- withTotality treq $
                traverse (checkClause mult (visibility gdef) treq
                                      hashit nidx opts nest env) cs_in
+         let pats = rights cs
 
-         let pats = map toPats (rights cs)
-
-         (cargs ** (tree_ct, unreachable)) <-
+         (tree_ct, unreachable) <-
              logTime 3 ("Building compile time case tree for " ++ show n) $
-                getPMDef fc (CompileTime mult) n ty (rights cs)
-
+                getPMDef fc (CompileTime mult) n ty pats
          traverse_ warnUnreachable unreachable
 
          logC "declare.def" 2 $
@@ -1005,13 +940,13 @@ processDef opts nest env fc n_in cs_in
          -- check whether the name was declared in a different source file
          defs <- get Ctxt
          let pi = case lookup n (userHoles defs) of
-                        Nothing => defaultPI
-                        Just e => { externalDecl := e } defaultPI
+                        Nothing => defaultFI
+                        Just e => { externalDecl := e } defaultFI
          -- Add compile time tree as a placeholder for the runtime tree,
          -- but we'll rebuild that in a later pass once all the case
          -- blocks etc are resolved
          ignore $ addDef (Resolved nidx)
-                  ({ definition := PMDef pi cargs tree_ct tree_ct pats
+                  ({ definition := Function pi tree_ct tree_ct (Just pats)
                    } gdef)
 
          when (visibility gdef == Public) $
@@ -1035,7 +970,6 @@ processDef opts nest env fc n_in cs_in
                 checkIfGuarded fc n
 
          md <- get MD -- don't need the metadata collected on the coverage check
-
          cov <- logTime 3 ("Checking Coverage " ++ show n) $ checkCoverage nidx ty mult cs
          setCovering fc n cov
          put MD md
@@ -1076,7 +1010,7 @@ processDef opts nest env fc n_in cs_in
     checkImpossible : Int -> RigCount -> ClosedTerm ->
                       Core (Maybe ClosedTerm)
     checkImpossible n mult tm
-        = do itm <- unelabNoPatvars [] tm
+        = do itm <- unelabNoPatvars [<] tm
              let itm = map rawName itm
              handleUnify
                (do ctxt <- get Ctxt
@@ -1085,34 +1019,33 @@ processDef opts nest env fc n_in cs_in
                    setUnboundImplicits True
                    (_, lhstm) <- bindNames False itm
                    setUnboundImplicits autoimp
-                   (lhstm, _) <- elabTerm n (InLHS mult) [] (MkNested []) []
+                   (lhstm, _) <- elabTerm n (InLHS mult) [] (MkNested []) [<]
                                     (IBindHere fc COVERAGE lhstm) Nothing
                    defs <- get Ctxt
-                   lhs <- normaliseHoles defs [] lhstm
-                   if !(hasEmptyPat defs [] lhs)
+                   lhs <- normaliseHoles [<] lhstm
+                   if !(hasEmptyPat defs [<] lhs)
                       then do log "declare.def.impossible" 5 "Some empty pat"
                               put Ctxt ctxt
                               pure Nothing
                       else do log "declare.def.impossible" 5 "No empty pat"
-                              empty <- clearDefs ctxt
-                              rtm <- closeEnv empty !(nf empty [] lhs)
+                              rtm <- closeEnv !(expand !(nf [<] lhs))
                               put Ctxt ctxt
                               pure (Just rtm))
                (\err => do defs <- get Ctxt
-                           if not !(recoverableErr defs err)
+                           if not !(recoverableErr err)
                               then pure Nothing
                               else pure (Just tm))
       where
-        closeEnv : Defs -> NF [] -> Core ClosedTerm
-        closeEnv defs (NBind _ x (PVar _ _ _ _) sc)
-            = closeEnv defs !(sc defs (toClosure defaultOpts [] (Ref fc Bound x)))
-        closeEnv defs nf = quote defs [] nf
+        closeEnv : NF [<] -> Core ClosedTerm
+        closeEnv (VBind _ x (PVar _ _ _ _) sc)
+            = closeEnv !(expand !(sc (vRef fc Bound x)))
+        closeEnv nf = quote [<] nf
 
     getClause : Either RawImp Clause -> Core (Maybe Clause)
     getClause (Left rawlhs)
         = catch (do lhsp <- getImpossibleTerm env nest rawlhs
                     log "declare.def.impossible" 3 $ "Generated impossible LHS: " ++ show lhsp
-                    pure $ Just $ MkClause [] lhsp (Erased (getFC rawlhs) True))
+                    pure $ Just $ MkClause [<] lhsp (Erased (getFC rawlhs) Impossible))
                 (\e => do log "declare.def" 5 $ "Error in getClause " ++ show e
                           pure Nothing)
     getClause (Right c) = pure (Just c)
@@ -1126,7 +1059,7 @@ processDef opts nest env fc n_in cs_in
                $ "Using clauses :"
                :: map (("  " ++) . show) !(traverse toFullNames covcs')
              let covcs = mapMaybe id covcs'
-             (_ ** (ctree, _)) <-
+             (ctree, _) <-
                  getPMDef fc (CompileTime mult) (Resolved n) ty covcs
              log "declare.def" 3 $ "Working from " ++ show !(toFullNames ctree)
              missCase <- if any catchAll covcs

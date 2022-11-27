@@ -173,6 +173,12 @@ refersToRuntime : GlobalDef -> NameMap Bool
 refersToRuntime def = maybe empty id (refersToRuntimeM def)
 
 export
+findSetTotal : List DefFlag -> Maybe TotalReq
+findSetTotal [] = Nothing
+findSetTotal (SetTotal t :: _) = Just t
+findSetTotal (_ :: xs) = findSetTotal xs
+
+export
 TTC GlobalDef where
   toBuf d = ?todo1
   fromBuf = ?todo2

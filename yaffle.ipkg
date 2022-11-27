@@ -12,6 +12,7 @@ modules
     Core.Case.Builder,
     Core.Case.Patterns,
     Core.Case.Util,
+    Core.Check.Erase,
     Core.Check.Linear,
     Core.Check.Typecheck,
     Core.Check.Support,
