@@ -109,7 +109,8 @@ parameters {auto c : Ref Ctxt Defs}
       repScope : FC -> Int -> (args : SnocList (RigCount, Name)) ->
                  VCaseScope args vars -> Core (CaseScope vars)
       repScope fc tmpi [<] rhs
-          = do rhs' <- replace' expand tmpi env orig parg !rhs
+          = do -- Stop expanding or recursive functions will go forever
+               rhs' <- replace' False tmpi env orig parg !rhs
                pure (RHS rhs')
       repScope fc tmpi (xs :< (r, x)) scope
           = do let xn = MN "tmp" tmpi
@@ -126,7 +127,8 @@ parameters {auto c : Ref Ctxt Defs}
                let argn = MN "tmp" (tmpi + 1)
                let tyv = VApp fc Bound tyn [<] (pure Nothing)
                let argv = VApp fc Bound argn [<] (pure Nothing)
-               scope' <- replace' expand (tmpi + 2) env orig parg !(scope tyv argv)
+               -- Stop expanding or recursive functions will go forever
+               scope' <- replace' False (tmpi + 2) env orig parg !(scope tyv argv)
                let rhs = refsToLocals (Add ty tyn (Add arg argn None)) scope'
                pure (DelayCase fc ty arg rhs)
       repAlt (VConstCase fc c rhs)
