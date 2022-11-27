@@ -386,6 +386,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            let margs' = map third sp
            let pargs = if isLin margs' then margs else margs ++ margs'
            defs <- get Ctxt
+           logNF "elab" 10 ("Trying to solve " ++ show mname ++ " with") env tmnf
            case !(patternEnv env pargs) of
                 Nothing =>
                   do Just hdef <- lookupCtxtExact (Resolved mref) (gamma defs)
@@ -431,11 +432,14 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   unifyNoEta : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
           Value f vars -> Value f' vars -> Core UnifyResult
+  unifyNoEta mode fc env (VAs _ _ _ x) y = unifyNoEta mode fc env !(expand x) y
+  unifyNoEta mode fc env x (VAs _ _ _ y) = unifyNoEta mode fc env x !(expand y)
   -- Deal with metavariable cases first
   -- If they're both holes, solve the one with the bigger context
   unifyNoEta mode fc env x@(VMeta fcx nx ix margsx argsx _) y@(VMeta fcy ny iy margsy argsy _)
       = do -- First check if they're convertible already, in which case
            -- we've won already
+           log "elab" 10 ("Unifying metas " ++ show nx ++ " and " ++ show ny)
            False <- convert env x y
                 | _ => pure success
            invx <- isDefInvertible fc ix
@@ -496,10 +500,6 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = if nx == ny
            then unifySpine mode fc env spx spy
            else convertError fc env x y
-  -- Something surprising has happened if we need to strip as patterns,
-  -- but we'll include this for completeness.
-  unifyNoEta mode fc env (VAs _ _ _ x) y = unifyNoEta mode fc env x y
-  unifyNoEta mode fc env x (VAs _ _ _ y) = unifyNoEta mode fc env x y
   unifyNoEta mode fc env (VDelayed _ _ x) (VDelayed _ _ y)
       = unify (lower mode) fc env x y
   unifyNoEta mode fc env (VDelay _ _ tx ax) (VDelay _ _ ty ay)

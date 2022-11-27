@@ -195,14 +195,9 @@ smallerArg inc big s tm
 smaller inc big _ (Erased _ _) = False -- Never smaller than an erased thing!
 -- for an as pattern, it's smaller if it's smaller than the pattern
 -- or if we've gone under a constructor and it's smaller than the variable
-smaller True big s (As _ _ (AsLoc fc _ p) t)
-    = smaller True big s (Local fc Nothing _ p) ||
+smaller True big s (As _ _ a t)
+    = smaller True big s a ||
       smaller True big s t
-smaller True big s (As _ _ (AsRef fc n) t)
-    = smaller True big s (Ref fc Bound n) ||
-      smaller True big s t
-smaller inc big s (As _ _ _ t)
-    = smaller inc big s t
 smaller True big s t
     = scEq s t || smallerArg True big s t
 smaller inc big s t = smallerArg inc big s t

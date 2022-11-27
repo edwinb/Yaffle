@@ -658,14 +658,6 @@ HasNames UConstraint where
       = do x' <- resolved gam x; y' <- resolved gam y
            pure (ULE fcx x' fcy y')
 
-export
-HasNames (AsName vars) where
-  full gam (AsRef fc n) = pure (AsRef fc !(full gam n))
-  full gam x = pure x
-
-  resolved gam (AsRef fc n) = pure (AsRef fc !(resolved gam n))
-  resolved gam x = pure x
-
 mutual -- Bah, they are all mutual and we can't forward declare implementations yet
   export
   HasNames (CaseScope vars) where

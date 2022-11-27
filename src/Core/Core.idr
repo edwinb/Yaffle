@@ -253,7 +253,26 @@ namespace Binder
 export
 mapTermM : ({vars : _} -> Term vars -> CoreE err (Term vars)) ->
            ({vars : _} -> Term vars -> CoreE err (Term vars))
--- TODO
+mapTermM f = goTerm where
+
+    goTerm : {vars : _} -> Term vars -> CoreE err (Term vars)
+    goTerm tm@(Local _ _ _ _) = f tm
+    goTerm tm@(Ref _ _ _) = f tm
+    goTerm (Meta fc n i args)
+        = f =<< Meta fc n i <$> traverse (\ (c, t) => pure (c, !(goTerm t))) args
+    goTerm (Bind fc x bd sc) = f =<< Bind fc x <$> traverse goTerm bd <*> goTerm sc
+    goTerm (App fc fn c arg) = f =<< App fc <$> goTerm fn <*> pure c <*> goTerm arg
+    goTerm (As fc u as pat) = f =<< As fc u <$> pure as <*> goTerm pat
+    goTerm (Case{}) = ?todo
+    goTerm (TDelayed fc la d) = f =<< TDelayed fc la <$> goTerm d
+    goTerm (TDelay fc la ty arg) = f =<< TDelay fc la <$> goTerm ty <*> goTerm arg
+    goTerm (TForce fc la t) = f =<< TForce fc la <$> goTerm t
+    goTerm tm@(PrimVal _ _) = f tm
+    goTerm tm@(PrimOp fc op args)
+        = f =<< PrimOp fc op <$> (traverseVect goTerm args)
+    goTerm tm@(Erased _ _) = f tm
+    goTerm tm@(Unmatched _ _) = f tm
+    goTerm tm@(TType _ _) = f tm
 
 export
 anyM : (a -> CoreE err Bool) -> List a -> CoreE err Bool

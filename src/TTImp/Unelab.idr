@@ -200,25 +200,14 @@ unelabTy' umode nest env tm@(App fc fn c arg)
                       pure (INamedApp fc fn' x arg', sc')
               _ => pure (IApp fc fn' arg', VErased fc Placeholder)
 unelabTy' umode nest env (As fc s p tm)
-    = do let p' = unelabAs p
+    = do (p', _) <- unelabTy' umode nest env p
          (tm', ty) <- unelabTy' umode nest env tm
          case p' of
               IVar _ n =>
                   case umode of
-                       NoSugar _ => pure (IAs fc (asLoc p) s n.rawName tm', ty)
+                       NoSugar _ => pure (IAs fc (getFC p') s n.rawName tm', ty)
                        _ => pure (tm', ty)
               _ => pure (tm', ty) -- Should never happen!
-  where
-    asLoc : AsName vars -> FC
-    asLoc (AsLoc fc _ _) = fc
-    asLoc (AsRef fc _) = fc
-
-    unelabAs : AsName vars -> IRawImp
-    unelabAs (AsLoc fc i p)
-        = let nm = nameAt p in
-              IVar fc (MkKindedName (Just Bound) nm nm)
-    unelabAs (AsRef fc n)
-        = IVar fc (MkKindedName (Just Bound) n n)
 unelabTy' umode nest env (Case fc c sc scty alts)
     = do (sc', _) <- unelabTy' umode nest env sc
          (scty', _) <- unelabTy' umode nest env scty

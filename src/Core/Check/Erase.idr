@@ -115,7 +115,7 @@ parameters {auto c : Ref Ctxt Defs}
                       else echeck (rigMult rig q) env arg
            pure (App fc fn' q arg')
   echeck rig env (As fc s var pat)
-      = pure (As fc s var !(echeck rig env pat))
+      = pure (As fc s !(echeck rig env var) !(echeck rig env pat))
   echeck rig env (Case fc scrig sc ty alts)
       = do sc' <- echeck (rigMult scrig rig) env sc
            alts' <- echeckAlts (presence rig) (restrictEnv env rig) scrig alts

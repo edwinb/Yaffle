@@ -56,7 +56,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            logTerm "unify" 10  "...with" exp
            cs <- unify inTerm fc env got exp
            case constraints cs of
-                [] => pure tm
+                [] => do solveConstraints inTerm Normal
+                         pure tm
                 cs => newConstant fc rig env tm exp cs
 
   -- Infer a type for a raw term. Return a pair of the checked term and

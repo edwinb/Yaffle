@@ -641,13 +641,6 @@ public export
 data UseSide = UseLeft | UseRight
 
 public export
-data AsName : SnocList Name -> Type where
-     -- resolved name
-     AsLoc : FC -> (idx : Nat) -> (0 p : IsVar name idx vars) -> AsName vars
-     -- not yet resolved name
-     AsRef : FC -> Name -> AsName vars
-
-public export
 data CaseAlt : SnocList Name -> Type
 
 -- Typechecked terms
@@ -668,7 +661,15 @@ data Term : SnocList Name -> Type where
            (arg : Term vars) -> Term vars
      -- As patterns, including whether (in a linear setting) it's the name
      -- or the pattern that is consumed
-     As : FC -> UseSide -> (as : AsName vars) -> (pat : Term vars) -> Term vars
+     -- Since we check LHS patterns as terms before turning
+     -- them into patterns, this helps us get it right. When normalising,
+     -- we just reduce the inner term and ignore the 'as' part
+     -- The 'as' part should really be a Name rather than a Term, but it's
+     -- easier this way since it gives us the ability to work with unresolved
+     -- names (Ref), metavariables (Meta) and resolved names (Local) without
+     -- having to define a special purpose thing. (But it'd be nice to tidy
+     -- that up, nevertheless)
+     As : FC -> UseSide -> (as : Term vars) -> (pat : Term vars) -> Term vars
      Case : FC -> RigCount -> (sc : Term vars) -> (scTy : Term vars) ->
             List (CaseAlt vars) ->
             Term vars

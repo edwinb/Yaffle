@@ -295,8 +295,8 @@ findLinear top bound rig tm
                    Core (List (Name, RigCount))
       findLinArg rig (as :< (c, As fc UseRight _ p))
           = findLinArg rig (as :< (c, p))
-      findLinArg rig (as :< (c, As fc UseLeft (AsLoc afc _ p) _))
-          = findLinArg rig (as :< (c, Local afc Nothing _ p))
+      findLinArg rig (as :< (c, As fc UseLeft p _))
+          = findLinArg rig (as :< (c, p))
       findLinArg rig (as :< (c, Local fc _ idx prf))
           = do let a = nameAt prf
                if idx < bound
@@ -405,7 +405,7 @@ checkLHS {vars} trans mult n opts nest env fc lhs_in
          -- patterns were allowed, but now they're fully normalised anyway
          -- so we only need to do the holes. If there's a lot of type level
          -- computation, this is a huge saving!
-         lhstm <- normaliseHoles lhsenv lhstm
+         lhstm <- normaliseLHS lhsenv lhstm
          lhsty <- normaliseHoles env lhsty
          linvars_in <- findLinear True 0 linear lhstm
          logTerm "declare.def.lhs" 10 "Checked LHS term after normalise" lhstm
@@ -936,6 +936,7 @@ processDef opts nest env fc n_in cs_in
          logC "declare.def" 2 $
                  do t <- toFullNames tree_ct
                     pure ("Case tree for " ++ show n ++ ": " ++ show t)
+         log "declare.def" 10 $ "Patterns: " ++ show pats
 
          -- check whether the name was declared in a different source file
          defs <- get Ctxt

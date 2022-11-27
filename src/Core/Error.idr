@@ -45,6 +45,10 @@ data Error : Type where
 
      UndefinedName : FC -> Name -> Error
      InvisibleName : FC -> Name -> Maybe Namespace -> Error
+
+     NonLinearPattern : FC -> Name -> Error
+     BadPattern : FC -> Name -> Error
+
      NoDeclaration : FC -> Name -> Error
      BadTypeConType : FC -> Name -> Error
      BadDataConType : FC -> Name -> Name -> Error
@@ -153,6 +157,8 @@ Show Error where
   show (CyclicMeta fc env n tm)
       = show fc ++ ":Cycle detected in metavariable solution " ++ show n
              ++ " = " ++ show tm
+  show (NonLinearPattern fc n) = show fc ++ ":Non linear pattern variable " ++ show n
+  show (BadPattern fc n) = show fc ++ ":Pattern not allowed here: " ++ show n
 
   show (AlreadyDefined fc n) = show fc ++ ":" ++ show n ++ " is already defined"
   show (NotFunctionType fc defs env t)

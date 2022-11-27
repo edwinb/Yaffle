@@ -34,8 +34,8 @@ parameters {auto c : Ref Ctxt Defs}
       = processType eopts nest env fc rig vis opts ty
   process eopts nest env (IData fc vis mbtot ddef)
       = processData eopts nest env fc vis mbtot ddef
---   process eopts nest env (IDef fc fname def)
---       = processDef eopts nest env fc fname def
+  process eopts nest env (IDef fc fname def)
+      = processDef eopts nest env fc fname def
 --   process eopts nest env (IParameters fc ps decls)
 --       = processParams nest env fc ps decls
 --   process eopts nest env (IRecord fc ns vis mbtot rec)
@@ -51,8 +51,8 @@ parameters {auto c : Ref Ctxt Defs}
 --       = processRunElab eopts nest env fc tm
 --   process eopts nest env (IPragma _ act)
 --       = act nest env
---   process eopts nest env (ILog lvl)
---       = addLogLevel (uncurry unsafeMkLogLevel <$> lvl)
+  process eopts nest env (ILog lvl)
+      = addLogLevel (uncurry unsafeMkLogLevel <$> lvl)
   process eopts nest env (IBuiltin fc type name)
       = processBuiltin nest env fc type name
   process eopts nest env y = ?remove_when_done

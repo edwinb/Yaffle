@@ -12,6 +12,8 @@ import Data.List
 import Data.SnocList
 import Data.Vect
 
+data EvalFlags = Full | KeepAs
+
 export
 apply : FC -> Value f vars -> RigCount -> Glued vars -> Core (Glued vars)
 apply fc (VLam _ _ _ _ _ sc) _ arg = sc arg
@@ -112,7 +114,7 @@ runOp fc op args
            Just res => pure res
            Nothing => pure $ VPrimOp fc op args
 
-parameters {auto c : Ref Ctxt Defs}
+parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
 
   -- Forward declared since these are all mutual
   export
@@ -295,17 +297,21 @@ parameters {auto c : Ref Ctxt Defs}
                      (\arg => eval (locs :< arg) env sc)
   eval locs env (App fc fn q arg)
       = apply fc !(eval locs env fn) q !(eval locs env arg)
-  eval locs env (As fc use (AsLoc afc idx p) pat)
-      = pure $ VAs fc use !(evalLocal env afc Nothing p locs)
-                          !(eval locs env pat)
-  eval locs env (As fc use _ pat)
-      = eval locs env pat
+  eval locs env (As fc use as pat)
+      = case flags of
+             KeepAs => pure $ VAs fc use !(eval locs env as)
+                                         !(eval locs env pat)
+             _ => eval locs env pat
   eval locs env (Case fc r sc ty alts)
       = do sc' <- expand !(eval locs env sc)
            locs' <- case sc of
                          Local _ _ _ p => pure $ updateEnv locs p (asGlued sc')
                          _ => pure locs
-           evalCase fc locs' env r sc' ty alts
+           evalCase fc locs' env r (stripAs sc') ty alts
+    where
+      stripAs : Value f vars -> Value f vars
+      stripAs (VAs _ _ _ p) = stripAs p
+      stripAs x = x
   eval locs env (TDelayed fc r tm)
       = pure $ VDelayed fc r !(eval locs env tm)
   eval locs env (TDelay fc r ty arg)
@@ -328,7 +334,14 @@ parameters {auto c : Ref Ctxt Defs}
   eval locs env (Unmatched fc str) = pure $ VUnmatched fc str
   eval locs env (TType fc n) = pure $ VType fc n
 
+parameters {auto c : Ref Ctxt Defs}
+
   export
   nf : {vars : _} ->
        Env Term vars -> Term vars -> Core (Glued vars)
-  nf = eval [<]
+  nf = eval Full [<]
+
+  export
+  nfLHS : {vars : _} ->
+          Env Term vars -> Term vars -> Core (Glued vars)
+  nfLHS = eval KeepAs [<]

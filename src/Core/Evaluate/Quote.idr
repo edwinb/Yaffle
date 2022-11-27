@@ -255,12 +255,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteGen s bounds env (VAs fc use as pat)
       = do pat' <- quoteGen s bounds env pat
            as' <- quoteGen s bounds env as
-           case as' of
-                Local lfc _ idx p =>
-                    pure (As fc use (AsLoc lfc idx p) pat')
-                Ref rfc Bound n =>
-                    pure (As fc use (AsRef rfc n) pat')
-                _ => pure pat'
+           pure (As fc use as' pat')
   quoteGen s bounds env (VCase fc rig sc scTy alts)
       = do sc' <- quoteGen s bounds env sc
            scTy' <- quoteGen s bounds env scTy

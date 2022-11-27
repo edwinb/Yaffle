@@ -54,6 +54,14 @@ parameters {auto c : Ref Ctxt Defs}
            quoteHoles env val
 
   export
+  normaliseLHS
+      : {vars : _} ->
+        Env Term vars -> Term vars -> Core (Term vars)
+  normaliseLHS env tm
+      = do val <- nfLHS env tm
+           quoteHoles env val
+
+  export
   normaliseBinders
       : {vars : _} ->
         Env Term vars -> Term vars -> Core (Term vars)
@@ -178,10 +186,9 @@ parameters {auto c : Ref Ctxt Defs}
         = do args' <- repArgAll args
              pure $ applyWithFC (Ref fc (TyCon a) n) (toList args')
       repSub (VAs fc s a pat)
-          = do Local lfc _ i prf <- repSub a
-                   | _ => repSub pat
+          = do a' <- repSub a
                pat' <- repSub pat
-               pure (As fc s (AsLoc lfc i prf) pat')
+               pure (As fc s a' pat')
       repSub (VCase fc r sc scty alts)
           = do sc' <- repArg sc
                scty' <- repArg scty

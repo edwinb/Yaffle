@@ -284,11 +284,6 @@ Hashable a => Hashable (WhyErased a) where
 
 mutual
   export
-  Hashable (AsName vars) where
-    hashWithSalt h (AsLoc fc i _) = hashWithSalt h i
-    hashWithSalt h (AsRef fc n) = hashWithSalt h n
-
-  export
   Hashable (Term vars) where
     hashWithSalt h (Local fc x idx y)
         = h `hashWithSalt` 0 `hashWithSalt` idx

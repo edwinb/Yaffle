@@ -992,7 +992,7 @@ mkPat args orig (App fc fn c arg)
     = do parg <- mkPat [<] arg arg
          mkPat (args :< (c, parg)) orig fn
 -- Assumption is that clauses are converted to explicit names
-mkPat args orig (As fc _ (AsRef _ n) ptm)
+mkPat args orig (As fc _ (Ref _ Bound n) ptm)
     = pure $ PAs fc n !(mkPat [<] ptm ptm)
 mkPat args orig (As fc _ _ ptm)
     = mkPat [<] orig ptm
@@ -1020,7 +1020,10 @@ mkPatClause fc fn args ty pid (ps, rhs)
     = maybe (throw (CaseCompile fc fn DifferingArgNumbers))
             (\eq =>
                do nty <- expand !(nf [<] ty)
-                  ns <- mkNames args ps eq (Just nty)
+                  -- The arguments are in reverse order, so we need to
+                  -- read what we know off 'nty' then reverse it
+                  argTys <- getArgTys (cast args) nty
+                  ns <- mkNames args ps eq (reverse argTys)
                   log "compile.casetree" 20 $
                     "Make pat clause for names " ++ show ns
                      ++ " in LHS " ++ show ps
@@ -1029,24 +1032,29 @@ mkPatClause fc fn args ty pid (ps, rhs)
                                    (weakenNs (mkSizeOf args) rhs))))
             (checkLengthMatch args ps)
   where
+    getArgTys : List Name -> NF [<] -> Core (List (ArgType [<]))
+    getArgTys (n :: ns) (VBind pfc _ (Pi _ c _ farg) fsc)
+        = do rest <- getArgTys ns !(expand !(fsc (vRef pfc Bound n)))
+             pure (Known c !(quote [<] farg) :: rest)
+    getArgTys (n :: ns) t
+        = pure [Stuck !(quote [<] t)]
+    getArgTys _ _ = pure []
+
     mkNames : (vars : SnocList Name) -> (ps : SnocList (Pat, RigCount)) ->
-              LengthMatch vars ps -> Maybe (NF [<]) ->
+              LengthMatch vars ps -> List (ArgType [<]) ->
               Core (NamedPats vars vars)
     mkNames [<] [<] LinMatch fty = pure []
-    mkNames (args :< arg) (ps :< (p, pc)) (SnocMatch eq) fty
-        = do fa_tys <- the (Core (Maybe _, ArgType _)) $
-                case fty of
-                     Nothing => pure (Nothing, Builder.Unknown)
-                     Just (VBind pfc _ (Pi _ c _ farg) fsc) =>
-                        pure (Just !(expand !(fsc (vRef pfc Bound arg))),
-                                Known c (embed {more = args :< arg}
-                                          !(quote [<] farg)))
-                     Just t =>
-                        pure (Nothing,
-                                Stuck (embed {more = args :< arg}
-                                        !(quote [<] t)))
-             pure (MkInfo pc p First (Builtin.snd fa_tys)
-                      :: weaken !(mkNames args ps eq (Builtin.fst fa_tys)))
+    mkNames (args :< arg) (ps :< (p, pc)) (SnocMatch eq) []
+        = do rest <- mkNames args ps eq []
+             pure (MkInfo pc p First Unknown :: weaken rest)
+    mkNames (args :< arg) (ps :< (p, pc)) (SnocMatch eq) (f :: fs)
+        = do rest <- mkNames args ps eq fs
+             pure (MkInfo pc p First (embed f) :: weaken rest)
+      where
+        embed : ArgType [<] -> ArgType more
+        embed Unknown = Unknown
+        embed (Stuck t) = Stuck (TT.embed {more} t)
+        embed (Known c t) = Known c (TT.embed {more} t)
 
 export
 patCompile : {auto c : Ref Ctxt Defs} ->

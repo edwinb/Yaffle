@@ -15,7 +15,7 @@ data Vect : pi n : Nat . pi a : Type . Type where {
             pi x : a . pi xs : Vect k a . Vect (S k) a
 }
 
-append : pi m : Nat . pi n : Nat . pi a : Type .
+append : pi n : Nat . pi a : Type . pi m : Nat .
          pi xs : Vect m a . pi ys : Vect n a .
          Vect (plus m n) a;
 append {
@@ -32,4 +32,3 @@ testVec2 : Vect (S (S Z)) Integer;
 testVec2 = Cons _ _ 3 (Cons _ _ 4 (Nil _));
 
 append _ _ _ testVec1 testVec2;
-

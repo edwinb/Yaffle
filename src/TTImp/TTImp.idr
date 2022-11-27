@@ -255,7 +255,7 @@ data RawImp' : Type -> Type where
      Implicit : FC -> (bindIfUnsolved : Bool) -> RawImp' nm
 
      -- with-disambiguation
-     IWithUnambigNames : FC -> List Name -> RawImp' nm -> RawImp' nm
+     IWithUnambigNames : FC -> List (FC, Name) -> RawImp' nm -> RawImp' nm
 
 public export
 data ImpTy' : Type -> Type where

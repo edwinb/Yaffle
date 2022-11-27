@@ -344,11 +344,8 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
           updateIVarsB ivs (PVTy fc c t) = Just (PVTy fc c !(updateIVars ivs t))
       updateIVars ivs (App fc f c a)
           = Just (App fc !(updateIVars ivs f) c !(updateIVars ivs a))
-      updateIVars ivs (As fc u (AsLoc afc i prf) p)
-          = do MkVar p' <- updateIVar ivs prf
-               Just (As fc u (AsLoc afc _ p') !(updateIVars ivs p))
-      updateIVars ivs (As fc u (AsRef afc n) p)
-          = Just (As fc u (AsRef afc n) !(updateIVars ivs p))
+      updateIVars ivs (As fc u as p)
+          = Just (As fc u !(updateIVars ivs as) !(updateIVars ivs p))
       updateIVars ivs (Case fc c sc scty alts)
           = Just (Case fc c !(updateIVars ivs sc) !(updateIVars ivs scty)
                        !(traverse (updateIAlts ivs) alts))

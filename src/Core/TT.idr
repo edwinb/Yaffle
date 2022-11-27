@@ -25,7 +25,7 @@ eqTerm (Meta _ _ i args) (Meta _ _ i' args')
 eqTerm (Bind _ _ b sc) (Bind _ _ b' sc')
     = assert_total (eqBinderBy eqTerm b b') && eqTerm sc sc'
 eqTerm (App _ f _ a) (App _ f' _ a') = eqTerm f f' && eqTerm a a'
-eqTerm (As _ _ a p) (As _ _ a' p') = eqTerm p p'
+eqTerm (As _ _ a p) (As _ _ a' p') = eqTerm a a' && eqTerm p p'
 eqTerm (Case _ _ sc ty alts) (Case _ _ sc' ty' alts')
     = eqTerm sc sc' && eqTerm ty ty' &&
           assert_total (all (uncurry eqAlt) (zip alts alts'))
@@ -331,13 +331,7 @@ insertNames out ns (Bind fc x b scope)
 insertNames out ns (App fc fn q arg)
     = App fc (insertNames out ns fn) q (insertNames out ns arg)
 insertNames out sns (As fc x as pat)
-    = As fc x (insertAs as) (insertNames out sns pat)
-  where
-    insertAs : AsName (inner ++ outer) -> AsName (inner ++ ns ++ outer)
-    insertAs (AsLoc fc idx prf)
-        = let MkNVar prf' = insertNVarNames out sns (MkNVar prf) in
-              AsLoc fc _ prf'
-    insertAs (AsRef fc n) = AsRef fc n
+    = As fc x (insertNames out sns as) (insertNames out sns pat)
 insertNames out ns (Case fc r sc scTy xs)
     = Case fc r (insertNames out ns sc) (insertNames out ns scTy)
            (map (insertNamesAlt out ns) xs)
@@ -412,7 +406,6 @@ shrinkPi : PiInfo (Term vars) -> SubVars newvars vars ->
 export
 shrinkBinder : Binder (Term vars) -> SubVars newvars vars ->
                Maybe (Binder (Term newvars))
-shrinkAs : AsName vars -> SubVars newvars vars -> Maybe (AsName newvars)
 shrinkScope : CaseScope vars -> SubVars newvars vars -> Maybe (CaseScope newvars)
 shrinkAlt : CaseAlt vars -> SubVars newvars vars -> Maybe (CaseAlt newvars)
 
@@ -433,9 +426,6 @@ shrinkBinder (PLet fc c val ty) prf
     = Just (PLet fc c !(shrinkTerm val prf) !(shrinkTerm ty prf))
 shrinkBinder (PVTy fc c ty) prf
     = Just (PVTy fc c !(shrinkTerm ty prf))
-
-shrinkAs (AsLoc fc idx loc) prf = (\(MkVar loc') => AsLoc fc _ loc') <$> subElem loc prf
-shrinkAs (AsRef fc n) prf = Just (AsRef fc n)
 
 shrinkScope (RHS tm) prf = Just (RHS !(shrinkTerm tm prf))
 shrinkScope (Arg r x sc) prf = Just (Arg r x !(shrinkScope sc (KeepCons prf)))
@@ -458,7 +448,7 @@ shrinkTerm (Bind fc x b scope) prf
 shrinkTerm (App fc fn q arg) prf
    = Just (App fc !(shrinkTerm fn prf) q !(shrinkTerm arg prf))
 shrinkTerm (As fc s as tm) prf
-   = Just (As fc s !(shrinkAs as prf) !(shrinkTerm tm prf))
+   = Just (As fc s !(shrinkTerm as prf) !(shrinkTerm tm prf))
 shrinkTerm (Case fc r sc scTy alts) prf
    = Just (Case fc r !(shrinkTerm sc prf) !(shrinkTerm scTy prf)
                 !(traverse (\alt => shrinkAlt alt prf) alts))
@@ -498,11 +488,8 @@ embedSub sub (Bind fc x b scope)
     = Bind fc x (map (embedSub sub) b) (embedSub (KeepCons sub) scope)
 embedSub sub (App fc fn c arg)
     = App fc (embedSub sub fn) c (embedSub sub arg)
-embedSub sub (As fc s (AsRef afc n) pat)
-    = As fc s (AsRef afc n) (embedSub sub pat)
-embedSub sub (As fc s (AsLoc afc idx y) pat)
-    = let MkVar y' = varEmbedSub sub y in
-          As fc s (AsLoc fc _ y') (embedSub sub pat)
+embedSub sub (As fc s nm pat)
+    = As fc s (embedSub sub nm) (embedSub sub pat)
 embedSub sub (Case fc c sc scty alts)
     = Case fc c (embedSub sub sc) (embedSub sub scty) (map embedSubAlt alts)
   where
@@ -560,15 +547,6 @@ resolveRef {outer} {done} p q (Add {xs} new old bs) fc n
          else rewrite sym $ appendAssociative xs [<new] done in
                       resolveRef p (sucR q) bs fc n
 
-mkLocalsAs : SizeOf outer -> Bounds bound ->
-             AsName (vars ++ outer) -> AsName (vars ++ (bound ++ outer))
-mkLocalsAs outer bs (AsLoc fc idx p)
-    = let MkNVar p' = addVars outer bs (MkNVar p) in AsLoc fc _ p'
-mkLocalsAs outer bs (AsRef fc n)
-    = case resolveRef outer zero bs fc n of
-           Just (Local fc _ _ p) => AsLoc fc _ p
-           _ => AsRef fc n
-
 mkLocalsAlt : SizeOf outer -> Bounds bound ->
               CaseAlt (vars ++ outer) -> CaseAlt (vars ++ (bound ++ outer))
 
@@ -589,7 +567,7 @@ mkLocals outer bs (Bind fc x b scope)
 mkLocals outer bs (App fc fn q arg)
     = App fc (mkLocals outer bs fn) q (mkLocals outer bs arg)
 mkLocals outer bs (As fc s as tm)
-    = As fc s (mkLocalsAs outer bs as) (mkLocals outer bs tm)
+    = As fc s (mkLocals outer bs as) (mkLocals outer bs tm)
 mkLocals outer bs (Case fc r sc scTy alts)
     = Case fc r (mkLocals outer bs sc) (mkLocals outer bs scTy)
            (map (mkLocalsAlt outer bs) alts)
@@ -661,8 +639,8 @@ resolveNames vars (Bind fc x b scope)
     = Bind fc x (map (resolveNames vars) b) (resolveNames (vars :< x) scope)
 resolveNames vars (App fc fn c arg)
     = App fc (resolveNames vars fn) c (resolveNames vars arg)
-resolveNames vars (As fc s v@(AsLoc{}) pat)
-    = As fc s v (resolveNames vars pat)
+resolveNames vars (As fc s as pat)
+    = As fc s (resolveNames vars as) (resolveNames vars pat)
 resolveNames vars (Case fc c sc scty alts)
     = Case fc c (resolveNames vars sc) (resolveNames vars scty)
                 (map (resolveAlt vars) alts)
@@ -679,10 +657,6 @@ resolveNames vars (Case fc c sc scty alts)
     resolveAlt vars (ConstCase fc x tm) = ConstCase fc x (resolveNames vars tm)
     resolveAlt vars (DefaultCase fc tm) = DefaultCase fc (resolveNames vars tm)
 
-resolveNames vars (As fc s v@(AsRef afc name) pat)
-    = case isNVar name vars of
-           Just (MkNVar prf) => As fc s (AsLoc afc _ prf) (resolveNames vars pat)
-           _ => As fc s v (resolveNames vars pat)
 resolveNames vars (TDelayed fc x y)
     = TDelayed fc x (resolveNames vars y)
 resolveNames vars (TDelay fc x t y)
@@ -852,14 +826,8 @@ namespace SubstEnv
                   (substEnv (suc outer) env scope)
   substEnv outer env (App fc fn c arg)
       = App fc (substEnv outer env fn) c (substEnv outer env arg)
-  substEnv outer env (As fc s (AsLoc afc _ prf) pat)
-      -- Doesn't make sense if the local is resolved!
-      = case find fc Nothing outer (MkVar prf) env of
-             Local fc _ _ prf' =>
-                 As fc s (AsLoc afc _ prf') (substEnv outer env pat)
-             _ => substEnv outer env pat
-  substEnv outer env (As fc s (AsRef afc n) pat)
-      = As fc s (AsRef afc n) (substEnv outer env pat)
+  substEnv outer env (As fc s as pat)
+      = As fc s (substEnv outer env as) (substEnv outer env pat)
   substEnv outer env (Case fc c sc scty alts)
       = Case fc c (substEnv outer env sc)
              (substEnv outer env scty)
@@ -915,7 +883,7 @@ substName x new (Bind fc y b scope)
 substName x new (App fc fn c arg)
     = App fc (substName x new fn) c (substName x new arg)
 substName x new (As fc s as pat)
-    = As fc s as (substName x new pat)
+    = As fc s (substName x new as) (substName x new pat)
 substName x new (Case fc c sc scty alts)
     = Case fc c (substName x new sc) (substName x new scty)
            (map (substNameAlt new) alts)
@@ -957,7 +925,7 @@ substVar x new (Bind fc y b scope)
 substVar x new (App fc fn c arg)
     = App fc (substVar x new fn) c (substVar x new arg)
 substVar x new (As fc s as pat)
-    = As fc s as (substVar x new pat)
+    = As fc s (substVar x new as) (substVar x new pat)
 substVar x new (Case fc c sc scty alts)
     = Case fc c (substVar x new sc) (substVar x new scty)
            (map (substVarAlt x new) alts)
@@ -1095,10 +1063,6 @@ addRefs ua at ns (TType fc u) = ns
 export
 getRefs : (aTotal : Name) -> Term vars -> NameMap Bool
 getRefs at tm = addRefs False at empty tm
-
-{vars : _} -> Show (AsName vars) where
-  show (AsLoc _ _ p) = show (nameAt p)
-  show (AsRef _ n) = show n
 
 export
 withPiInfo : Show t => PiInfo t -> String -> String

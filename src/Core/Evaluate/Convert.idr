@@ -112,24 +112,25 @@ parameters {auto c : Ref Ctxt Defs}
       = if i == i'
            then convSpine s env sp sp'
            else pure False
-  convGen {vars} BlockApp env (VMeta fc n i sc args _) (VMeta _ n' i' sc' args' _)
-      = do True <- convScope sc sc' | False => pure False
-           convSpine BlockApp env args args'
+  convGen {vars} s env x@(VMeta _ _ i sc args val) y@(VMeta _ _ i' sc' args' val')
+      = do Just x <- val  | Nothing => convMeta
+           Just y <- val' | Nothing => convMeta
+           convGen s env x y
     where
       convScope : List (RigCount, Glued vars) ->
                   List (RigCount, Glued vars) -> Core Bool
       convScope [] [] = pure True
       convScope ((_, x) :: xs) ((_, y) :: ys)
-          = do True <- convGen BlockApp env x y | False => pure False
+          = do True <- convGen s env x y | False => pure False
                convScope xs ys
       convScope _ _ = pure False
-  convGen {vars} (Reduce ns) env x@(VMeta _ _ _ _ _ val) y@(VMeta _ _ _ _ _ val')
-      = do -- Check without reducing first since it might save a lot of work
-           -- on success
-           False <- convGen BlockApp env x y | True => pure True
-           Just x <- val  | Nothing => pure False
-           Just y <- val' | Nothing => pure False
-           convGen (Reduce ns) env x y
+
+      convMeta : Core Bool
+      convMeta
+          = if i == i'
+               then do True <- convScope sc sc' | False => pure False
+                       convSpine s env args args'
+               else pure False
   -- If one is a Metavar and the other isn't, try to reduce the Metavar first
   convGen s env (VMeta _ _ _ _ _ val) y
       = do Just x <- val | Nothing => pure False
