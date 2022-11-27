@@ -30,10 +30,11 @@ mkPrim a op = mkFn 0 a (rewrite plusZeroRightNeutral a in op) []
 addPrim : Ref Ctxt Defs =>
           Prim -> CoreE err ()
 addPrim p
-    = do let primdef = newDef EmptyFC (opName (fn p)) RigW [<]
+    = do let fndef = mkPrim (arity p) (fn p)
+         let primdef = newDef EmptyFC (opName (fn p)) RigW [<]
                               (type p) Public
                               (Function (MkFnInfo NotHole False False)
-                                        (mkPrim (arity p) (fn p)))
+                                        fndef fndef Nothing)
          ignore $ addDef (opName (fn p)) primdef
 
 export

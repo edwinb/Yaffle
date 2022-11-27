@@ -40,6 +40,8 @@ data Error : Type where
                    FC -> Defs -> Env Term vars -> Term vars -> Term vars -> Error
      WhenUnifying : {vars : _} ->
                     FC -> Defs -> Env Term vars -> Term vars -> Term vars -> Error -> Error
+     ValidCase : {vars : _} ->
+                 FC -> Env Term vars -> Either (Term vars) Error -> Error
 
      UndefinedName : FC -> Name -> Error
      InvisibleName : FC -> Name -> Maybe Namespace -> Error
@@ -116,6 +118,11 @@ Show Error where
       = show fc ++ ":" ++ show x ++ " and " ++ show y ++ " are not equal"
   show (WhenUnifying fc _ _ x y err)
       = show fc ++ ":When unifying: " ++ show x ++ " and " ++ show y ++ "\n\t" ++ show err
+  show (ValidCase fc _ prob)
+      = show fc ++ ":" ++
+           case prob of
+             Left tm => assert_total (show tm) ++ " is not a valid impossible pattern because it typechecks"
+             Right err => "Not a valid impossible pattern:\n\t" ++ assert_total (show err)
 
   show (UndefinedName fc n) = show fc ++ ":Undefined name " ++ show n
   show (InvisibleName fc x (Just ns))

@@ -1431,6 +1431,7 @@ mutual
                        pure (IBuiltin fc type name)
                _ => corrupt "ImpDecl"
 
+           -}
 
 -- Log message with a RawImp
 export
@@ -1441,4 +1442,3 @@ logRaw : {auto c : Ref Ctxt Defs} ->
 logRaw str n msg tm
     = when !(logging str n) $
         do logString str n (msg ++ ": " ++ show tm)
-           -}

@@ -804,7 +804,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                     handleUnify
                        (do tm <- search loc rig (smode == Defaults) depth defining
                                         (type def) [<]
-                           let gdef = { definition := Function defaultFI tm } def
+                           let gdef = { definition := Function defaultFI tm tm Nothing } def
                            ignore $ addDef (Resolved hid) gdef
                            removeGuess hid
                            pure True)
@@ -836,7 +836,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                                              AddDelay r =>
                                                 do logTerm "unify.retry" 5 "Retry Delay" tm
                                                    pure $ delayMeta r envb (type def) tm
-                                    let gdef = { definition := Function (MkFnInfo NotHole True False) tm' } def
+                                    let gdef = { definition := Function (MkFnInfo NotHole True False) tm' tm' Nothing } def
                                     logTerm "unify.retry" 5 ("Resolved " ++ show hname) tm'
                                     ignore $ addDef (Resolved hid) gdef
                                     removeGuess hid
@@ -860,7 +860,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                            -- All constraints resolved, so turn into a
                            -- proper definition and remove it from the
                            -- hole list
-                           [] => do let gdef = { definition := Function (MkFnInfo NotHole True False) tm } def
+                           [] => do let gdef = { definition := Function (MkFnInfo NotHole True False) tm tm Nothing } def
                                     logTerm "unify.retry" 5 ("Resolved " ++ show hname) tm
                                     ignore $ addDef (Resolved hid) gdef
                                     removeGuess hid
@@ -918,7 +918,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   checkArgsSame [] = pure False
   checkArgsSame (x :: xs)
       = do defs <- get Ctxt
-           Just (Function _ def) <-
+           Just (Function _ def _ _) <-
                       lookupDefExact (Resolved x) (gamma defs)
                 | _ => checkArgsSame xs
            s <- anySame def xs
@@ -930,7 +930,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       anySame tm [] = pure False
       anySame tm (t :: ts)
           = do defs <- get Ctxt
-               Just (Function _ def) <-
+               Just (Function _ def _ _) <-
                           lookupDefExact (Resolved t) (gamma defs)
                    | _ => anySame tm ts
                if !(convert [<] tm def)

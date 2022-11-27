@@ -292,7 +292,7 @@ parameters {auto c : Ref Ctxt Defs}
                  = case !(lookupCtxtExact (Resolved i) (gamma defs)) of
                         Nothing => False
                         Just def => case definition def of
-                                         Function _ _ => True
+                                         Function {} => True
                                          _ => False
            if defined
               then do us <- traverse (\ (c, arg) => lcheck (rigMult rig c) env arg) args

@@ -154,7 +154,7 @@ returnDef : Bool -> Int -> GlobalDef -> Maybe (Int, GlobalDef)
 returnDef False idx def = Just (idx, def)
 returnDef True idx def
     = case definition def of
-           Function pi _ =>
+           Function pi _ _ _ =>
                  if alwaysReduce pi
                     then Just (idx, def)
                     else Nothing
@@ -780,26 +780,28 @@ HasNames TyConInfo where
                  datacons := !(resolved gam (datacons x)) } x
 
 export
-HasNames Def where
-  full gam (Function x tm) = pure $ Function x !(full gam tm)
-  full gam (TCon info arity) = pure $ TCon !(full gam info) arity
-  full gam (BySearch x max def) = pure $ BySearch x max !(full gam def)
-  full gam (Guess guess e cons) = pure $ Guess !(full gam guess) e cons
-  full gam x = pure x
-
-  resolved gam (Function x tm) = pure $ Function x !(resolved gam tm)
-  resolved gam (TCon info arity) = pure $ TCon !(resolved gam info) arity
-  resolved gam (BySearch x max def) = pure $ BySearch x max !(resolved gam def)
-  resolved gam (Guess guess e cons) = pure $ Guess !(resolved gam guess) e cons
-  resolved gam x = pure x
-
-export
 HasNames Clause where
   full gam (MkClause env lhs rhs)
      = pure $ MkClause !(full gam env) !(full gam lhs) !(full gam rhs)
 
   resolved gam (MkClause env lhs rhs)
     = [| MkClause (resolved gam env) (resolved gam lhs) (resolved gam rhs) |]
+
+export
+HasNames Def where
+  full gam (Function x ctm rtm cs)
+      = pure $ Function x !(full gam ctm) !(full gam rtm) !(full gam cs)
+  full gam (TCon info arity) = pure $ TCon !(full gam info) arity
+  full gam (BySearch x max def) = pure $ BySearch x max !(full gam def)
+  full gam (Guess guess e cons) = pure $ Guess !(full gam guess) e cons
+  full gam x = pure x
+
+  resolved gam (Function x ctm rtm cs)
+      = pure $ Function x !(resolved gam ctm) !(resolved gam rtm) !(resolved gam cs)
+  resolved gam (TCon info arity) = pure $ TCon !(resolved gam info) arity
+  resolved gam (BySearch x max def) = pure $ BySearch x max !(resolved gam def)
+  resolved gam (Guess guess e cons) = pure $ Guess !(resolved gam guess) e cons
+  resolved gam x = pure x
 
 export
 HasNames PartialReason where

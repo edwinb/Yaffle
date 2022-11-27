@@ -261,7 +261,7 @@ retryDelayed' errmode p acc (d@(_, i, hints, elab) :: ds)
                let ds' = reverse (delayedElab ust) ++ ds
 
                updateDef (Resolved i) (const (Just
-                    (Function (MkFnInfo NotHole True False) tm)))
+                    (Function (MkFnInfo NotHole True False) tm tm Nothing)))
                logTerm "elab.update" 5 ("Resolved delayed hole " ++ show i) tm
                logTermNF "elab.update" 5 ("Resolved delayed hole NF " ++ show i) [<] tm
                removeHole i

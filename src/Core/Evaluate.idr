@@ -88,16 +88,16 @@ parameters {auto c : Ref Ctxt Defs}
 
   replace'
       : {vars : _} ->
-        Int -> Env Term vars ->
+        (expandGlued : Bool) -> Int -> Env Term vars ->
         (orig : Value f vars) -> (parg : Term vars) -> (tm : Value f' vars) ->
         Core (Term vars)
-  replace' {vars} tmpi env orig parg tm
+  replace' {vars} expand tmpi env orig parg tm
       = if !(convert env orig tm)
            then pure parg
            else repSub tm
     where
       repArg : Value f vars -> Core (Term vars)
-      repArg = replace' tmpi env orig parg
+      repArg = replace' expand tmpi env orig parg
 
       repArgAll : Spine vars -> Core (SnocList (FC, RigCount, Term vars))
       repArgAll [<] = pure [<]
@@ -109,7 +109,7 @@ parameters {auto c : Ref Ctxt Defs}
       repScope : FC -> Int -> (args : SnocList (RigCount, Name)) ->
                  VCaseScope args vars -> Core (CaseScope vars)
       repScope fc tmpi [<] rhs
-          = do rhs' <- replace' tmpi env orig parg !rhs
+          = do rhs' <- replace' expand tmpi env orig parg !rhs
                pure (RHS rhs')
       repScope fc tmpi (xs :< (r, x)) scope
           = do let xn = MN "tmp" tmpi
@@ -126,7 +126,7 @@ parameters {auto c : Ref Ctxt Defs}
                let argn = MN "tmp" (tmpi + 1)
                let tyv = VApp fc Bound tyn [<] (pure Nothing)
                let argv = VApp fc Bound argn [<] (pure Nothing)
-               scope' <- replace' (tmpi + 2) env orig parg !(scope tyv argv)
+               scope' <- replace' expand (tmpi + 2) env orig parg !(scope tyv argv)
                let rhs = refsToLocals (Add ty tyn (Add arg argn None)) scope'
                pure (DelayCase fc ty arg rhs)
       repAlt (VConstCase fc c rhs)
@@ -141,20 +141,23 @@ parameters {auto c : Ref Ctxt Defs}
           = do b' <- traverse repSub (Lam fc c p ty)
                let x' = MN "tmp" tmpi
                let var = VApp fc Bound x' [<] (pure Nothing)
-               sc' <- replace' (tmpi + 1) env orig parg !(scfn var)
+               sc' <- replace' expand (tmpi + 1) env orig parg !(scfn var)
                pure (Bind fc x b' (refsToLocals (Add x x' None) sc'))
       repSub (VBind fc x b scfn)
           = do b' <- traverse repSub b
                let x' = MN "tmp" tmpi
                let var = VApp fc Bound x' [<] (pure Nothing)
-               sc' <- replace' (tmpi + 1) env orig parg !(scfn var)
+               sc' <- replace' expand (tmpi + 1) env orig parg !(scfn var)
                pure (Bind fc x b' (refsToLocals (Add x x' None) sc'))
-      -- Perhaps we should have two variants here: one which just looks
-      -- at the application (which is what we currently do) and one which
-      -- evaluates further.
       repSub (VApp fc nt fn args val')
-          = do args' <- repArgAll args
-               pure $ applyWithFC (Ref fc nt fn) (toList args')
+          = if expand
+               then do Just nf <- val'
+                            | Nothing =>
+                             do args' <- repArgAll args
+                                pure $ applyWithFC (Ref fc nt fn) (toList args')
+                       repSub nf
+               else do args' <- repArgAll args
+                       pure $ applyWithFC (Ref fc nt fn) (toList args')
       repSub (VLocal fc m idx p args)
           = do args' <- repArgAll args
                pure $ applyWithFC (Local fc m idx p) (toList args')
@@ -201,7 +204,15 @@ parameters {auto c : Ref Ctxt Defs}
         Env Term vars ->
         (orig : Value f vars) -> (new : Term vars) -> (tm : Value f' vars) ->
         Core (Term vars)
-  replace = replace' 0
+  replace = replace' True 0
+
+  export
+  replaceSyn
+      : {vars : _} ->
+        Env Term vars ->
+        (orig : Value f vars) -> (new : Term vars) -> (tm : Value f' vars) ->
+        Core (Term vars)
+  replaceSyn = replace' False 0
 
   -- If the term is an application of a primitive conversion (fromInteger etc)
   -- and it's applied to a constant, fully normalise the term.

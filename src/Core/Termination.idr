@@ -50,7 +50,7 @@ checkIfGuarded : {auto c : Ref Ctxt Defs} ->
 checkIfGuarded fc n
     = do log "totality.termination.guarded" 6 $ "Check if Guarded: " ++ show !(toFullNames n)
          defs <- get Ctxt
-         Just (Function _ tm) <- lookupDefExact n (gamma defs)
+         Just (Function _ tm _ _) <- lookupDefExact n (gamma defs)
               | _ => pure ()
          t <- guardedDef !(expand !(nf [<] tm))
          if t then do Just gdef <- lookupCtxtExact n (gamma defs)
@@ -402,7 +402,7 @@ findCalls tm = findSCTop 0 [] (delazy tm)
 
 getSC : {auto c : Ref Ctxt Defs} ->
         Defs -> Def -> Core (List SCCall)
-getSC defs (Function _ tm)
+getSC defs (Function _ tm _ _)
    = do sc <- findCalls tm
         pure $ nub sc
 getSC defs _ = pure []

@@ -93,7 +93,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       = case lookup n all of
              Just _ => chaseMetas ns all
              _ => do defs <- get Ctxt
-                     Just (Function _ soln) <- lookupDefExact n (gamma defs)
+                     Just (Function _ soln _ _) <- lookupDefExact n (gamma defs)
                           | _ => chaseMetas ns (insert n () all)
                      let sns = keys (getMetas soln)
                      chaseMetas (sns ++ ns) (insert n () all)
@@ -239,7 +239,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
            let simpleDef = MkFnInfo (SolvedHole num)
                                      (not (isUserName mname) && isSimple rhs)
                                      False
-           let newdef = { definition := Function simpleDef rhs } mdef
+           let newdef = { definition := Function simpleDef rhs rhs Nothing } mdef
            ignore $ addDef (Resolved mref) newdef
            removeHole mref
            pure True

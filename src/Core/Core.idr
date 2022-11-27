@@ -264,6 +264,21 @@ anyM f (x :: xs)
          else anyM f xs
 
 export
+anyMSnoc : (a -> CoreE err Bool) -> SnocList a -> CoreE err Bool
+anyMSnoc f [<] = pure False
+anyMSnoc f (xs :< x)
+    = if !(f x)
+         then pure True
+         else anyMSnoc f xs
+
+-- TMP HACK since there's no Zippable instance for SnocList
+export
+zip : SnocList a -> SnocList b -> SnocList (a, b)
+zip [<] sy = [<]
+zip sx [<] = [<]
+zip (sx :< x) (sy :< y) = zip sx sy :< (x, y)
+
+export
 allM : (a -> CoreE err Bool) -> List a -> CoreE err Bool
 allM f [] = pure True
 allM f (x :: xs)

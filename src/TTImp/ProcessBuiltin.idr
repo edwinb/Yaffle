@@ -251,7 +251,7 @@ processNatToInteger fc fn = do
     log "builtin.NaturalToInteger" 5 $ "Processing %builtin NaturalToInteger " ++ show_fn ++ "."
     [(_ , i, gdef)] <- lookupCtxtName fn ds.gamma
         | ns => ambiguousName fc fn $ (\(n, _, _) => n) <$> ns
-    let Function _ _ = gdef.definition
+    let Function{} = gdef.definition
         | def => throw $ GenericMsg fc
             $ "Expected function definition, found " ++ showDefType def ++ "."
     type <- toFullNames gdef.type
@@ -279,7 +279,7 @@ processIntegerToNat fc fn = do
     [(_, i, gdef)] <- lookupCtxtName fn ds.gamma
         | ns => ambiguousName fc fn $ (\(n, _, _) => n) <$> ns
     type <- toFullNames gdef.type
-    let Function _ _ = gdef.definition
+    let Function{} = gdef.definition
         | def => throw $ GenericMsg fc
             $ "Expected function definition, found " ++ showDefType def ++ "."
     logTerm "builtin.IntegerToNatural" 25 ("Type of " ++ show_fn) type

@@ -244,6 +244,20 @@ mkConstantAppArgs {done} {vars = xs :< x} lets fc (env :< b) wkns
                        rewrite sym $ appendAssociative (done ++ xs) [<x] wkns in rec
              else rewrite sym $ appendAssociative (done ++ xs) [<x] wkns in rec
 
+export
+applyTo : {vars : _} ->
+          FC -> Term vars -> Env Term vars -> Term vars
+applyTo fc tm env
+  = let args = reverse (mkConstantAppArgs {done = [<]} False fc env [<]) in
+        apply fc tm (rewrite sym (appendLinLeftNeutral vars) in args)
+
+export
+applyToFull : {vars : _} ->
+          FC -> Term vars -> Env Term vars -> Term vars
+applyToFull fc tm env
+  = let args = reverse (mkConstantAppArgs {done = [<]} True fc env [<]) in
+        apply fc tm (rewrite sym (appendLinLeftNeutral vars) in args)
+
 parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   export
   resetNextVar : Core ()

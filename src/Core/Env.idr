@@ -3,6 +3,7 @@ module Core.Env
 import Core.TT
 import Data.List
 import Data.SnocList
+import Data.Vect
 
 public export
 data Env : (tm : SnocList Name -> Type) -> SnocList Name -> Type where
@@ -108,6 +109,152 @@ abstractFullEnvType fc (env :< b) tm
     = let bnd = Pi fc (multiplicity b) Explicit (binderType b)
       in abstractFullEnvType fc env (Bind fc _ bnd tm)
 
+export
+letToLam : Env Term vars -> Env Term vars
+letToLam [<] = [<]
+letToLam (env :< Let fc c val ty) = letToLam env :< Lam fc c Explicit ty
+letToLam (env :< b) = letToLam env :< b
+
+mutual
+  dropS : SnocList Nat -> SnocList Nat
+  dropS [<] = [<]
+  dropS (xs :< Z) = dropS xs
+  dropS (xs :< S p) = dropS xs :< p
+
+  -- Quicker, if less safe, to store variables as a Nat, for quick comparison
+  findUsed : {vars : _} ->
+             Env Term vars -> SnocList Nat -> Term vars -> SnocList Nat
+  findUsed env used (Local fc r idx p)
+      = if elemBy eqNat idx used
+           then used
+           else assert_total (findUsedInBinder env (used :< idx)
+                                               (getBinder p env))
+    where
+      eqNat : Nat -> Nat -> Bool
+      eqNat i j = natToInteger i == natToInteger j
+  findUsed env used (Meta _ _ _ args)
+      = findUsedArgs env used (map snd args)
+    where
+      findUsedArgs : Env Term vars -> SnocList Nat -> List (Term vars) -> SnocList Nat
+      findUsedArgs env u [] = u
+      findUsedArgs env u (a :: as)
+          = findUsedArgs env (findUsed env u a) as
+  findUsed env used (Bind fc x b tm)
+      = assert_total $
+          dropS (findUsed (env :< b)
+                          (map S (findUsedInBinder env used b))
+                          tm)
+  findUsed env used (App fc fn c arg)
+      = findUsed env (findUsed env used fn) arg
+  findUsed env used (As fc s a p)
+      = findUsed env used p
+  findUsed env used (Case fc c sc scTy alts)
+      = findUsedAlts env (findUsed env (findUsed env used sc) scTy) alts
+    where
+      findUsedScope : {vars : _} ->
+                      FC -> Env Term vars -> SnocList Nat -> CaseScope vars ->
+                      SnocList Nat
+      findUsedScope fc env used (RHS tm) = findUsed env used tm
+      findUsedScope fc env used (Arg c x sc)
+         = assert_total $
+              dropS (findUsedScope fc
+                       (env :< PVar fc top Explicit (Erased fc Placeholder))
+                       used sc)
+
+      findUsedAlt : {vars : _} ->
+                    Env Term vars -> SnocList Nat -> CaseAlt vars ->
+                    SnocList Nat
+      findUsedAlt env used (ConCase fc n t sc) = findUsedScope fc env used sc
+      findUsedAlt env used (DelayCase fc t a tm)
+          = findUsed (env :< PVar fc top Explicit (Erased fc Placeholder)
+                          :< PVar fc top Explicit (Erased fc Placeholder))
+                     used tm
+      findUsedAlt env used (ConstCase fc c tm) = findUsed env used tm
+      findUsedAlt env used (DefaultCase fc tm) = findUsed env used tm
+
+      findUsedAlts : {vars : _} ->
+                     Env Term vars -> SnocList Nat -> List (CaseAlt vars) ->
+                     SnocList Nat
+      findUsedAlts env used [] = used
+      findUsedAlts env used (a :: as)
+          = findUsedAlts env (findUsedAlt env used a) as
+  findUsed env used (TDelayed fc r tm)
+      = findUsed env used tm
+  findUsed env used (TDelay fc r ty tm)
+      = findUsed env (findUsed env used ty) tm
+  findUsed env used (TForce fc r tm)
+      = findUsed env used tm
+  findUsed env used (PrimOp fc f args)
+      = findUsedArgs env used args
+    where
+      findUsedArgs : Env Term vars -> SnocList Nat -> Vect arity (Term vars) -> SnocList Nat
+      findUsedArgs env u [] = u
+      findUsedArgs env u (a :: as)
+          = findUsedArgs env (findUsed env u a) as
+  findUsed env used _ = used
+
+  findUsedInBinder : {vars : _} ->
+                     Env Term vars -> SnocList Nat ->
+                     Binder (Term vars) -> SnocList Nat
+  findUsedInBinder env used (Let _ _ val ty)
+    = findUsed env (findUsed env used val) ty
+  findUsedInBinder env used (PLet _ _ val ty)
+    = findUsed env (findUsed env used val) ty
+  findUsedInBinder env used b = findUsed env used (binderType b)
+
+toVar : (vars : SnocList Name) -> Nat -> Maybe (Var vars)
+toVar (vs :< v) Z = Just (MkVar First)
+toVar (vs :< v) (S k)
+   = do MkVar prf <- toVar vs k
+        Just (MkVar (Later prf))
+toVar _ _ = Nothing
+
+export
+findUsedLocs : {vars : _} ->
+               Env Term vars -> Term vars -> SnocList (Var vars)
+findUsedLocs env tm
+    = mapMaybe (toVar _) (findUsed env [<] tm)
+
+isUsed : Nat -> SnocList (Var vars) -> Bool
+isUsed n [<] = False
+isUsed n (vs :< v) = n == varIdx v || isUsed n vs
+
+mkShrinkSub : {n : _} ->
+              (vars : _) -> SnocList (Var (vars :< n)) ->
+              (newvars ** SubVars newvars (vars :< n))
+mkShrinkSub [<] els
+    = if isUsed 0 els
+         then (_ ** KeepCons SubRefl)
+         else (_ ** DropCons SubRefl)
+mkShrinkSub (xs :< x) els
+    = let (_ ** subRest) = mkShrinkSub xs (dropFirst els) in
+      if isUsed 0 els
+        then (_ ** KeepCons subRest)
+        else (_ ** DropCons subRest)
+
+mkShrink : {vars : _} ->
+           SnocList (Var vars) ->
+           (newvars ** SubVars newvars vars)
+mkShrink {vars = [<]} xs = (_ ** SubRefl)
+mkShrink {vars = vs :< v} xs = mkShrinkSub _ xs
+
+-- Find the smallest subset of the environment which is needed to type check
+-- the given term
+export
+findSubEnv : {vars : _} ->
+             Env Term vars -> Term vars ->
+             (vars' : SnocList Name ** SubVars vars' vars)
+findSubEnv env tm = mkShrink (findUsedLocs env tm)
+
+export
+shrinkEnv : Env Term vars -> SubVars newvars vars -> Maybe (Env Term newvars)
+shrinkEnv env SubRefl = Just env
+shrinkEnv (env :< b) (DropCons p) = shrinkEnv env p
+shrinkEnv (env :< b) (KeepCons p)
+    = do env' <- shrinkEnv env p
+         b' <- assert_total (shrinkBinder b p)
+         pure (env' :< b')
+
 restrictWEnv : Env Term vars -> Env Term vars
 restrictWEnv [<] = [<]
 restrictWEnv (env :< b) = restrictWEnv env :< setMultiplicity b (rigRestrictW $ multiplicity b)
@@ -142,3 +289,14 @@ export
 mkEnv : FC -> (vs : SnocList Name) -> Env Term vs
 mkEnv fc [<] = [<]
 mkEnv fc (ns :< n) = mkEnv fc ns :< PVar fc top Explicit (Erased fc Placeholder)
+
+export
+allVars : {vars : _} -> Env Term vars -> List (Var vars)
+allVars [<] = []
+allVars (vs :< v) = MkVar First :: map weaken (allVars vs)
+
+export
+allVarsNoLet : {vars : _} -> Env Term vars -> List (Var vars)
+allVarsNoLet [<] = []
+allVarsNoLet (vs :< Let _ _ _ _) = map weaken (allVars vs)
+allVarsNoLet (vs :< v) = MkVar First :: map weaken (allVars vs)

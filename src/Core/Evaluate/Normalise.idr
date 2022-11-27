@@ -266,7 +266,7 @@ parameters {auto c : Ref Ctxt Defs}
       = do defs <- get Ctxt
            Just def <- lookupCtxtExact n (gamma defs)
                 | Nothing => pure (VApp fc nt n [<] (pure Nothing))
-           let Function _ fn = definition def
+           let Function _ fn _ _ = definition def
                 | _ => pure (VApp fc nt n [<] (pure Nothing))
            pure $ VApp fc nt n [<] $
                     do res <- eval locs env (embed fn)
@@ -278,7 +278,7 @@ parameters {auto c : Ref Ctxt Defs}
             defs <- get Ctxt
             Just def <- lookupCtxtExact n (gamma defs)
                  | Nothing => pure (VMeta fc n i scope' [<] (pure Nothing))
-            let Function _ fn = definition def
+            let Function _ fn _ _ = definition def
                  | _ => pure (VMeta fc n i scope' [<] (pure Nothing))
             pure $ VMeta fc n i scope' [<] $
                      do evalfn <- eval locs env (embed fn)

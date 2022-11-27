@@ -68,9 +68,25 @@ holeInit : Bool -> HoleFlags
 holeInit b = MkHoleFlags b
 
 public export
+data Clause : Type where
+     MkClause : {vars : _} ->
+                (env : Env Term vars) ->
+                (lhs : Term vars) -> (rhs : Term vars) -> Clause
+
+export
+covering
+Show Clause where
+  show (MkClause {vars} env lhs rhs)
+      = show vars ++ ": " ++ show lhs ++ " = " ++ show rhs
+
+public export
 data Def : Type where
     None : Def -- Not yet defined
-    Function : FnInfo -> Term [<] -> Def -- normal function
+    Function : FnInfo ->
+               (compileTime : Term [<]) ->
+               (runTime : Term [<]) ->
+               Maybe (List Clause) -> -- initial definition, if known
+               Def -- normal function
     DCon : DataConInfo ->
            (tag : Int) -> (arity : Nat) -> Def -- data constructor
     TCon : TyConInfo -> (arity : Nat) -> Def -- type constructor
@@ -104,7 +120,7 @@ export
 covering
 Show Def where
   show None = "undefined"
-  show (Function _ tm)
+  show (Function _ tm _ _)
       = "Function " ++ show tm
   show (DCon di t a)
       = "DataCon " ++ show t ++ " " ++ show a
@@ -138,15 +154,3 @@ public export
 data DataDef : Type where
      MkData : (tycon : Constructor) -> (datacons : List Constructor) ->
               DataDef
-
-public export
-data Clause : Type where
-     MkClause : {vars : _} ->
-                (env : Env Term vars) ->
-                (lhs : Term vars) -> (rhs : Term vars) -> Clause
-
-export
-covering
-Show Clause where
-  show (MkClause {vars} env lhs rhs)
-      = show vars ++ ": " ++ show lhs ++ " = " ++ show rhs

@@ -500,12 +500,6 @@ updatePatNames ns (pi :: ps)
                Just n' => PLoc fc n'
     update p = p
 
--- TMP HACK since there's no Zippable instance for SnocList
-zip : SnocList a -> SnocList b -> SnocList (a, b)
-zip [<] sy = [<]
-zip sx [<] = [<]
-zip (sx :< x) (sy :< y) = zip sx sy :< (x, y)
-
 groupCons : {a, vars, todo : _} ->
             {auto i : Ref PName Int} ->
             {auto ct : Ref Ctxt Defs} ->

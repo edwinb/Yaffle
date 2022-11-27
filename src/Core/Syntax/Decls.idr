@@ -74,7 +74,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            tm <- check (multiplicity def) [<] rtm (type def)
            solveConstraints inTerm Normal
            linearCheck fc (multiplicity def) [<] tm
-           updateDef n (const (Just (Function (MkFnInfo NotHole False False) tm)))
+           updateDef n (const (Just (Function (MkFnInfo NotHole False False) tm tm Nothing)))
 
   processEnv : {vars : _} -> Env Term vars -> List (RigCount, Name, RawC) ->
                Core (vars' ** Env Term vars')
@@ -101,7 +101,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            cs <- traverse processClause rawcs
            (tree, unreachable) <- getPMDef fc (CompileTime (multiplicity gdef)) n
                                            (type gdef) cs
-           updateDef n (const (Just (Function (MkFnInfo NotHole False False) tree)))
+           updateDef n (const (Just (Function (MkFnInfo NotHole False False) tree tree Nothing)))
 
   export
   processDecl : RawDecl -> Core ()
