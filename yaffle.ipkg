@@ -164,7 +164,9 @@ modules
     Libraries.Utils.Term,
 
     TTMain.ProcessTT,
-    TTMain.REPL
+    TTMain.REPL,
+
+    Yaffle.REPL
 
 main = TTMain.Main
 executable = yaffle

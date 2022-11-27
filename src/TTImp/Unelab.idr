@@ -34,11 +34,13 @@ data UnelabMode
      = Full
      | NoSugar Bool -- uniqify names
      | ImplicitHoles
+     | NoImplicits
 
 Eq UnelabMode where
    Full == Full = True
    NoSugar t == NoSugar u = t == u
    ImplicitHoles == ImplicitHoles = True
+   NoImplicits == NoImplicits = True
    _ == _ = False
 
 -- Turn a term back into an unannotated TTImp. Returns the type of the
@@ -197,7 +199,9 @@ unelabTy' umode nest env tm@(App fc fn c arg)
                       pure (IApp fc fn' arg', sc')
               VBind _ x (Pi _ rig p ty) sc
                 => do sc' <- sc !(nf env arg)
-                      pure (INamedApp fc fn' x arg', sc')
+                      case umode of
+                           NoImplicits => pure (fn', sc')
+                           _ => pure (INamedApp fc fn' x arg', sc')
               _ => pure (IApp fc fn' arg', VErased fc Placeholder)
 unelabTy' umode nest env (As fc s p tm)
     = do (p', _) <- unelabTy' umode nest env p
@@ -230,7 +234,9 @@ unelabTy' umode nest env (Case fc c sc scty alts)
                   IApp fc (applySpine fn args) (IVar fc arg')
         applySpine fn (args :< (Just n, arg))
             = let arg' = MkKindedName (Just Bound) arg arg in
-                  INamedApp fc (applySpine fn args) n (IVar fc arg')
+                  case umode of
+                       NoImplicits => applySpine fn args
+                       _ => INamedApp fc (applySpine fn args) n (IVar fc arg')
 
     unelabScope fc n args env (VBind _ v (Pi _ rig p ty) tsc) (Arg c x sc)
         = do p' <- the (Core (PiInfo (Term [<]))) $ case p of
@@ -352,3 +358,12 @@ unelab : {vars : _} ->
          Env Term vars ->
          Term vars -> Core IRawImp
 unelab = unelabNest []
+
+export
+unelabNoImp : {vars : _} ->
+         {auto c : Ref Ctxt Defs} ->
+         Env Term vars ->
+         Term vars -> Core IRawImp
+unelabNoImp env tm
+    = do tm' <- unelabTy NoImplicits [] env tm
+         pure $ fst tm'

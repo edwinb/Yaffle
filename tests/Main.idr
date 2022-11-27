@@ -21,6 +21,9 @@ ttTests = MkTestPool "TT" [] Nothing
        "sizechange001",
        "search001", "search002"]
 
+yaffleTests = MkTestPool "Yaffle" [] Nothing
+    [ "basic001" ]
+
 failingTests : TestPool
 failingTests = MkTestPool "Failing tests (PRs welcome)" [] Nothing
   [ "unify004"
@@ -28,8 +31,9 @@ failingTests = MkTestPool "Failing tests (PRs welcome)" [] Nothing
 
 main : IO ()
 main
-    = runner $ [ testPaths "tt" ttTests
-               , testPaths "tt" failingTests]
+    = runner $ [ testPaths "tt"     ttTests
+               , testPaths "yaffle" yaffleTests
+               , testPaths "tt"     failingTests]
   where
     testPaths : String -> TestPool -> TestPool
     testPaths dir = { testCases $= map ((dir ++ "/") ++) }

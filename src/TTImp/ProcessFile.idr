@@ -64,6 +64,7 @@ parameters {auto c : Ref Ctxt Defs}
       = do traverse_ (processDecl [] nest env) decls
            pure True -- TODO: False on error
 
+  export
   processTTImpDecls : {vars : _} ->
                       NestedNames vars -> Env Term vars ->
                       List ImpDecl -> Core Bool
@@ -96,37 +97,4 @@ parameters {auto c : Ref Ctxt Defs}
                pure (IData fc vis mbtot d')
       bindNames d = pure d
 
-parameters {auto c : Ref Ctxt Defs}
-
-  processTTImpFile : String -> Core Bool
-  processTTImpFile fname
-      = do modIdent <- ctxtPathToNS fname
-           Right (ws, decor, tti) <-
-                coreLift $ parseFile fname (PhysicalIdrSrc modIdent)
-                              (do decls <- prog (PhysicalIdrSrc modIdent)
-                                  eoi
-                                  pure decls)
-                 | Left err => do coreLift (putStrLn (show err))
-                                  pure False
-           traverse_ recordWarning ws
-           m <- newRef MD (initMetadata (PhysicalIdrSrc modIdent))
-           u <- newRef UST initUState
-
-           catch (do ignore $ processTTImpDecls (MkNested []) [<] tti
-                     Nothing <- checkDelayedHoles
-                         | Just err => throw err
-                     pure True)
-                 (\err => do coreLift_ (printLn err)
-                             pure False)
-
 TTImp.Elab.Check.processDecl = process
-
-export
-ttImpMain : String -> Core ()
-ttImpMain fname
-    = do defs <- initDefs
-         c <- newRef Ctxt defs
-         addPrimitives
-         ok <- processTTImpFile fname
-         -- TODO: when ok, write out TTC
-         pure ()

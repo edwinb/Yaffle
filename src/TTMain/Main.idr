@@ -14,6 +14,8 @@ import TTImp.ProcessFile
 import TTMain.ProcessTT
 import TTMain.REPL
 
+import Yaffle.REPL
+
 import System
 import System.File
 
