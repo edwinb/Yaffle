@@ -8,7 +8,6 @@ import Core.Context
 import Core.Context.Log
 import Core.TT
 import Core.Evaluate
-import Core.Evaluate.QuoteB
 import Core.Unify.State
 
 import Data.List
