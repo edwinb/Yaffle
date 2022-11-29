@@ -38,40 +38,8 @@ insertImpLam : {vars : _} ->
                Env Term vars ->
                (term : RawImp) -> (expected : Maybe (Glued vars)) ->
                Core RawImp
-insertImpLam {vars} env tm (Just ty) = bindLam tm ty
+insertImpLam {vars} env tm (Just ty) = bindLamNF tm !(expand ty)
   where
-    -- If we can decide whether we need implicit lambdas without looking
-    -- at the normal form, do so
-    bindLamTm : RawImp -> Term vs -> Core (Maybe RawImp)
-    bindLamTm tm@(ILam _ _ Implicit _ _ _) (Bind fc n (Pi _ _ Implicit _) sc)
-        = pure (Just tm)
-    bindLamTm tm@(ILam _ _ AutoImplicit _ _ _) (Bind fc n (Pi _ _ AutoImplicit _) sc)
-        = pure (Just tm)
-    bindLamTm tm@(ILam _ _ (DefImplicit _) _ _ _) (Bind fc n (Pi _ _ (DefImplicit _) _) sc)
-        = pure (Just tm)
-    bindLamTm tm (Bind fc n (Pi _ c Implicit ty) sc)
-        = do n' <- genVarName (nameRoot n)
-             Just sc' <- bindLamTm tm sc
-                 | Nothing => pure Nothing
-             pure $ Just (ILam fc c Implicit (Just n') (Implicit fc False) sc')
-    bindLamTm tm (Bind fc n (Pi _ c AutoImplicit ty) sc)
-        = do n' <- genVarName (nameRoot n)
-             Just sc' <- bindLamTm tm sc
-                 | Nothing => pure Nothing
-             pure $ Just (ILam fc c AutoImplicit (Just n') (Implicit fc False) sc')
-    bindLamTm tm (Bind fc n (Pi _ c (DefImplicit _) ty) sc)
-        = do n' <- genVarName (nameRoot n)
-             Just sc' <- bindLamTm tm sc
-                 | Nothing => pure Nothing
-             pure $ Just (ILam fc c (DefImplicit (Implicit fc False))
-                                    (Just n') (Implicit fc False) sc')
-    bindLamTm tm exp
-        = case getFn exp of
-               Ref _ Func _ => pure Nothing -- might still be implicit
-               TForce _ _ _ => pure Nothing
-               Bind _ _ (Lam _ _ _ _) _ => pure Nothing
-               _ => pure $ Just tm
-
     bindLamNF : RawImp -> NF vars -> Core RawImp
     bindLamNF tm@(ILam _ _ Implicit _ _ _) (VBind fc n (Pi _ _ Implicit _) sc)
         = pure tm
@@ -97,15 +65,6 @@ insertImpLam {vars} env tm (Just ty) = bindLam tm ty
              pure $ ILam fc c (DefImplicit (Implicit fc False))
                               (Just n') (Implicit fc False) sc'
     bindLamNF tm sc = pure tm
-
-    bindLam : RawImp -> Glued vars -> Core RawImp
-    bindLam tm gty
-        = do ty <- quote env gty
-             Just tm' <- bindLamTm tm ty
-                | Nothing =>
-                    do nf <- expand gty
-                       bindLamNF tm nf
-             pure tm'
 insertImpLam env tm _ = pure tm
 
 -- Main driver for checking terms, after implicits have been added.

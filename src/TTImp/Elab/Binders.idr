@@ -118,15 +118,6 @@ inferLambda rig elabinfo nest env fc rigl info n argTy scope expTy
                   (Bind fc n (Lam fc rigb info' tyv) scopev)
                   lamty expTy
 
-getTyNF : {vars : _} ->
-          {auto c : Ref Ctxt Defs} ->
-          Env Term vars -> Term vars -> Core (Term vars)
-getTyNF env x@(Bind _ _ _ _) = pure x
-getTyNF env x
-    = do defs <- get Ctxt
-         xnf <- nf env x
-         quote env xnf
-
 export
 checkLambda : {vars : _} ->
               {auto c : Ref Ctxt Defs} ->
@@ -149,9 +140,8 @@ checkLambda rig_in elabinfo nest env fc rigl info n argTy scope (Just expty_in)
                               InLHS _ => inLHS
                               _ => inTerm
          solveConstraints solvemode Normal
-         expty <- quote env expty_in
-         exptynf <- getTyNF env expty
-         case exptynf of
+         expty <- quoteOnePi env !(expand expty_in)
+         case expty of
               Bind bfc bn (Pi fc' c _ pty) psc =>
                  do u <- uniVar fc'
                     (tyv, tyt) <- check erased elabinfo nest env
@@ -161,11 +151,13 @@ checkLambda rig_in elabinfo nest env fc rigl info n argTy scope (Just expty_in)
                     let env' : Env Term (_ :< n) = env :< Lam fc rigb info' tyv
                     ignore $ convert fc elabinfo env !(nf env tyv) !(nf env pty)
                     let nest' = weaken (dropName n nest)
-                    (scopev, scopet) <-
+                    let scopetTm = renameTop n psc
+                    scopet <- nf env' scopetTm
+                    (scopev, _) <-
                        inScope fc env' (\e' =>
                           check {e=e'} rig elabinfo nest' env' scope
-                                (Just !(nf env' (renameTop n psc))))
-                    logTermNF "elab.binder" 10 "Lambda type" env exptynf
+                                (Just scopet)) -- !(nf env' (renameTop n psc))))
+                    logTermNF "elab.binder" 10 "Lambda type" env expty
                     logNF "elab.binder" 10 "Got scope type" env' scopet
 
                     -- Currently, the fc a PLam holds (and that ILam gets as a consequence)
@@ -176,7 +168,6 @@ checkLambda rig_in elabinfo nest env fc rigl info n argTy scope (Just expty_in)
 
                     -- We've already checked the argument and scope types,
                     -- so we just need to check multiplicities
-                    scopetTm <- quote env' scopet
                     defs <- get Ctxt
                     when (rigb /= c) $
                            throw (CantConvert fc defs env

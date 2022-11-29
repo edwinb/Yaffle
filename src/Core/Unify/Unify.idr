@@ -48,6 +48,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
     unify : {vars : _} ->
             UnifyInfo -> FC -> Env Term vars ->
             Value f vars -> Value f' vars -> Core UnifyResult
+
     export
     unifyWithLazy : {vars : _} ->
             UnifyInfo -> FC -> Env Term vars ->
@@ -492,6 +493,12 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   unifyNoEta mode fc env x y@(VApp{})
       = postpone fc mode "Postponing application (right)" env x y
   -- Now the cases where we're decomposing into smaller problems
+  unifyNoEta mode@(MkUnifyInfo p InTerm) fc env x@(VLocal fcx _ idx _ spx)
+                                                y@(VLocal fcy _ idy _ spy)
+      = if idx == idy
+           then unifySpine mode fc env spx spy
+           else postpone fc mode "Postponing local app"
+                         env x y
   unifyNoEta mode fc env x@(VDCon fcx nx tx ax spx) y@(VDCon fcy ny ty ay spy)
       = if tx == ty
            then unifySpine mode fc env spx spy
@@ -661,9 +668,11 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            then do c <- convertSpine fc env spx spy
                    if c
                       then pure success
-                      else postpone fc mode "Postponing application"
-                                    env x y
-                           -- TODO: need to expand
+                      else do valx' <- expand x
+                              valy' <- expand y
+                              if lazy
+                                then unifyLazy mode fc env valx' valy'
+                                else unifyWithEta mode fc env valx' valy'
            else do valx' <- expand x
                    valy' <- expand y
                    if lazy

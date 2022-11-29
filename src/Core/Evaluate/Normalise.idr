@@ -218,9 +218,11 @@ parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
               LocalEnv free vars ->
               Core (Glued vars)
   evalLocal env fc mloc p [<]
-      = case getBinder p env of
-             Let _ _ val _ => eval [<] env val
-             _ => pure $ VLocal fc mloc _ p [<]
+      = if fromMaybe True mloc -- don't bother looking if we know it's not a let
+           then case getBinder p env of
+                     Let _ _ val _ => eval [<] env val
+                     _ => pure $ VLocal fc mloc _ p [<]
+           else pure $ VLocal fc mloc _ p [<]
   evalLocal env fc mloc First (locs :< x) = pure x
   evalLocal env fc mloc (Later p) (locs :< x) = evalLocal env fc mloc p locs
 

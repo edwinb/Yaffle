@@ -1,6 +1,7 @@
 module Core.Evaluate.Convert
 
 import Core.Context
+import Core.Context.Log
 import Core.Core
 import Core.Env
 import Core.Error
@@ -81,16 +82,16 @@ parameters {auto c : Ref Ctxt Defs}
                else convGen s env tx ty
       convBinders _ _ = pure False
   convGen BlockApp env (VApp _ nt n args _) (VApp _ nt' n' args' _)
-      = do if n == n'
-              then convSpine BlockApp env args args'
-              else pure False
-  convGen (Reduce ns) env x@(VApp fc _ n _ val) y@(VApp fc' _ n' _ val')
+      = if n == n'
+           then convSpine BlockApp env args args'
+           else pure False
+  convGen (Reduce ns) env x@(VApp fc _ n args val) y@(VApp fc' _ n' args' val')
       = do -- Check without reducing first since it might save a lot of work
            -- on success
            False <- convGen BlockApp env x y | True => pure True
-           Just x <- tryReduce fc n val  | Nothing => pure False
-           Just y <- tryReduce fc' n' val' | Nothing => pure False
-           convGen (Reduce ns) env x y
+           Just x' <- tryReduce fc n val  | Nothing => pure False
+           Just y' <- tryReduce fc' n' val' | Nothing => pure False
+           convGen (Reduce ns) env x' y'
     where
       -- Try reducing the application, but only if the name is one that's
       -- reducible in any of the given namespaces
@@ -171,7 +172,7 @@ parameters {auto c : Ref Ctxt Defs}
      convAlt (VDelayCase _ t a sc) (VDelayCase _ t' a' sc')
          = do tn <- genVar fc "t"
               an <- genVar fc "a"
-              convGen s env !(sc tn an) !(sc' tn an)
+              convGen BlockApp env !(sc tn an) !(sc' tn an)
      convAlt (VConstCase _ c x) (VConstCase _ c' y)
          = if c == c'
               then convGen BlockApp env x y

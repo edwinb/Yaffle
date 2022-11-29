@@ -1282,21 +1282,23 @@ getPMDef fc p n ty cs
          -- We need to bind lambdas, and we can only do that if we know
          -- the types of the function arguments, so normalise the type just
          -- enough to get that
-         nty <- normaliseBinders [<] ty
-         let (tyargs ** env) = mkEnv [<] nty
-         let Just lenOK = areVarsCompatible args tyargs
-             | Nothing => throw (CaseCompile fc n CantResolveType)
-         pure (bindLams env (renameVars lenOK tree), missing)
+--          nty <- normaliseBinders [<] ty
+--          let (tyargs ** env) = mkEnv [<] nty
+--          let Just lenOK = areVarsCompatible args tyargs
+         let tm = bindLams _ tree
+--              | Nothing => throw (CaseCompile fc n CantResolveType)
+         pure (tm, missing)
    where
      mkEnv : {vars : _} -> Env Term vars -> Term vars ->
              (args ** Env Term args)
      mkEnv env (Bind _ x b@(Pi pfc c p ty) sc) = mkEnv (env :< b) sc
      mkEnv env tm = (_ ** env)
 
-     bindLams : {args : _} -> Env Term args -> Term args -> Term [<]
+     bindLams : (args' : _) ->
+                Term args' -> Term [<]
      bindLams [<] tree = tree
-     bindLams (env :< b) tree
-         = bindLams env (Bind fc _
-                           (Lam fc (multiplicity b)
-                                (piInfo b)
-                                (binderType b)) tree)
+     bindLams (as :< a) tree
+         = bindLams as (Bind fc _
+                           (Lam fc top
+                                Explicit
+                                (Erased fc Placeholder)) tree)

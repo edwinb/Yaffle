@@ -3,6 +3,7 @@ module Core.Evaluate.Quote
 -- Quoting evaluated values back to Terms
 
 import Core.Context
+import Core.Context.Log
 import Core.Env
 import Core.Error
 import Core.TT
@@ -24,8 +25,17 @@ data Strategy
                                 -- reduce 'export' names
   | HNF (Maybe (List Namespace)) -- head normal form (block under constructors)
   | Binders -- block after going under all the binders
+  | OnePi -- block after getting the top level Pi binder
   | BlockApp -- block all applications
   | ExpandHoles -- block all applications except holes
+
+Show Strategy where
+  show (NF _) = "NF"
+  show (HNF _) = "HNF"
+  show Binders = "Binders"
+  show BlockApp = "BlockApp"
+  show OnePi = "OnePi"
+  show ExpandHoles = "Holes"
 
 getNS : Strategy -> Maybe (List Namespace)
 getNS (NF ns) = ns
@@ -46,8 +56,8 @@ applySpine tm (args :< (fc, q, arg)) = App fc (applySpine tm args) q arg
 parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 
   quoteGen : {bound, vars : _} ->
-             Strategy -> Bounds bound -> Env Term vars ->
-             Value f vars -> Core (Term (vars ++ bound))
+             Bounds bound -> Env Term vars ->
+             Value f vars -> Strategy -> Core (Term (vars ++ bound))
 
   -- probably ought to make traverse work on SnocList/Vect too
   quoteSpine : {bound, vars : _} ->
@@ -56,7 +66,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteSpine s bounds env [<] = pure [<]
   quoteSpine s bounds env (args :< (fc, q, arg))
       = pure $ !(quoteSpine s bounds env args) :<
-               (fc, q, !(quoteGen s bounds env arg))
+               (fc, q, !(quoteGen bounds env arg s))
 
   mkTmpVar : FC -> Name -> Glued vars
   mkTmpVar fc n = VApp fc Bound n [<] (pure Nothing)
@@ -74,7 +84,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
                    VCaseScope args vars ->
                    Core (CaseScope (vars ++ bound))
       quoteScope [<] bounds rhs
-          = do rhs' <- quoteGen s bounds env !rhs
+          = do rhs' <- quoteGen bounds env !rhs s
                pure (RHS rhs')
       quoteScope (as :< (r, a)) bounds sc
           = do an <- genName "c"
@@ -85,14 +95,14 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteAlt s bounds env (VDelayCase fc ty arg sc)
       = do tyn <- genName "ty"
            argn <- genName "arg"
-           sc' <- quoteGen s (Add ty tyn (Add arg argn bounds)) env
-                           !(sc (mkTmpVar fc tyn) (mkTmpVar fc argn))
+           sc' <- quoteGen (Add ty tyn (Add arg argn bounds)) env
+                           !(sc (mkTmpVar fc tyn) (mkTmpVar fc argn)) s
            pure (DelayCase fc ty arg sc')
   quoteAlt s bounds env (VConstCase fc c sc)
-      = do sc' <- quoteGen s bounds env sc
+      = do sc' <- quoteGen bounds env sc s
            pure (ConstCase fc c sc')
   quoteAlt s bounds env (VDefaultCase fc sc)
-      = do sc' <- quoteGen s bounds env sc
+      = do sc' <- quoteGen bounds env sc s
            pure (DefaultCase fc sc')
 
   quotePi : {bound, vars : _} ->
@@ -102,55 +112,61 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quotePi s bounds env Implicit = pure Implicit
   quotePi s bounds env AutoImplicit = pure AutoImplicit
   quotePi s bounds env (DefImplicit t)
-      = do t' <- quoteGen s bounds env t
+      = do t' <- quoteGen bounds env t s
            pure (DefImplicit t')
 
   quoteBinder : {bound, vars : _} ->
                 Strategy -> Bounds bound -> Env Term vars ->
                 Binder (Glued vars) -> Core (Binder (Term (vars ++ bound)))
   quoteBinder s bounds env (Lam fc r p ty)
-      = do ty' <- quoteGen s bounds env ty
+      = do ty' <- quoteGen bounds env ty s
            p' <- quotePi s bounds env p
            pure (Lam fc r p' ty')
   quoteBinder s bounds env (Let fc r val ty)
-      = do ty' <- quoteGen s bounds env ty
-           val' <- quoteGen s bounds env val
+      = do ty' <- quoteGen bounds env ty s
+           val' <- quoteGen bounds env val s
            pure (Let fc r val' ty')
   quoteBinder s bounds env (Pi fc r p ty)
-      = do ty' <- quoteGen s bounds env ty
+      = do ty' <- quoteGen bounds env ty s
            p' <- quotePi s bounds env p
            pure (Pi fc r p' ty')
   quoteBinder s bounds env (PVar fc r p ty)
-      = do ty' <- quoteGen s bounds env ty
+      = do ty' <- quoteGen bounds env ty s
            p' <- quotePi s bounds env p
            pure (PVar fc r p' ty')
   quoteBinder s bounds env (PLet fc r val ty)
-      = do ty' <- quoteGen s bounds env ty
-           val' <- quoteGen s bounds env val
+      = do ty' <- quoteGen bounds env ty s
+           val' <- quoteGen bounds env val s
            pure (PLet fc r val' ty')
   quoteBinder s bounds env (PVTy fc r ty)
-      = do ty' <- quoteGen s bounds env ty
+      = do ty' <- quoteGen bounds env ty s
            pure (PVTy fc r ty')
 
 --   Declared above as:
 --   quoteGen : {bound, vars : _} ->
 --              Strategy -> Bounds bound -> Env Term vars ->
 --              Value f vars -> Core (Term (vars ++ bound))
-  quoteGen s bounds env (VLam fc x c p ty sc)
+  quoteGen bounds env (VLam fc x c p ty sc) s
       = do var <- genName "qv"
            p' <- quotePi s bounds env p
-           ty' <- quoteGen s bounds env ty
-           sc' <- quoteGen s (Add x var bounds) env
-                             !(sc (mkTmpVar fc var))
+           ty' <- quoteGen bounds env ty s
+           sc' <- quoteGen (Add x var bounds) env
+                             !(sc (mkTmpVar fc var)) s
            pure (Bind fc x (Lam fc c p' ty') sc')
-  quoteGen s bounds env (VBind fc x b sc)
+  quoteGen bounds env (VBind fc x b sc) s
       = do var <- genName "qv"
-           b' <- quoteBinder s bounds env b
-           sc' <- quoteGen s (Add x var bounds) env
-                             !(sc (mkTmpVar fc var))
+           let s' = case s of
+                         Binders => BlockApp
+                         _ => s
+           b' <- quoteBinder s' bounds env b
+           let s' = case s of
+                         OnePi => BlockApp
+                         _ => s
+           sc' <- quoteGen (Add x var bounds) env
+                             !(sc (mkTmpVar fc var)) s'
            pure (Bind fc x b' sc')
   -- These are the names we invented when quoting the scope of a binder
-  quoteGen s bounds env (VApp fc Bound (MN n i) sp val)
+  quoteGen bounds env (VApp fc Bound (MN n i) sp val) s
       = do sp' <- quoteSpine BlockApp bounds env sp
            case findName bounds of
                 Just (MkVar p) =>
@@ -169,13 +185,13 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       findName (Add x _ ns)
           = do MkVar p <-findName ns
                Just (MkVar (Later p))
-  quoteGen BlockApp bounds env (VApp fc nt n sp val)
+  quoteGen bounds env (VApp fc nt n sp val) BlockApp
       = do sp' <- quoteSpine BlockApp bounds env sp
            pure $ applySpine (Ref fc nt n) sp'
-  quoteGen ExpandHoles bounds env (VApp fc nt n sp val)
+  quoteGen bounds env (VApp fc nt n sp val) ExpandHoles
       = do sp' <- quoteSpine ExpandHoles bounds env sp
            pure $ applySpine (Ref fc nt n) sp'
-  quoteGen s bounds env (VApp fc nt n sp val)
+  quoteGen bounds env (VApp fc nt n sp val) s
       = do -- Reduce if it's visible in the current namespace
            True <- case getNS s of
                         Nothing => pure True
@@ -193,7 +209,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
              -- keep going, otherwise just give back the application
                 Binders =>
                     if !(isBinder v)
-                       then quoteGen s bounds env v
+                       then quoteGen bounds env v s
                        else do sp' <- quoteSpine s bounds env sp
                                pure $ applySpine (Ref fc nt n) sp'
              -- If the result is blocked by a case/lambda then just give back
@@ -201,7 +217,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
                 _ => if !(blockedApp v)
                         then do sp' <- quoteSpine s bounds env sp
                                 pure $ applySpine (Ref fc nt n) sp'
-                        else quoteGen s bounds env v
+                        else quoteGen bounds env v s
     where
       isBinder : Value f vars -> Core Bool
       isBinder (VLam fc _ _ _ _ sc) = pure True
@@ -213,7 +229,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
           = blockedApp !(sc (VErased fc Placeholder))
       blockedApp (VCase{}) = pure True
       blockedApp _ = pure False
-  quoteGen {bound} s bounds env (VLocal fc mlet idx p sp)
+  quoteGen {bound} bounds env (VLocal fc mlet idx p sp) s
       = do sp' <- quoteSpine s bounds env sp
            let MkVar p' = addLater bound p
            pure $ applySpine (Local fc mlet _ p') sp'
@@ -225,55 +241,55 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       addLater (xs :< x) isv
           = let MkVar isv' = addLater xs isv in
                 MkVar (Later isv')
-  quoteGen BlockApp bounds env (VMeta fc n i args sp val)
+  quoteGen bounds env (VMeta fc n i args sp val) BlockApp
       = do sp' <- quoteSpine BlockApp bounds env sp
            args' <- traverse (\ (q, val) =>
-                                do val' <- quoteGen BlockApp bounds env val
+                                do val' <- quoteGen bounds env val BlockApp
                                    pure (q, val')) args
            pure $ applySpine (Meta fc n i args') sp'
-  quoteGen s bounds env (VMeta fc n i args sp val)
+  quoteGen bounds env (VMeta fc n i args sp val) s
       = do Just v <- val
               | Nothing =>
                   do sp' <- quoteSpine BlockApp bounds env sp
                      args' <- traverse (\ (q, val) =>
-                                          do val' <- quoteGen BlockApp bounds env val
+                                          do val' <- quoteGen bounds env val BlockApp
                                              pure (q, val')) args
                      pure $ applySpine (Meta fc n i args') sp'
-           quoteGen s bounds env v
-  quoteGen s bounds env (VDCon fc n t a sp)
+           quoteGen bounds env v s
+  quoteGen bounds env (VDCon fc n t a sp) s
       = do let s' = case s of
                          HNF _ => BlockApp
                          _ => s
            sp' <- quoteSpine s' bounds env sp
            pure $ applySpine (Ref fc (DataCon t a) n) sp'
-  quoteGen s bounds env (VTCon fc n a sp)
+  quoteGen bounds env (VTCon fc n a sp) s
       = do let s' = case s of
                          HNF _ => BlockApp
                          _ => s
            sp' <- quoteSpine s' bounds env sp
            pure $ applySpine (Ref fc (TyCon a) n) sp'
-  quoteGen s bounds env (VAs fc use as pat)
-      = do pat' <- quoteGen s bounds env pat
-           as' <- quoteGen s bounds env as
+  quoteGen bounds env (VAs fc use as pat) s
+      = do pat' <- quoteGen bounds env pat s
+           as' <- quoteGen bounds env as s
            pure (As fc use as' pat')
-  quoteGen s bounds env (VCase fc rig sc scTy alts)
-      = do sc' <- quoteGen s bounds env sc
-           scTy' <- quoteGen s bounds env scTy
+  quoteGen bounds env (VCase fc rig sc scTy alts) s
+      = do sc' <- quoteGen bounds env sc s
+           scTy' <- quoteGen bounds env scTy s
            alts' <- traverse (quoteAlt BlockApp bounds env) alts
            pure $ Case fc rig sc' scTy' alts'
-  quoteGen s bounds env (VDelayed fc r ty)
-      = do ty' <- quoteGen s bounds env ty
+  quoteGen bounds env (VDelayed fc r ty) s
+      = do ty' <- quoteGen bounds env ty s
            pure (TDelayed fc r ty')
-  quoteGen s bounds env (VDelay fc r ty arg)
-      = do ty' <- quoteGen BlockApp bounds env ty
-           arg' <- quoteGen BlockApp bounds env arg
+  quoteGen bounds env (VDelay fc r ty arg) s
+      = do ty' <- quoteGen bounds env ty BlockApp
+           arg' <- quoteGen bounds env arg BlockApp
            pure (TDelay fc r ty' arg')
-  quoteGen s bounds env (VForce fc r val sp)
+  quoteGen bounds env (VForce fc r val sp) s
       = do sp' <- quoteSpine s bounds env sp
-           val' <- quoteGen s bounds env val
+           val' <- quoteGen bounds env val s
            pure $ applySpine (TForce fc r val') sp'
-  quoteGen s bounds env (VPrimVal fc c) = pure $ PrimVal fc c
-  quoteGen {vars} {bound} s bounds env (VPrimOp fc fn args)
+  quoteGen bounds env (VPrimVal fc c) s = pure $ PrimVal fc c
+  quoteGen {vars} {bound} bounds env (VPrimOp fc fn args) s
       = do args' <- quoteArgs args
            pure $ PrimOp fc fn args'
     where
@@ -281,17 +297,18 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       quoteArgs : Vect n (Value f vars) -> Core (Vect n (Term (vars ++ bound)))
       quoteArgs [] = pure []
       quoteArgs (a :: as)
-          = pure $ !(quoteGen s bounds env a) :: !(quoteArgs as)
-  quoteGen s bounds env (VErased fc why) = Erased fc <$> traverse @{%search} @{CORE} (quoteGen s bounds env) why
-  quoteGen s bounds env (VUnmatched fc str) = pure $ Unmatched fc str
-  quoteGen s bounds env (VType fc n) = pure $ TType fc n
+          = pure $ !(quoteGen bounds env a s) :: !(quoteArgs as)
+  quoteGen bounds env (VErased fc why) s
+     = Erased fc <$> traverse @{%search} @{CORE} (\t => quoteGen bounds env t s) why
+  quoteGen bounds env (VUnmatched fc str) s = pure $ Unmatched fc str
+  quoteGen bounds env (VType fc n) s = pure $ TType fc n
 
 parameters {auto c : Ref Ctxt Defs}
   quoteStrategy : {vars : _} ->
             Strategy -> Env Term vars -> Value f vars -> Core (Term vars)
   quoteStrategy s env val
       = do q <- newRef QVar 0
-           quoteGen s None env val
+           quoteGen None env val s
 
   export
   quoteNFall : {vars : _} ->
@@ -324,6 +341,12 @@ parameters {auto c : Ref Ctxt Defs}
   quoteBinders : {vars : _} ->
           Env Term vars -> Value f vars -> Core (Term vars)
   quoteBinders = quoteStrategy Binders
+
+  -- Keep quoting while we're still going under binders
+  export
+  quoteOnePi : {vars : _} ->
+          Env Term vars -> Value f vars -> Core (Term vars)
+  quoteOnePi = quoteStrategy OnePi
 
   export
   quoteHoles : {vars : _} ->

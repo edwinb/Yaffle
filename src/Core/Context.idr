@@ -26,7 +26,7 @@ getVisibility : {auto c : Ref Ctxt Defs} ->
 getVisibility fc n
     = do defs <- get Ctxt
          Just def <- lookupCtxtExact n (gamma defs)
-              | Nothing => throw (UndefinedName fc n)
+              | Nothing => pure Private -- throw (UndefinedName fc n)
          pure $ visibility def
 
 -- Find similar looking names in the context
