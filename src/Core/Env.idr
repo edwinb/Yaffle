@@ -45,6 +45,27 @@ getBinder : Weaken tm =>
             (0 p : IsVar x idx vars) -> Env tm vars -> Binder (tm vars)
 getBinder el env = getBinderUnder [<] el env
 
+getLetUnder : Weaken tm =>
+                 {vars : _} -> {idx : Nat} ->
+                 (ns : SnocList Name) ->
+                 (0 p : IsVar x idx vars) -> Env tm vars ->
+                 Maybe (tm (reverseOnto vars ns))
+getLetUnder {idx = Z} {vars = vs :< v} ns First (env :< Let _ _ val _)
+    = rewrite revOnto (vs :< x) ns in
+        rewrite sym $ appendAssociative vs [<v] (reverse ns) in
+                Just $ weakenNs (sucR (reverse (mkSizeOf ns))) val
+getLetUnder {idx = S k} {vars = vs :< v} ns (Later lp) (env :< b)
+    = getLetUnder (ns :< v) lp env
+getLetUnder _ _ _ = Nothing
+
+-- as getBinder but only return result if it's a let bound name
+-- to save unnecessary weakening
+export
+getLet : Weaken tm =>
+         {vars : _} -> {idx : Nat} ->
+         (0 p : IsVar x idx vars) -> Env tm vars -> Maybe (tm vars)
+getLet el env = getLetUnder [<] el env
+
 public export
 data IsDefined : Name -> SnocList Name -> Type where
   MkIsDefined : {idx : Nat} -> RigCount -> (0 p : IsVar n idx vars) ->
@@ -124,7 +145,7 @@ mutual
   -- Quicker, if less safe, to store variables as a Nat, for quick comparison
   findUsed : {vars : _} ->
              Env Term vars -> SnocList Nat -> Term vars -> SnocList Nat
-  findUsed env used (Local fc r idx p)
+  findUsed env used (Local fc idx p)
       = if elemBy eqNat idx used
            then used
            else assert_total (findUsedInBinder env (used :< idx)

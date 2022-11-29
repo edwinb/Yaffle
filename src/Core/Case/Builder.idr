@@ -629,7 +629,7 @@ groupCons fc fn pvars cs
     -- In 'As' replace the name on the RHS with a reference to the
     -- variable we're doing the case split on
     addGroup (PAs fc n p) pprf pats pid rhs acc
-         = addGroup p pprf pats pid (substName n (Local fc (Just True) _ pprf) rhs) acc
+         = addGroup p pprf pats pid (substName n (Local fc _ pprf) rhs) acc
     addGroup (PCon cfc n t a pargs) pprf pats pid rhs acc
          = if a == length pargs
               then addConG n t pargs pats pid rhs acc
@@ -872,7 +872,7 @@ mutual
                Core (Term vars)
   caseGroups {vars} fc fn phase c el ty gs errorCase
       = do g <- altGroups gs
-           pure (Case fc c (Local fc Nothing _ el) (resolveNames vars ty) g)
+           pure (Case fc c (Local fc _ el) (resolveNames vars ty) g)
     where
       mkScope : forall vars . (vs : SnocList Name) ->
                               (ms : SnocList RigCount) ->
@@ -935,13 +935,13 @@ mutual
       -- replace the name with the relevant variable on the rhs
       updateVar (MkPatClause pvars (MkInfo c (PLoc pfc n) prf fty :: pats) pid rhs)
           = pure $ MkPatClause (n :: pvars)
-                        !(substInPats fc a (Local pfc (Just False) _ prf) pats)
-                        pid (substName n (Local pfc (Just False) _ prf) rhs)
+                        !(substInPats fc a (Local pfc _ prf) pats)
+                        pid (substName n (Local pfc _ prf) rhs)
       -- If it's an as pattern, replace the name with the relevant variable on
       -- the rhs then continue with the inner pattern
       updateVar (MkPatClause pvars (MkInfo c (PAs pfc n pat) prf fty :: pats) pid rhs)
           = do pats' <- substInPats fc a (mkTerm _ pat) pats
-               let rhs' = substName n (Local pfc (Just True) _ prf) rhs
+               let rhs' = substName n (Local pfc _ prf) rhs
                updateVar (MkPatClause pvars (MkInfo c pat prf fty :: pats') pid rhs')
       -- match anything, name won't appear in rhs but need to update
       -- LHS pattern types based on what we've learned

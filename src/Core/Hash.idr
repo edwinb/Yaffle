@@ -285,7 +285,7 @@ Hashable a => Hashable (WhyErased a) where
 mutual
   export
   Hashable (Term vars) where
-    hashWithSalt h (Local fc x idx y)
+    hashWithSalt h (Local fc idx y)
         = h `hashWithSalt` 0 `hashWithSalt` idx
     hashWithSalt h (Ref fc x name)
         = h `hashWithSalt` 1 `hashWithSalt` name

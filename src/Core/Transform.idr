@@ -41,7 +41,7 @@ addMatch idx p val ms
 -- to do here!
 match : MatchVars vars vs ->
         Term vars -> Term vs -> Maybe (MatchVars vars vs)
-match ms (Local _ _ idx p) val
+match ms (Local _ idx p) val
     = addMatch idx p val ms
 match ms (App _ f _ a) (App _ f' _ a')
     = do ms' <- match ms f f'
@@ -53,7 +53,7 @@ match ms x y
 
 covering
 tryReplace : MatchVars vars vs -> Term vars -> Maybe (Term vs)
-tryReplace ms (Local _ _ idx p) = lookupMatch idx p ms
+tryReplace ms (Local _ idx p) = lookupMatch idx p ms
 tryReplace ms (Ref fc nt n) = pure (Ref fc nt n)
 tryReplace ms (Meta fc n i as)
     = do as' <- traverse (\ (c, t) => Just (c, !(tryReplace ms t))) as

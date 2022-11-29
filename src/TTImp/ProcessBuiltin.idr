@@ -39,7 +39,7 @@ getReturnType tm = Just (vars ** tm)
 
 ||| Get the top level type constructor if there is one.
 getTypeCons : {vars : _} -> Term vars -> Maybe Name
-getTypeCons (Local _ _ _ p) = Just $ nameAt p
+getTypeCons (Local _ _ p) = Just $ nameAt p
 getTypeCons (Ref _ _ name) = Just name
 getTypeCons (Meta {}) = Nothing
 getTypeCons (Bind _ x b scope) = case b of
@@ -98,7 +98,7 @@ getNEIntegerIndex _ = Just []
 
 ||| Do the terms match ignoring arguments to type constructors.
 termConMatch : Term vs -> Term vs' -> Bool
-termConMatch (Local _ _ x _) (Local _ _ y _) = x == y
+termConMatch (Local _ x _) (Local _ y _) = x == y
 termConMatch (Ref _ _ n) (Ref _ _ m) = n == m
 termConMatch (Meta _ _ i args0) (Meta _ _ j args1)
     = i == j && all (uncurry termConMatch) (zip (map snd args0) (map snd args1))
@@ -121,7 +121,7 @@ termConMatch _ _ = False
 
 ||| Check a type is strict.
 isStrict : Term vs -> Bool
-isStrict (Local _ _ _ _) = True
+isStrict (Local _ _ _) = True
 isStrict (Ref _ _ _) = True
 isStrict (Meta _ _ i args) = all isStrict (map snd args)
 isStrict (Bind _ _ b s) = isStrict (binderType b) && isStrict s

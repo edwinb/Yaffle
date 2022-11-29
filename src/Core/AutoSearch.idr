@@ -187,7 +187,7 @@ getUsableEnv {vars = vs :< v} {done} fc rigc p (env :< b)
    = let rest = getUsableEnv fc rigc (sucR p) env in
          if (multiplicity b == top || isErased rigc)
             then let MkVar var = weakenVar p (MkVar First) in
-                     (Local (binderLoc b) Nothing _ var,
+                     (Local (binderLoc b) _ var,
                        rewrite sym (appendAssociative vs [<v] done) in
                           weakenNs (sucR p) (binderType b)) ::
                             rewrite sym (appendAssociative vs [<v] done) in rest
@@ -223,7 +223,7 @@ usableLocal loc defaults env (VDCon _ n _ _ args)
     = do us <- traverseSnocList (usableLocal loc defaults env)
                         !(traverseSnocList spineVal args)
          pure (all id us)
-usableLocal loc defaults env (VLocal _ _ _ _ args)
+usableLocal loc defaults env (VLocal _ _ _ args)
     = do us <- traverseSnocList (usableLocal loc defaults env)
                         !(traverseSnocList spineVal args)
          pure (all id us)
@@ -257,7 +257,7 @@ searchLocalWith {vars} fc rigc defaults trying depth def top env (prf, ty) targe
     clearEnvType (Later p) fc (env :< b) = clearEnvType p fc env :< b
 
     clearEnv : Term vars -> Env Term vars -> Env Term vars
-    clearEnv (Local fc _ idx p) env
+    clearEnv (Local fc idx p) env
         = clearEnvType p fc env
     clearEnv _ env = env
 

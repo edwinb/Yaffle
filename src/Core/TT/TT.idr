@@ -648,8 +648,7 @@ data CaseAlt : SnocList Name -> Type
 -- indexed by the names of local variables in scope
 public export
 data Term : SnocList Name -> Type where
-     Local : FC -> Maybe Bool -> -- Is it a let bound local?
-             (idx : Nat) -> (0 p : IsVar name idx vars) -> Term vars
+     Local : FC -> (idx : Nat) -> (0 p : IsVar name idx vars) -> Term vars
      Ref : FC -> NameType -> (name : Name) -> Term vars
      -- Metavariables and the scope they are applied to
      Meta : FC -> Name -> Int -> List (RigCount, Term vars) -> Term vars
@@ -690,7 +689,7 @@ ClosedTerm = Term [<]
 
 export
 getLoc : Term vars -> FC
-getLoc (Local fc _ _ _) = fc
+getLoc (Local fc _ _) = fc
 getLoc (Ref fc _ _) = fc
 getLoc (Meta fc _ _ _) = fc
 getLoc (Bind fc _ _ _) = fc

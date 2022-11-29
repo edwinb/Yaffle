@@ -26,7 +26,7 @@ import Libraries.Data.NameMap
 getVars : {vars : _} ->
           List Nat -> SnocList (NF vars) -> Maybe (SnocList (Var vars))
 getVars got [<] = Just [<]
-getVars got (xs :< VLocal fc r idx v [<])
+getVars got (xs :< VLocal fc idx v [<])
     = if inArgs idx got then Nothing
          else do xs' <- getVars (idx :: got) xs
                  pure (xs' :< MkVar v)
@@ -42,7 +42,7 @@ getVars _ (xs :< _) = Nothing
 
 getVarsTm : List Nat -> SnocList (Term vars) -> Maybe (SnocList (Var vars))
 getVarsTm got [<] = Just [<]
-getVarsTm got (xs :< Local fc r idx v)
+getVarsTm got (xs :< Local fc idx v)
     = if idx `elem` got then Nothing
          else do xs' <- getVarsTm (idx :: got) xs
                  pure (xs' :< MkVar v)
@@ -256,7 +256,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       noMeta (TDelay _ _ t a) d = noMeta t d && noMeta a d
       noMeta (TForce _ _ t) d = noMeta t d
       noMeta (As _ _ _ p) d = noMeta p d
-      noMeta (Local _ _ _ _) _ = True
+      noMeta (Local _ _ _) _ = True
       noMeta (Ref _ _ _) _ = True
       noMeta (PrimVal _ _) _ = True
       noMeta (TType _ _) _ = True
@@ -305,9 +305,9 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       updateIAlts ivs (DefaultCase fc rhs)
           = Just (DefaultCase fc !(updateIVars ivs rhs))
 
-      updateIVars ivs (Local fc r idx p)
+      updateIVars ivs (Local fc idx p)
           = do MkVar p' <- updateIVar ivs p
-               Just (Local fc r _ p')
+               Just (Local fc _ p')
       updateIVars ivs (Ref fc nt n) = pure $ Ref fc nt n
       updateIVars ivs (Meta fc n i args)
           = pure $ Meta fc n i

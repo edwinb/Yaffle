@@ -23,8 +23,8 @@ apply fc (VApp afc nt n spine go) q arg
                    | Nothing => pure Nothing
               res <- apply fc go' q arg
               pure (Just res)
-apply fc (VLocal lfc l idx p spine) q arg
-    = pure $ VLocal lfc l idx p (spine :< (fc, q, arg))
+apply fc (VLocal lfc idx p spine) q arg
+    = pure $ VLocal lfc idx p (spine :< (fc, q, arg))
 apply fc (VMeta mfc n i sc spine go) q arg
     = pure $ VMeta mfc n i sc (spine :< (fc, q, arg)) $
            do Just go' <- go
@@ -213,18 +213,15 @@ parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
 
   evalLocal : {vars, idx : _} ->
               Env Term vars ->
-              FC -> Maybe Bool ->
-              (0 p : IsVar n idx (vars ++ free)) ->
+              FC -> (0 p : IsVar n idx (vars ++ free)) ->
               LocalEnv free vars ->
               Core (Glued vars)
-  evalLocal env fc mloc p [<]
-      = if fromMaybe True mloc -- don't bother looking if we know it's not a let
-           then case getBinder p env of
-                     Let _ _ val _ => eval [<] env val
-                     _ => pure $ VLocal fc mloc _ p [<]
-           else pure $ VLocal fc mloc _ p [<]
-  evalLocal env fc mloc First (locs :< x) = pure x
-  evalLocal env fc mloc (Later p) (locs :< x) = evalLocal env fc mloc p locs
+  evalLocal env fc p [<]
+      = case getLet p env of
+             Just val => eval [<] env val
+             _ => pure $ VLocal fc _ p [<]
+  evalLocal env fc First (locs :< x) = pure x
+  evalLocal env fc (Later p) (locs :< x) = evalLocal env fc p locs
 
   evalPiInfo : {vars : _} ->
                LocalEnv free vars ->
@@ -261,7 +258,7 @@ parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
 --          LocalEnv free vars ->
 --          Env Term vars ->
 --          Term (vars ++ free) -> Core (Glued vars)
-  eval locs env (Local fc l idx p) = evalLocal env fc l p locs
+  eval locs env (Local fc idx p) = evalLocal env fc p locs
   eval locs env (Ref fc (DataCon t a) n)
       = pure $ VDCon fc n t a [<]
   eval locs env (Ref fc (TyCon a) n)
@@ -307,7 +304,7 @@ parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
   eval locs env (Case fc r sc ty alts)
       = do sc' <- expand !(eval locs env sc)
            locs' <- case sc of
-                         Local _ _ _ p => pure $ updateEnv locs p (asGlued sc')
+                         Local _ _ p => pure $ updateEnv locs p (asGlued sc')
                          _ => pure locs
            evalCase fc locs' env r (stripAs sc') ty alts
     where

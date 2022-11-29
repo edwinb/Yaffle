@@ -17,7 +17,7 @@ import Libraries.Data.NameMap
 export
 total
 eqTerm : Term vs -> Term vs' -> Bool
-eqTerm (Local _ _ idx _) (Local _ _ idx' _) = idx == idx'
+eqTerm (Local _ idx _) (Local _ idx' _) = idx == idx'
 eqTerm (Ref _ _ n) (Ref _ _ n') = n == n'
 eqTerm (Meta _ _ i args) (Meta _ _ i' args')
     = i == i' && assert_total
@@ -323,9 +323,9 @@ export
 insertNames : SizeOf outer -> SizeOf ns ->
               Term (inner ++ outer) ->
               Term (inner ++ ns ++ outer)
-insertNames out ns (Local fc r idx prf)
+insertNames out ns (Local fc idx prf)
    = let MkNVar prf' = insertNVarNames out ns (MkNVar prf) in
-         Local fc r _ prf'
+         Local fc _ prf'
 insertNames out ns (Ref fc nt name)
     = Ref fc nt name
 insertNames out ns (Meta fc x y xs)
@@ -442,7 +442,7 @@ shrinkAlt (DelayCase fc ty arg sc) prf
 shrinkAlt (ConstCase fc c sc) prf = Just (ConstCase fc c !(shrinkTerm sc prf))
 shrinkAlt (DefaultCase fc sc) prf = Just (DefaultCase fc !(shrinkTerm sc prf))
 
-shrinkTerm (Local fc r idx loc) prf = (\(MkVar loc') => Local fc r _ loc') <$> subElem loc prf
+shrinkTerm (Local fc idx loc) prf = (\(MkVar loc') => Local fc _ loc') <$> subElem loc prf
 shrinkTerm (Ref fc x name) prf = Just (Ref fc x name)
 shrinkTerm (Meta fc x y xs) prf
    = do xs' <- traverse (\ (q, tm) => do tm' <- shrinkTerm tm prf
@@ -484,8 +484,8 @@ varEmbedSub (KeepCons prf) (Later p)
 
 export
 embedSub : SubVars small vars -> Term small -> Term vars
-embedSub sub (Local fc x idx y)
-    = let MkVar y' = varEmbedSub sub y in Local fc x _ y'
+embedSub sub (Local fc idx y)
+    = let MkVar y' = varEmbedSub sub y in Local fc _ y'
 embedSub sub (Ref fc x name) = Ref fc x name
 embedSub sub (Meta fc x y xs)
     = Meta fc x y (map (\ (c, t) => (c, embedSub sub t)) xs)
@@ -546,7 +546,7 @@ resolveRef p q None fc n = Nothing
 resolveRef {outer} {done} p q (Add {xs} new old bs) fc n
     = if n == old
          then let MkNVar p = weakenNVar (p + q) (MkNVar First) in
-                  Just (Local fc Nothing _
+                  Just (Local fc _
                    (rewrite sym $ appendAssociative (xs :< new) done outer in
                     rewrite appendAssociative vars (xs :< new) (done ++ outer) in p))
          else rewrite sym $ appendAssociative xs [<new] done in
@@ -557,8 +557,8 @@ mkLocalsAlt : SizeOf outer -> Bounds bound ->
 
 mkLocals : SizeOf outer -> Bounds bound ->
            Term (vars ++ outer) -> Term (vars ++ (bound ++ outer))
-mkLocals outer bs (Local fc r idx p)
-    = let MkNVar p' = addVars outer bs (MkNVar p) in Local fc r _ p'
+mkLocals outer bs (Local fc idx p)
+    = let MkNVar p' = addVars outer bs (MkNVar p) in Local fc _ p'
 mkLocals outer bs (Ref fc Bound name)
     = maybe (Ref fc Bound name) id (resolveRef outer zero bs fc name)
 mkLocals outer bs (Ref fc nt name)
@@ -636,7 +636,7 @@ export
 resolveNames : (vars : SnocList Name) -> Term vars -> Term vars
 resolveNames vars (Ref fc Bound name)
     = case isNVar name vars of
-           Just (MkNVar prf) => Local fc (Just False) _ prf
+           Just (MkNVar prf) => Local fc _ prf
            _ => Ref fc Bound name
 resolveNames vars (Meta fc n i xs)
     = Meta fc n i (map (\ (c, t) => (c, resolveNames vars t)) xs)
@@ -791,25 +791,23 @@ namespace SubstEnv
        Lin : SubstEnv [<] vars
        (:<) : SubstEnv ds vars -> Term vars -> SubstEnv (ds :< d) vars
 
-  findDrop : FC -> Maybe Bool ->
-             Var (vars ++ dropped) ->
+  findDrop : FC -> Var (vars ++ dropped) ->
              SubstEnv dropped vars ->
              Term vars
-  findDrop fc r (MkVar var) [<] = Local fc r _ var
-  findDrop fc r (MkVar First) (env :< tm) = tm
-  findDrop fc r (MkVar (Later p)) (env :< tm)
-      = findDrop fc r (MkVar p) env
+  findDrop fc (MkVar var) [<] = Local fc _ var
+  findDrop fc (MkVar First) (env :< tm) = tm
+  findDrop fc (MkVar (Later p)) (env :< tm)
+      = findDrop fc (MkVar p) env
 
-  find : FC -> Maybe Bool ->
-         SizeOf outer ->
+  find : FC -> SizeOf outer ->
          Var ((vars ++ dropped) ++ outer) ->
          SubstEnv dropped vars ->
          Term (vars ++ outer)
-  find fc r outer var env = case sizedView outer of
-    Z       => findDrop fc r var env
+  find fc outer var env = case sizedView outer of
+    Z       => findDrop fc var env
     S outer => case var of
-      MkVar First     => Local fc r _ First
-      MkVar (Later p) => weaken (find fc r outer (MkVar p) env)
+      MkVar First     => Local fc _ First
+      MkVar (Later p) => weaken (find fc outer (MkVar p) env)
        -- TODO: refactor to only weaken once?
 
   substAlt : SizeOf outer ->
@@ -821,8 +819,8 @@ namespace SubstEnv
              SubstEnv dropped vars ->
              Term ((vars ++ dropped) ++ outer) ->
              Term (vars ++ outer)
-  substEnv outer env (Local fc r _ prf)
-      = find fc r outer (MkVar prf) env
+  substEnv outer env (Local fc _ prf)
+      = find fc outer (MkVar prf) env
   substEnv outer env (Ref fc x name) = Ref fc x name
   substEnv outer env (Meta fc n i xs)
       = Meta fc n i (map (\ (c, t) => (c, substEnv outer env t)) xs)
@@ -918,7 +916,7 @@ substName x new tm = tm
 -- Replace a bound variable with a term
 export
 substVar : Var vars -> (new : Term vars) -> Term vars -> Term vars
-substVar (MkVar {i} p) new loc@(Local fc m idx p')
+substVar (MkVar {i} p) new loc@(Local fc idx p')
     = if i == idx
          then new
          else loc
@@ -961,7 +959,7 @@ substVar x new tm = tm
 
 export
 addMetas : (usingResolved : Bool) -> NameMap Bool -> Term vars -> NameMap Bool
-addMetas res ns (Local fc x idx y) = ns
+addMetas res ns (Local fc idx y) = ns
 addMetas res ns (Ref fc x name) = ns
 addMetas res ns (Meta fc n i xs)
   = addMetaArgs (insert (ifThenElse res (Resolved i) n) False ns) (map snd xs)
@@ -1014,7 +1012,7 @@ getMetas tm = addMetas False empty tm
 export
 addRefs : (underAssert : Bool) -> (aTotal : Name) ->
           NameMap Bool -> Term vars -> NameMap Bool
-addRefs ua at ns (Local fc x idx y) = ns
+addRefs ua at ns (Local fc idx y) = ns
 addRefs ua at ns (Ref fc x name) = insert name ua ns
 addRefs ua at ns (Meta fc n i xs) = addRefArgs ns (map snd xs)
   where
@@ -1084,7 +1082,7 @@ mutual
         -- TODO: There's missing cases here, and the assert_total above
         -- shouldn't be necessary, so fix that!
         showApp : {vars : _} -> Term vars -> List (Term vars) -> String
-        showApp (Local _ c idx p) []
+        showApp (Local _ idx p) []
            = show (nameAt p) ++ "[" ++ show idx ++ "]"
         showApp (Ref _ _ n) [] = show n
         showApp (Meta _ n _ args) []

@@ -103,7 +103,7 @@ checkIfGuarded fc n
 -- Equal for the purposes of size change means, ignoring as patterns, all
 -- non-metavariable positions are equal
 scEq : Term vars -> Term vars -> Bool
-scEq (Local _ _ idx _) (Local _ _ idx' _) = idx == idx'
+scEq (Local _ idx _) (Local _ idx' _) = idx == idx'
 scEq (Ref _ _ n) (Ref _ _ n') = n == n'
 scEq (Meta _ _ i args) _ = True
 scEq _ (Meta _ _ i args) = True
@@ -288,7 +288,7 @@ findSCscope g args var fc pat (RHS tm)
 findSCscope g args var fc pat (Arg c x sc)
     = let args' = map (\ (i, tm) => (i, weaken tm)) args
           var' = map weaken var
-          pat' = App fc (weaken pat) c (Local fc Nothing 0 First) in
+          pat' = App fc (weaken pat) c (Local fc 0 First) in
         findSCscope g args' var' fc pat' sc
 
 findSCalt : {vars : _} ->
@@ -308,8 +308,8 @@ findSCalt g args var (DelayCase fc ty arg tm)
     = let s = mkSizeOf [< arg, ty]
           args' = map (\ (i, tm) => (i, weakenNs s tm)) args
           var' = map (weakenNs s) var
-          pat = TDelay fc LUnknown (Local fc Nothing _ (Later First))
-                                   (Local fc Nothing _ First) in
+          pat = TDelay fc LUnknown (Local fc _ (Later First))
+                                   (Local fc _ First) in
       findSC g (maybe args' (\v => replaceInArgs v pat args') var') tm
 findSCalt g args var (ConstCase fc c tm)
     = findSC g (maybe args (\v => replaceInArgs v (PrimVal fc c) args) var) tm
@@ -328,7 +328,7 @@ findSC Guarded pats (TDelay _ _ _ tm)
     = findSC InDelay pats tm
 findSC g pats (TDelay _ _ _ tm)
     = findSC g pats tm
-findSC g args (Case fc c (Local lfc _ idx p) scTy alts)
+findSC g args (Case fc c (Local lfc idx p) scTy alts)
     = do altCalls <- traverse (findSCalt g args (Just (MkVar p))) alts
          pure (concat altCalls)
 findSC g args (Case fc c sc scTy alts)
@@ -384,7 +384,7 @@ findSCTop : {vars : _} ->
             {auto c : Ref Ctxt Defs} ->
             Nat -> List (Nat, Term vars) -> Term vars -> Core (List SCCall)
 findSCTop i args (Bind fc x (Lam lfc c p ty) sc)
-    = findSCTop (1 + i) ((i, Local lfc Nothing _ First) :: wkn args) sc
+    = findSCTop (1 + i) ((i, Local lfc _ First) :: wkn args) sc
   where
     wkn : List (Nat, Term vars) -> List (Nat, Term (vars :< n))
     wkn [] = []

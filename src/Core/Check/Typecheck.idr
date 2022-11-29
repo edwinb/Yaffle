@@ -77,7 +77,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                 do rigSafe rigb rigc
                    let binder = getBinder p env
                    let bty = binderType binder
-                   pure (Local fc (Just (isLet binder)) _ p, bty)
+                   pure (Local fc _ p, bty)
              Nothing =>
                 do defs <- get Ctxt
                    [(pname, i, def)] <- lookupCtxtName n (gamma defs)
@@ -169,7 +169,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            let argn = MN "carg" i
            casesc <- checkCon (i + 1) (Add arg argn bs) fc rig valenv
                               env' cname args
-                              (App fc (weaken app) rigp (Local fc (Just False) _ First))
+                              (App fc (weaken app) rigp (Local fc _ First))
                               !(sc (VApp fc Bound argn [<] (pure Nothing)))
                               rhs scrig (weaken scr) (weaken scrTy) (weaken rhsTy)
            pure (Arg rigp arg casesc)

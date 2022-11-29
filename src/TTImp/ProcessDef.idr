@@ -11,7 +11,6 @@ import Core.Hash
 import Core.Check.Linear
 import Core.Metadata
 import Core.Evaluate
-import Core.Evaluate.QuoteB
 import Core.Termination
 import Core.Transform
 import Core.Unify.State
@@ -298,7 +297,7 @@ findLinear top bound rig tm
           = findLinArg rig (as :< (c, p))
       findLinArg rig (as :< (c, As fc UseLeft p _))
           = findLinArg rig (as :< (c, p))
-      findLinArg rig (as :< (c, Local fc _ idx prf))
+      findLinArg rig (as :< (c, Local fc idx prf))
           = do let a = nameAt prf
                if idx < bound
                   then pure $ (a, rigMult c rig) :: !(findLinArg rig as)
@@ -639,7 +638,7 @@ checkClause {vars} mult vis totreq hashit n opts nest env
                 := wvalEnv :< Pi vfc top Explicit wvalTy
 
           var : Term (xs ++ wargs)
-              := Local vfc (Just False) Z First
+              := Local vfc Z First
 
           binder : Term (xs ++ wargs) -> Term xs
                  := Bind vfc wargn (Pi vfc rig Explicit wvalTy)
@@ -665,7 +664,7 @@ checkClause {vars} mult vis totreq hashit n opts nest env
                            [ (erased, wvalTy')
                            , (erased, wvalTy')
                            , (top, weaken wval)
-                           , (top, Local vfc (Just False) Z First)
+                           , (top, Local vfc Z First)
                            ]
 
           scenv : Env Term (xs ++ wargs)
@@ -674,7 +673,7 @@ checkClause {vars} mult vis totreq hashit n opts nest env
                     :< Pi vfc top Implicit eqTy
 
           var : Term (xs ++ wargs)
-              := Local vfc (Just False) (S Z) (Later First)
+              := Local vfc (S Z) (Later First)
 
           binder : Term (xs ++ wargs) -> Term xs
                  := \ t => Bind vfc wargn (Pi vfc rig Explicit wvalTy)
@@ -994,7 +993,7 @@ processDef opts nest env fc n_in cs_in
 
 
     simplePat : forall vars . Term vars -> Bool
-    simplePat (Local _ _ _ _) = True
+    simplePat (Local _ _ _) = True
     simplePat (Erased _ _) = True
     simplePat (As _ _ _ p) = simplePat p
     simplePat _ = False

@@ -310,9 +310,9 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            mty <- lookupTyExact n (gamma defs)
            unifyInvertible swap (lower mode) fc env
                            mname mref args sp mty (VDCon nfc n t a) args'
-  unifyHoleApp swap mode loc env mname mref args sp (VLocal nfc r idx p args')
+  unifyHoleApp swap mode loc env mname mref args sp (VLocal nfc idx p args')
       = unifyInvertible swap (lower mode) loc env
-                        mname mref args sp Nothing (VLocal nfc r idx p) args'
+                        mname mref args sp Nothing (VLocal nfc idx p) args'
   unifyHoleApp swap mode fc env mname mref args sp tm@(VMeta nfc n i margs2 args2' val)
       = do defs <- get Ctxt
            Just mdef <- lookupCtxtExact (Resolved i) (gamma defs)
@@ -493,8 +493,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   unifyNoEta mode fc env x y@(VApp{})
       = postpone fc mode "Postponing application (right)" env x y
   -- Now the cases where we're decomposing into smaller problems
-  unifyNoEta mode@(MkUnifyInfo p InTerm) fc env x@(VLocal fcx _ idx _ spx)
-                                                y@(VLocal fcy _ idy _ spy)
+  unifyNoEta mode@(MkUnifyInfo p InTerm) fc env x@(VLocal fcx idx _ spx)
+                                                y@(VLocal fcy idy _ spy)
       = if idx == idy
            then unifySpine mode fc env spx spy
            else postpone fc mode "Postponing local app"
@@ -561,7 +561,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                          do txtm <- quote env tx
                             tytm <- quote env ty
                             c <- newConstant fc erased env
-                                   (Bind fcx nx (Lam fcy cy Explicit txtm) (Local fcx Nothing _ First))
+                                   (Bind fcx nx (Lam fcy cy Explicit txtm) (Local fcx _ First))
                                    (Bind fcx nx (Pi fcy cy Explicit txtm)
                                        (weaken tytm)) cs
                             tscx <- scx (mkArg fc x')
@@ -617,7 +617,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                                   $ Bind fcx x (Lam fcx cx Explicit domty)
                                   $ App fcx (weaken !(quote env tmy))
                                             cx
-                                            (Local fcx Nothing 0 First)
+                                            (Local fcx 0 First)
                         logNF "unify" 10 "Expand" env etay
                         unify (lower mode) fc env tmx etay
   unifyWithEta mode fc env tmx tmy@(VLam fcy y cy iy ty scy)
@@ -632,7 +632,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                                   $ Bind fcy y (Lam fcy cy Explicit domty)
                                   $ App fcy (weaken !(quote env tmx))
                                             cy
-                                            (Local fcy Nothing 0 First)
+                                            (Local fcy 0 First)
                         logNF "unify" 10 "Expand" env etax
                         unify (lower mode) fc env etax tmy
   unifyWithEta mode fc env x y

@@ -88,7 +88,7 @@ mkPatternHole {vars'} loc rig n topenv imode (Just expty_in)
              List (RigCount, Term vs)
     mkArgs env SubRefl = []
     mkArgs (env :< b) (DropCons p)
-        = (multiplicity b, Local loc Nothing 0 First) ::
+        = (multiplicity b, Local loc 0 First) ::
              map (\ (c, t) => (c, weaken t)) (mkArgs env p)
     mkArgs _ _ = []
 
@@ -186,8 +186,8 @@ swapIsVar (xs :< x) (Later p)
 swapVars : {vs : SnocList Name} ->
            Term (ys :< y :< x ++ vs) ->
            Term (ys :< x :< y ++ vs)
-swapVars (Local fc x idx p)
-    = let MkVar p' = swapIsVar _ p in Local fc x _ p'
+swapVars (Local fc idx p)
+    = let MkVar p' = swapIsVar _ p in Local fc _ p'
 swapVars (Ref fc x name) = Ref fc x name
 swapVars (Meta fc n i xs)
     = Meta fc n i (map (\ (c, t) => (c, swapVars t)) xs)

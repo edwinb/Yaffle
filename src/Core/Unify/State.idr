@@ -240,7 +240,7 @@ mkConstantAppArgs {done} {vars = xs :< x} lets fc (env :< b) wkns
     = let rec = mkConstantAppArgs {done} lets fc env (cons x wkns) in
           if lets || not (isLet b)
              then (multiplicity b,
-                     Local fc (Just (isLet b)) (length wkns) (mkVar wkns)) ::
+                     Local fc (length wkns) (mkVar wkns)) ::
                        rewrite sym $ appendAssociative (done ++ xs) [<x] wkns in rec
              else rewrite sym $ appendAssociative (done ++ xs) [<x] wkns in rec
 

@@ -15,7 +15,7 @@ import Data.Vect
 %default covering
 
 used : (idx : Nat) -> Term vars -> Bool
-used idx (Local _ _ var _) = idx == var
+used idx (Local _ var _) = idx == var
 used {vars} idx (Bind _ x b sc) = usedBinder b || used (1 + idx) sc
   where
     usedBinder : Binder (Term vars) -> Bool
@@ -138,7 +138,7 @@ unelabTy' : {vars : _} ->
             (nest : List (Name, Nat)) ->
             Env Term vars -> Term vars ->
             Core (IRawImp, Glued vars)
-unelabTy' umode nest env (Local fc _ idx p)
+unelabTy' umode nest env (Local fc idx p)
     = do let nm = nameAt p
          log "unelab.case" 20 $ "Found local name: " ++ show nm
          ty <- nf env (binderType (getBinder p env))
@@ -338,7 +338,7 @@ unelabNest nest env (Meta fc n i args)
          pure (IHole fc mkn)
   where
     toName : Term vars -> Maybe Name
-    toName (Local _ _ idx p) = Just (nameAt p)
+    toName (Local _ idx p) = Just (nameAt p)
     toName _ = Nothing
 
     showNScope : List Name -> String

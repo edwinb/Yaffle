@@ -89,7 +89,7 @@ matchVars = go []
     goCaseAlts acc (ca :: cas) (ca' :: cas') = goCaseAlts (goCaseAlt acc ca ca') cas cas'
     goCaseAlts acc _ _ = []
 
-    go acc (Local _ _ _ p) tm
+    go acc (Local _ _ p) tm
         = (MkVar p, tm) :: acc
     go acc (Bind _ x b sc) (Bind _ x' b' sc')
         = let sc' = renameTop _ sc'
@@ -119,4 +119,4 @@ replaceMatches : Ref Ctxt Defs =>
 replaceMatches fc env [] tm = pure tm
 replaceMatches fc env ((MkVar p, orig) :: ms) tm
     = do tm' <- replaceMatches fc env ms tm
-         replace env !(nf env orig) (Local fc Nothing _ p) !(nf env tm')
+         replace env !(nf env orig) (Local fc _ p) !(nf env tm')

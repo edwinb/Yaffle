@@ -89,6 +89,6 @@ mkTerm vars (PDelay fc r ty p)
     = TDelay fc r (mkTerm vars ty) (mkTerm vars p)
 mkTerm vars (PLoc fc n)
     = case isVar n vars of
-           Just (MkVar prf) => Local fc Nothing _ prf
+           Just (MkVar prf) => Local fc _ prf
            _ => Ref fc Bound n
 mkTerm vars (PUnmatchable fc tm) = embed tm

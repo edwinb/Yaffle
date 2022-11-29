@@ -539,14 +539,14 @@ believeMeTy : Term [<]
 believeMeTy
     = pi "a" erased Explicit (TType emptyFC (MN "top" 0)) $
       pi "b" erased Explicit (TType emptyFC (MN "top" 0)) $
-      pi "x" linear Explicit (Local emptyFC Nothing _ (Later First)) $
-      Local emptyFC Nothing _ (Later First)
+      pi "x" linear Explicit (Local emptyFC _ (Later First)) $
+      Local emptyFC _ (Later First)
 
 crashTy : ClosedTerm
 crashTy
     = pi "a" erased Explicit (TType emptyFC (MN "top" 0)) $
       pi "msg" top Explicit (PrimVal emptyFC $ PrT StringType) $
-      Local emptyFC Nothing _ (Later First)
+      Local emptyFC _ (Later First)
 
 castTo : PrimType -> Vect 1 (NF vars) -> Maybe (NF vars)
 castTo IntType = castInt

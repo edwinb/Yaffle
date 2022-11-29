@@ -168,9 +168,9 @@ parameters {auto c : Ref Ctxt Defs}
                        repSub nf
                else do args' <- repArgAll args
                        pure $ applyWithFC (Ref fc nt fn) (toList args')
-      repSub (VLocal fc m idx p args)
+      repSub (VLocal fc idx p args)
           = do args' <- repArgAll args
-               pure $ applyWithFC (Local fc m idx p) (toList args')
+               pure $ applyWithFC (Local fc idx p) (toList args')
       -- Look in value of the metavar if it's solved, otherwise leave it
       repSub (VMeta fc n i scope args val)
           = do Nothing <- val
@@ -274,7 +274,7 @@ parameters {auto c : Ref Ctxt Defs}
       act tm = do
         logTerm "eval.eta" 10 "  Considering" tm
         case tm of
-          (Bind _ x (Lam _ _ _ _) (App _ fn _ (Local _ _ Z _))) => do
+          (Bind _ x (Lam _ _ _ _) (App _ fn _ (Local _ Z _))) => do
             logTerm "eval.eta" 10 "  Shrinking candidate" fn
             let shrunk = shrinkTerm fn (DropCons SubRefl)
             case shrunk of

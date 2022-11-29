@@ -43,7 +43,7 @@ conflictMatch ((x, tm) :: ms) = conflictArgs x tm ms || conflictMatch ms
     clash _ _ = False
 
     findN : Nat -> Term vars -> Bool
-    findN i (Local _ _ i' _) = i == i'
+    findN i (Local _ i' _) = i == i'
     findN i tm
         = let (Ref _ (DataCon _ _) _, args) = getFnArgs tm
                    | _ => False in
@@ -52,11 +52,11 @@ conflictMatch ((x, tm) :: ms) = conflictArgs x tm ms || conflictMatch ms
     -- Assuming in normal form. Look for: mismatched constructors, or
     -- a name appearing strong rigid in the other term
     conflictTm : Term vars -> Term vars -> Bool
-    conflictTm (Local _ _ i _) tm
+    conflictTm (Local _ i _) tm
         = let (Ref _ (DataCon _ _) _, args) = getFnArgs tm
                    | _ => False in
               any (findN i) args
-    conflictTm tm (Local _ _ i _)
+    conflictTm tm (Local _ i _)
         = let (Ref _ (DataCon _ _) _, args) = getFnArgs tm
                    | _ => False in
               any (findN i) args
@@ -287,7 +287,7 @@ buildArgs : {auto c : Ref Ctxt Defs} ->
 -- top level
 buildArgs defs known not ps (Bind fc x (Lam lfc c p ty) sc)
     = buildArgs defs (weaken known) (weaken not) ps sc
-buildArgs defs known not ps cs@(Case fc c (Local lfc _ idx el) ty altsIn)
+buildArgs defs known not ps cs@(Case fc c (Local lfc idx el) ty altsIn)
   -- If we've already matched on 'el' in this branch, restrict the alternatives
   -- to the tag we already know. Otherwise, add missing cases and filter out
   -- the ones it can't possibly be (the 'not') because a previous case
@@ -396,7 +396,7 @@ getNonCoveringRefs fc n
 -- 'Erased' matches against anything, we assume that's a Rig0 argument that
 -- we don't care about
 match : Term vs -> Term vs -> Bool
-match (Local _ _ i _) _ = True
+match (Local _ i _) _ = True
 match (Ref _ Bound n) _ = True
 match (Ref _ _ n) (Ref _ _ n') = n == n'
 match (App _ f _ a) (App _ f' _ a') = match f f' && match a a'

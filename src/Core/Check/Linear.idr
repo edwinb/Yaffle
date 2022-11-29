@@ -124,7 +124,7 @@ parameters {auto c : Ref Ctxt Defs}
                    Var vars -> List (Var vars) ->
                    Term vs -> List (Term vars) ->
                    Core (Term vs)
-  updateHoleType useVar var zs (Bind bfc nm (Pi fc' c e ty) sc) (Local _ r v _ :: as)
+  updateHoleType useVar var zs (Bind bfc nm (Pi fc' c e ty) sc) (Local _ v _ :: as)
       -- if the argument to the hole type is the variable of interest,
       -- and the variable should be used in the hole, leave multiplicity alone,
       -- otherwise set it to erased
@@ -259,7 +259,7 @@ parameters {auto c : Ref Ctxt Defs}
   lcheckBinder rig env (PLet fc c val ty) = lcheck (rigMult rig c) env val
   lcheckBinder rig env (PVTy fc c ty) = pure [<]
 
-  lcheck {vars} rig env (Local fc x idx prf)
+  lcheck {vars} rig env (Local fc idx prf)
       = let b = getBinder prf env
             rigb = multiplicity b in
             do rigSafe rigb rig

@@ -170,7 +170,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       = do sp' <- quoteSpine BlockApp bounds env sp
            case findName bounds of
                 Just (MkVar p) =>
-                    pure $ applySpine (Local fc Nothing _ (varExtend p)) sp'
+                    pure $ applySpine (Local fc _ (varExtend p)) sp'
                 Nothing =>
                     pure $ applySpine (Ref fc Bound (MN n i)) sp'
     where
@@ -229,10 +229,10 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
           = blockedApp !(sc (VErased fc Placeholder))
       blockedApp (VCase{}) = pure True
       blockedApp _ = pure False
-  quoteGen {bound} bounds env (VLocal fc mlet idx p sp) s
+  quoteGen {bound} bounds env (VLocal fc idx p sp) s
       = do sp' <- quoteSpine s bounds env sp
            let MkVar p' = addLater bound p
-           pure $ applySpine (Local fc mlet _ p') sp'
+           pure $ applySpine (Local fc _ p') sp'
     where
       addLater : {idx : _} ->
                  (ys : SnocList Name) -> (0 p : IsVar n idx xs) ->

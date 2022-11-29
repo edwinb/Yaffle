@@ -54,7 +54,7 @@ data Value : Form -> SnocList Name -> Type where
             NameType -> Name -> Spine vars -> -- original form
             Core (Maybe (Glued vars)) -> -- the normal form
             Value f vars
-     VLocal   : FC -> Maybe Bool -> (idx : Nat) -> (0 p : IsVar n idx vars) ->
+     VLocal   : FC -> (idx : Nat) -> (0 p : IsVar n idx vars) ->
                 Spine vars ->
                 Value f vars
      VMeta  : FC -> Name -> Int -> -- Name and resolved name of metavar
@@ -88,7 +88,7 @@ getLoc : Value f vars -> FC
 getLoc (VLam fc x y z ty sc) = fc
 getLoc (VBind fc x y sc) = fc
 getLoc (VApp fc x y sx z) = fc
-getLoc (VLocal fc x idx p sx) = fc
+getLoc (VLocal fc idx p sx) = fc
 getLoc (VMeta fc x y xs sx z) = fc
 getLoc (VDCon fc x tag arity sx) = fc
 getLoc (VTCon fc x arity sx) = fc

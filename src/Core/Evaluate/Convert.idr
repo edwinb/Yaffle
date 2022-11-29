@@ -109,7 +109,7 @@ parameters {auto c : Ref Ctxt Defs}
   convGen s env x (VApp _ _ _ _ val)
       = do Just y <- val | Nothing => pure False
            convGen s env x y
-  convGen s env (VLocal _ _ i _ sp) (VLocal _ _ i' _ sp')
+  convGen s env (VLocal _ i _ sp) (VLocal _ i' _ sp')
       = if i == i'
            then convSpine s env sp sp'
            else pure False

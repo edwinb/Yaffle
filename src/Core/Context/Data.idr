@@ -11,11 +11,11 @@ import Data.Maybe
 -- considered a parameter
 dropReps : List (Maybe (Term vars)) -> List (Maybe (Term vars))
 dropReps [] = []
-dropReps {vars} (Just (Local fc r x p) :: xs)
-    = Just (Local fc r x p) :: assert_total (dropReps (map toNothing xs))
+dropReps {vars} (Just (Local fc x p) :: xs)
+    = Just (Local fc x p) :: assert_total (dropReps (map toNothing xs))
   where
     toNothing : Maybe (Term vars) -> Maybe (Term vars)
-    toNothing tm@(Just (Local _ _ v' _))
+    toNothing tm@(Just (Local _ v' _))
         = if x == v' then Nothing else tm
     toNothing tm = tm
 dropReps (x :: xs) = x :: dropReps xs
@@ -33,13 +33,13 @@ updateParams Nothing args = dropReps <$> traverse couldBeParam args
   where
     couldBeParam : Term vars -> Core (Maybe (Term vars))
     couldBeParam tm = pure $ case !(etaContract tm) of
-      Local fc r v p => Just (Local fc r v p)
+      Local fc v p => Just (Local fc v p)
       _ => Nothing
 updateParams (Just args) args' = pure $ dropReps $ zipWith mergeArg args args'
   where
     mergeArg : Maybe (Term vars) -> Term vars -> Maybe (Term vars)
-    mergeArg (Just (Local fc r x p)) (Local _ _ y _)
-        = if x == y then Just (Local fc r x p) else Nothing
+    mergeArg (Just (Local fc x p)) (Local _ y _)
+        = if x == y then Just (Local fc x p) else Nothing
     mergeArg _ _ = Nothing
 
 getPs : {auto _ : Ref Ctxt Defs} -> {vars : _} ->

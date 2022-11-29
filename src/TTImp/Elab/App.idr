@@ -6,7 +6,6 @@ import Core.Core
 import Core.Env
 import Core.Metadata
 import Core.Evaluate
-import Core.Evaluate.QuoteB
 import Core.Unify
 import Core.Unify.SolveMeta
 import Core.TT
@@ -65,7 +64,7 @@ getNameType elabMode rigc env fc x
                      log "ide-mode.highlight" 7 $ "getNameType is adding Bound: " ++ show x
                      addSemanticDecorations [(nfc, Bound, Just x)]
 
-                 pure (Local fc (Just (isLet binder)) _ lv, !(nf env bty))
+                 pure (Local fc _ lv, !(nf env bty))
            Nothing =>
               do defs <- get Ctxt
                  [(pname, i, def)] <- lookupCtxtName x (gamma defs)

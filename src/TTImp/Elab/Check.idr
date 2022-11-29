@@ -233,10 +233,10 @@ strengthenedEState {n} {vars} c e fc env
     removeArgVars : SnocList (RigCount, Term (vs :< n)) ->
                     Maybe (SnocList (RigCount, Term vs))
     removeArgVars [<] = pure [<]
-    removeArgVars (args :< (c, Local fc r (S k) p))
+    removeArgVars (args :< (c, Local fc (S k) p))
         = do args' <- removeArgVars args
-             pure (args' :< (c, Local fc r _ (dropLater p)))
-    removeArgVars (args :< (c, Local fc r Z p))
+             pure (args' :< (c, Local fc _ (dropLater p)))
+    removeArgVars (args :< (c, Local fc Z p))
         = removeArgVars args
     removeArgVars (args :< (c, a))
         = do a' <- shrinkTerm a (DropCons SubRefl)

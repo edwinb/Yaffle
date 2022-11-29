@@ -256,7 +256,7 @@ mapTermM : ({vars : _} -> Term vars -> CoreE err (Term vars)) ->
 mapTermM f = goTerm where
 
     goTerm : {vars : _} -> Term vars -> CoreE err (Term vars)
-    goTerm tm@(Local _ _ _ _) = f tm
+    goTerm tm@(Local _ _ _) = f tm
     goTerm tm@(Ref _ _ _) = f tm
     goTerm (Meta fc n i args)
         = f =<< Meta fc n i <$> traverse (\ (c, t) => pure (c, !(goTerm t))) args
