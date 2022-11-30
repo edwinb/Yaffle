@@ -450,10 +450,10 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
               then unifyArgs mode fc env
                              (map snd margsx ++ spineToValues argsx)
                              (map snd margsy ++ spineToValues argsy)
-              else do xvs <- traverse expand (map snd margsx)
-                      yvs <- traverse expand (map snd margsy)
-                      let xlocs = localsIn xvs
-                      let ylocs = localsIn yvs
+              else do xvs <- traverse (\ (c, t) => pure (c, asGlued !(expand t))) margsx
+                      yvs <- traverse (\ (c, t) => pure (c, asGlued !(expand t))) margsy
+                      let xlocs = localsIn (map snd xvs)
+                      let ylocs = localsIn (map snd yvs)
                       -- Solve the one with the bigger context, and if they're
                       -- equal, the one that's applied to fewest things (because
                       -- then the arguments get substituted in)
@@ -461,14 +461,14 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                                       || (xlocs == ylocs &&
                                            length argsx <= length argsy)
                       if (xbigger || umode mode == InMatch) && not (pv nx)
-                         then unifyHole False mode fc env fcx nx ix margsx argsx (asGlued y)
-                         else unifyHole True mode fc env fcy ny iy margsy argsy (asGlued x)
+                         then unifyHole False mode fc env fcx nx ix xvs argsx (asGlued y)
+                         else unifyHole True mode fc env fcy ny iy yvs argsy (asGlued x)
     where
       pv : Name -> Bool
       pv (PV _ _) = True
       pv _ = False
 
-      localsIn : List (NF vars) -> Nat
+      localsIn : List (Value f vars) -> Nat
       localsIn [] = 0
       localsIn (VLocal{} :: xs) = 1 + localsIn xs
       localsIn (_ :: xs) = localsIn xs
@@ -592,17 +592,19 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = if cx /= cy
           then convertError fc env x y
           else do ct <- unify (lower mode) fc env tx ty
-                  x' <- genVarName "x"
+                  var <- genVarName "x"
                   txtm <- quote env tx
                   let env' : Env Term (_ :< nx)
                            = env :< Lam fcx cx Explicit txtm
-                  tscx <- scx (mkArg fc x')
-                  tscy <- scy (mkArg fc x')
+                  tscx <- scx (mkArg fc var)
+                  tscy <- scy (mkArg fc var)
                   tmx <- quote env tscx
                   tmy <- quote env tscy
+                  logTerm "unify.binder" 10 "Unifying lambda scope" tmx
+                  logTerm "unify.binder" 10 ".................with" tmy
                   cs' <- unify (lower mode) fc env'
-                               (refsToLocals (Add nx x' None) tmx)
-                               (refsToLocals (Add nx x' None) tmy)
+                               (refsToLocals (Add nx var None) tmx)
+                               (refsToLocals (Add nx var None) tmy)
                   pure (union ct cs')
   -- Eta rules
   unifyWithEta mode fc env tmx@(VLam fcx x cx ix tx scx) tmy

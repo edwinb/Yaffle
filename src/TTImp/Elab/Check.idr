@@ -754,8 +754,8 @@ checkExp : {vars : _} ->
            (got : Glued vars) -> (expected : Maybe (Glued vars)) ->
            Core (Term vars, Glued vars)
 checkExp rig elabinfo env fc tm got (Just exp)
-    = do logNF "elab" 10 "Unifying" env got
-         logNF "elab" 10 "....with" env exp
+    = do logNF "elab" 5 "Unifying" env got
+         logNF "elab" 5 "....with" env exp
          vs <- convertWithLazy True fc elabinfo env got exp
          case (constraints vs) of
               [] => case addLazy vs of

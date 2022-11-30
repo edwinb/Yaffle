@@ -64,7 +64,7 @@ parameters {auto c : Ref Ctxt Defs}
       = do let etay = VLam fc x r p ty (apply fc tmy r)
            convGen {f'=Normal} s env tmx etay
   convGen {vars} s env tmx tmy@(VLam fc x r p ty sc)
-      = do let etax = VLam fc x r p ty (apply fc tmy r)
+      = do let etax = VLam fc x r p ty (apply fc tmx r)
            convGen {f=Normal} s env etax tmy
   convGen {vars} s env (VBind fc x b sc) (VBind fc' x' b' sc')
       = do True <- convBinders b b' | False => pure False
