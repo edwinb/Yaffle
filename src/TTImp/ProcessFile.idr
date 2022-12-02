@@ -13,6 +13,7 @@ import TTImp.Parser
 import TTImp.ProcessBuiltin
 import TTImp.ProcessData
 import TTImp.ProcessDef
+import TTImp.ProcessRecord
 import TTImp.ProcessType
 import TTImp.TTImp
 import TTImp.Elab.Check
@@ -38,19 +39,19 @@ parameters {auto c : Ref Ctxt Defs}
       = processDef eopts nest env fc fname def
 --   process eopts nest env (IParameters fc ps decls)
 --       = processParams nest env fc ps decls
---   process eopts nest env (IRecord fc ns vis mbtot rec)
---       = processRecord eopts nest env ns vis mbtot rec
+  process eopts nest env (IRecord fc ns vis mbtot rec)
+      = processRecord eopts nest env ns vis mbtot rec
 --   process eopts nest env (IFail fc msg decls)
 --       = processFailing eopts nest env fc msg decls
---   process eopts nest env (INamespace fc ns decls)
---       = withExtendedNS ns $
---            traverse_ (processDecl eopts nest env) decls
+  process eopts nest env (INamespace fc ns decls)
+      = withExtendedNS ns $
+           traverse_ (processDecl eopts nest env) decls
 --   process eopts nest env (ITransform fc n lhs rhs)
 --       = processTransform eopts nest env fc n lhs rhs
 --   process eopts nest env (IRunElabDecl fc tm)
 --       = processRunElab eopts nest env fc tm
---   process eopts nest env (IPragma _ act)
---       = act nest env
+  process eopts nest env (IPragma _ _ act)
+      = act nest env
   process eopts nest env (ILog lvl)
       = addLogLevel (uncurry unsafeMkLogLevel <$> lvl)
   process eopts nest env (IBuiltin fc type name)

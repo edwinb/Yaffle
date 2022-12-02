@@ -119,6 +119,21 @@ expand v@(VMeta fc n i args sp val)
          expand val'
 expand val = pure (believe_me val)
 
+-- as above, but leave case expressions as blocked apps
+export
+expandNoCase : Value f vars -> Core (NF vars)
+expandNoCase v@(VApp fc nt n sp val)
+    = do Just val' <- val
+              | Nothing => pure (believe_me v)
+         case val' of
+              VCase{} => pure (believe_me v)
+              _ => expandNoCase val'
+expandNoCase v@(VMeta fc n i args sp val)
+    = do Just val' <- val
+              | Nothing => pure (believe_me v)
+         expandNoCase val'
+expandNoCase val = pure (believe_me val)
+
 -- It's safe to pretend an NF is Glued, if we need it
 export
 asGlued : Value f vars -> Glued vars

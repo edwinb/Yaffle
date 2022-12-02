@@ -250,9 +250,9 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteGen bounds env (VMeta fc n i args sp val) s
       = do Just v <- val
               | Nothing =>
-                  do sp' <- quoteSpine BlockApp bounds env sp
+                  do sp' <- quoteSpine s bounds env sp
                      args' <- traverse (\ (q, val) =>
-                                          do val' <- quoteGen bounds env val BlockApp
+                                          do val' <- quoteGen bounds env val s
                                              pure (q, val')) args
                      pure $ applySpine (Meta fc n i args') sp'
            quoteGen bounds env v s

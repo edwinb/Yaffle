@@ -29,11 +29,6 @@ record CompiledTerm where
   evalAll : SchemeObj Write -- for evaluation at the REPL, so compile all fully
 
 public export
-data NoMangleDirective : Type where
-    CommonName : String -> NoMangleDirective
-    BackendNames : List (String, String) -> NoMangleDirective
-
-public export
 data DefFlag
     = Inline
     | NoInline
@@ -66,8 +61,6 @@ data DefFlag
     | Identity Nat
          -- Is it the identity function at runtime?
          -- The nat represents which argument the function evaluates to
-    | NoMangle NoMangleDirective
-         -- use the user provided name directly (backend, name)
 
 export
 Eq DefFlag where
@@ -84,7 +77,6 @@ Eq DefFlag where
     (==) AllGuarded AllGuarded = True
     (==) (ConType x) (ConType y) = x == y
     (==) (Identity x) (Identity y) = x == y
-    (==) (NoMangle _) (NoMangle _) = True
     (==) _ _ = False
 
 export
@@ -102,7 +94,6 @@ Show DefFlag where
   show AllGuarded = "allguarded"
   show (ConType ci) = "contype " ++ show ci
   show (Identity x) = "identity " ++ show x
-  show (NoMangle _) = "nomangle"
 
 public export
 data SizeChange = Smaller | Same | Unknown

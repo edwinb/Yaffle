@@ -1,0 +1,4 @@
+Yaffle> (Main.S (Main.S (Main.S Main.Z)))
+Yaffle> ((Main.Cons 1) ((Main.Cons 2) ((Main.Cons 3) Main.Nil)))
+Yaffle> (Main.S (Main.S (Main.S Main.Z)))
+Yaffle> Bye for now!

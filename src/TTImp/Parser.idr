@@ -578,6 +578,13 @@ dataOpt
          ns <- forget <$> some name
          pure (SearchBy ns)
 
+dataOpts : EmptyRule (List DataOpt)
+dataOpts = option [] $ do
+  symbol "["
+  dopts <- sepBy1 (symbol ",") dataOpt
+  symbol "]"
+  pure $ forget dopts
+
 dataDecl : OriginDesc -> IndentInfo -> Rule ImpData
 dataDecl fname indents
     = do start <- location
@@ -651,13 +658,14 @@ recordDecl fname indents
          paramss <- many (recordParam fname indents)
          let params = concat paramss
          keyword "where"
+         opts <- dataOpts
          exactIdent "constructor"
          dc <- name
          flds <- assert_total (blockAfter col (fieldDecl fname))
          end <- location
          pure (let fc = MkFC fname start end in
                    IRecord fc Nothing vis mbtot
-                           (MkImpRecord fc n params dc (concat flds)))
+                           (MkImpRecord fc n params opts dc (concat flds)))
 
 namespaceDecl : Rule Namespace
 namespaceDecl

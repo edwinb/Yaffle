@@ -1,7 +1,8 @@
 module Core.Evaluate.Normalise
 
-import Core.Context
 import Core.Core
+import Core.Context
+import Core.Context.Log
 import Core.Env
 import Core.Error
 import Core.Evaluate.Value

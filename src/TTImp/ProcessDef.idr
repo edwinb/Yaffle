@@ -283,7 +283,11 @@ findLinear top bound rig tm
     = case getFnArgsSpine tm of
            (Ref _ _ n, [<]) => pure []
            (Ref _ nt n, args)
-              => findLinArg (accessible nt rig) args
+              => do defs <- get Ctxt
+                    Just nty <- lookupTyExact n (gamma defs)
+                         | Nothing => pure []
+                    logTerm "declare.def.lhs" 5 ("Type of " ++ show !(toFullNames n)) nty
+                    findLinArg (accessible nt rig) args
            _ => pure []
     where
       accessible : NameType -> RigCount -> RigCount
@@ -303,8 +307,8 @@ findLinear top bound rig tm
                   then pure $ (a, rigMult c rig) :: !(findLinArg rig as)
                   else findLinArg rig as
       findLinArg rig (as :< (c, a))
-           = pure $ !(findLinear False bound rig a) ++
-                    !(findLinArg (rigMult c rig) as)
+           = pure $ !(findLinear False bound (rigMult c rig) a) ++
+                    !(findLinArg rig as)
       findLinArg rig [<] = pure []
 
 setLinear : List (Name, RigCount) -> Term vars -> Term vars
