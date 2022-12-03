@@ -17,15 +17,12 @@ import Data.List
 
 %default covering
 
-{-
 export
 localHelper : {vars : _} ->
              {auto c : Ref Ctxt Defs} ->
              {auto m : Ref MD Metadata} ->
              {auto u : Ref UST UState} ->
              {auto e : Ref EST (EState vars)} ->
-             {auto s : Ref Syn SyntaxInfo} ->
-             {auto o : Ref ROpts REPLOpts} ->
              NestedNames vars -> Env Term vars ->
              List ImpDecl -> (NestedNames vars -> Core a) ->
              Core a
@@ -82,11 +79,11 @@ localHelper {vars} nest env nestdecls_in func
     -- This is because, at the moment, we don't have any mechanism of
     -- ensuring the nested definition is used exactly once
     dropLinear : Env Term vs -> Env Term vs
-    dropLinear [] = []
-    dropLinear (b :: bs)
+    dropLinear [<] = [<]
+    dropLinear (bs :< b)
         = if isLinear (multiplicity b)
-             then setMultiplicity b erased :: dropLinear bs
-             else b :: dropLinear bs
+             then dropLinear bs :< setMultiplicity b erased
+             else dropLinear bs :< b
 
     applyEnv : Int -> Name ->
                Core (Name, (Maybe Name, List (Var vars), FC -> NameType -> Term vars))
@@ -171,8 +168,6 @@ checkLocal : {vars : _} ->
              {auto m : Ref MD Metadata} ->
              {auto u : Ref UST UState} ->
              {auto e : Ref EST (EState vars)} ->
-             {auto s : Ref Syn SyntaxInfo} ->
-             {auto o : Ref ROpts REPLOpts} ->
              RigCount -> ElabInfo ->
              NestedNames vars -> Env Term vars ->
              FC -> List ImpDecl -> (scope : RawImp) ->
@@ -180,8 +175,6 @@ checkLocal : {vars : _} ->
              Core (Term vars, Glued vars)
 checkLocal {vars} rig elabinfo nest env fc nestdecls_in scope expty
     = localHelper nest env nestdecls_in $ \nest' => check rig elabinfo nest' env scope expty
-
--}
 
 getLocalTerm : {vars : _} ->
                {auto c : Ref Ctxt Defs} ->

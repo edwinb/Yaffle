@@ -528,6 +528,15 @@ parameters {auto c : Ref Ctxt Defs}
          setCtxt gam'
          pure i
 
+  export
+  addName : Name -> Core Int
+  addName (Resolved idx) = pure idx
+  addName n
+    = do defs <- get Ctxt
+         (i, gam') <- newEntry n (gamma defs)
+         setCtxt gam'
+         pure i
+
   -- Call this before trying alternative elaborations, so that updates to the
   -- context are put in the staging area rather than writing over the mutable
   -- array of definitions.
