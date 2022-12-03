@@ -19,7 +19,7 @@ import TTImp.Elab.Check
 import TTImp.Elab.Dot
 import TTImp.Elab.Hole
 import TTImp.Elab.ImplicitBind
--- import TTImp.Elab.Lazy
+import TTImp.Elab.Lazy
 import TTImp.Elab.Local
 import TTImp.Elab.Prim
 -- import TTImp.Elab.Quote
@@ -144,12 +144,12 @@ checkTerm rig elabinfo nest env (IAs fc nameFC side n_in tm) exp
     = checkAs rig elabinfo nest env fc nameFC side n_in tm exp
 checkTerm rig elabinfo nest env (IMustUnify fc reason tm) exp
     = checkDot rig elabinfo nest env fc reason tm exp
--- checkTerm rig elabinfo nest env (IDelayed fc r tm) exp
---     = checkDelayed rig elabinfo nest env fc r tm exp
--- checkTerm rig elabinfo nest env (IDelay fc tm) exp
---     = checkDelay rig elabinfo nest env fc tm exp
--- checkTerm rig elabinfo nest env (IForce fc tm) exp
---     = checkForce rig elabinfo nest env fc tm exp
+checkTerm rig elabinfo nest env (IDelayed fc r tm) exp
+    = checkDelayed rig elabinfo nest env fc r tm exp
+checkTerm rig elabinfo nest env (IDelay fc tm) exp
+    = checkDelay rig elabinfo nest env fc tm exp
+checkTerm rig elabinfo nest env (IForce fc tm) exp
+    = checkForce rig elabinfo nest env fc tm exp
 -- checkTerm rig elabinfo nest env (IQuote fc tm) exp
 --     = checkQuote rig elabinfo nest env fc tm exp
 -- checkTerm rig elabinfo nest env (IQuoteName fc n) exp
