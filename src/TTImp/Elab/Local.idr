@@ -5,12 +5,9 @@ import Core.Context.Log
 import Core.Core
 import Core.Env
 import Core.Metadata
-import Core.Normalise
+import Core.Evaluate
 import Core.Unify
 import Core.TT
-
-import Idris.REPL.Opts
-import Idris.Syntax
 
 import TTImp.Elab.Check
 import TTImp.TTImp
@@ -20,6 +17,7 @@ import Data.List
 
 %default covering
 
+{-
 export
 localHelper : {vars : _} ->
              {auto c : Ref Ctxt Defs} ->
@@ -183,6 +181,8 @@ checkLocal : {vars : _} ->
 checkLocal {vars} rig elabinfo nest env fc nestdecls_in scope expty
     = localHelper nest env nestdecls_in $ \nest' => check rig elabinfo nest' env scope expty
 
+-}
+
 getLocalTerm : {vars : _} ->
                {auto c : Ref Ctxt Defs} ->
                FC -> Env Term vars -> Term vars -> List Name ->
@@ -192,7 +192,7 @@ getLocalTerm fc env f (a :: as)
     = case defined a env of
            Just (MkIsDefined rigb lv) =>
                 do (tm, vs) <- getLocalTerm fc env
-                                   (App fc f (Local fc Nothing _ lv)) as
+                                   (App fc f rigb (Local fc _ lv)) as
                    pure (tm, MkVar lv :: vs)
            Nothing => throw (InternalError "Case Local failed")
 
@@ -202,8 +202,6 @@ checkCaseLocal : {vars : _} ->
                  {auto m : Ref MD Metadata} ->
                  {auto u : Ref UST UState} ->
                  {auto e : Ref EST (EState vars)} ->
-                 {auto s : Ref Syn SyntaxInfo} ->
-                 {auto o : Ref ROpts REPLOpts} ->
                  RigCount -> ElabInfo ->
                  NestedNames vars -> Env Term vars ->
                  FC -> Name -> Name -> List Name -> RawImp ->

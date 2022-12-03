@@ -291,6 +291,14 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            put UST ({ nextName $= (+1) } ust)
            pure (MN str (nextName ust))
 
+  -- Again, for case names
+  export
+  genCaseName : String -> Core Name
+  genCaseName root
+      = do ust <- get UST
+           put UST ({ nextName $= (+1) } ust)
+           inCurrentNS (CaseBlock root (nextName ust))
+
   export
   genWithName : String -> Core Name
   genWithName root

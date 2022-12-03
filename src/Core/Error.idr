@@ -78,6 +78,14 @@ data Error : Type where
                        FC -> Env Term vars -> Term vars -> List (Term vars) -> Error
      AmbiguityTooDeep : FC -> Name -> List Name -> Error
      AllFailed : List (Maybe Name, Error) -> Error
+
+     RecordTypeNeeded : {vars : _} ->
+                        FC -> Env Term vars -> Error
+     DuplicatedRecordUpdatePath : FC -> List (List String) -> Error
+     NotRecordField : FC -> String -> Maybe Name -> Error
+     NotRecordType : FC -> Name -> Error
+     IncompatibleFieldUpdate : FC -> List String -> Error
+
      InvalidArgs : {vars : _} ->
                    FC -> Env Term vars -> List Name -> Term vars -> Error
 
@@ -149,6 +157,20 @@ Show Error where
   show (AmbiguityTooDeep fc n ns)
       = show fc ++ ":Ambiguity too deep in " ++ show n ++ " " ++ show ns
   show (AllFailed ts) = "No successful elaboration: " ++ assert_total (show ts)
+
+  show (RecordTypeNeeded fc env)
+      = show fc ++ ":Can't infer type of record to update"
+  show (DuplicatedRecordUpdatePath fc ps)
+      = show fc ++ ":Duplicated record update paths: " ++ show ps
+  show (NotRecordField fc fld Nothing)
+      = show fc ++ ":" ++ fld ++ " is not part of a record type"
+  show (NotRecordField fc fld (Just ty))
+      = show fc ++ ":Record type " ++ show ty ++ " has no field " ++ fld
+  show (NotRecordType fc ty)
+      = show fc ++ ":" ++ show ty ++ " is not a record type"
+  show (IncompatibleFieldUpdate fc flds)
+      = show fc ++ ":Field update " ++ showSep "->" flds ++ " not compatible with other updates"
+
   show (InvalidArgs fc env ns tm)
      = show fc ++ ":" ++ show ns ++ " are not valid arguments in " ++ show tm
 

@@ -14,16 +14,16 @@ import TTImp.Elab.Ambiguity
 import TTImp.Elab.App
 import TTImp.Elab.As
 import TTImp.Elab.Binders
--- import TTImp.Elab.Case
+import TTImp.Elab.Case
 import TTImp.Elab.Check
 import TTImp.Elab.Dot
 import TTImp.Elab.Hole
 import TTImp.Elab.ImplicitBind
 -- import TTImp.Elab.Lazy
--- import TTImp.Elab.Local
+import TTImp.Elab.Local
 import TTImp.Elab.Prim
 -- import TTImp.Elab.Quote
--- import TTImp.Elab.Record
+import TTImp.Elab.Record
 -- import TTImp.Elab.Rewrite
 -- import TTImp.Elab.RunElab
 import TTImp.TTImp
@@ -100,14 +100,14 @@ checkTerm rig elabinfo nest env (ILam fc r p Nothing argTy scope) exp
          checkLambda rig elabinfo nest env fc r p n argTy scope exp
 checkTerm rig elabinfo nest env (ILet fc lhsFC r n nTy nVal scope) exp
     = checkLet rig elabinfo nest env fc lhsFC r n nTy nVal scope exp
--- checkTerm rig elabinfo nest env (ICase fc scr scrty alts) exp
---     = checkCase rig elabinfo nest env fc scr scrty alts exp
+checkTerm rig elabinfo nest env (ICase fc scr scrty alts) exp
+    = checkCase rig elabinfo nest env fc scr scrty alts exp
 -- checkTerm rig elabinfo nest env (ILocal fc nested scope) exp
 --     = checkLocal rig elabinfo nest env fc nested scope exp
--- checkTerm rig elabinfo nest env (ICaseLocal fc uname iname args scope) exp
---     = checkCaseLocal rig elabinfo nest env fc uname iname args scope exp
--- checkTerm rig elabinfo nest env (IUpdate fc upds rec) exp
---     = checkUpdate rig elabinfo nest env fc upds rec exp
+checkTerm rig elabinfo nest env (ICaseLocal fc uname iname args scope) exp
+    = checkCaseLocal rig elabinfo nest env fc uname iname args scope exp
+checkTerm rig elabinfo nest env (IUpdate fc upds rec) exp
+    = checkUpdate rig elabinfo nest env fc upds rec exp
 checkTerm rig elabinfo nest env (IApp fc fn arg) exp
     = checkApp rig elabinfo nest env fc fn [arg] [] []  exp
 checkTerm rig elabinfo nest env (IAutoApp fc fn arg) exp

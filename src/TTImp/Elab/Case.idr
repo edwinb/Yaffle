@@ -5,13 +5,9 @@ import Core.Context.Log
 import Core.Core
 import Core.Env
 import Core.Metadata
-import Core.Normalise
+import Core.Evaluate
 import Core.Unify
 import Core.TT
-import Core.Value
-
-import Idris.Syntax
-import Idris.REPL.Opts
 
 import TTImp.Elab.Check
 import TTImp.Elab.Delayed
@@ -27,51 +23,28 @@ import Libraries.Data.NameMap
 
 %default covering
 
-export
-changeVar : (old : Var vs) -> (new : Var vs) -> Term vs -> Term vs
-changeVar (MkVar {i=x} old) (MkVar new) (Local fc r idx p)
-    = if x == idx
-         then Local fc r _ new
-         else Local fc r _ p
-changeVar old new (Meta fc nm i args)
-    = Meta fc nm i (map (changeVar old new) args)
-changeVar (MkVar old) (MkVar new) (Bind fc x b sc)
-    = Bind fc x (assert_total (map (changeVar (MkVar old) (MkVar new)) b))
-           (changeVar (MkVar (Later old)) (MkVar (Later new)) sc)
-changeVar old new (App fc fn arg)
-    = App fc (changeVar old new fn) (changeVar old new arg)
-changeVar old new (As fc s nm p)
-    = As fc s (changeVar old new nm) (changeVar old new p)
-changeVar old new (TDelayed fc r p)
-    = TDelayed fc r (changeVar old new p)
-changeVar old new (TDelay fc r t p)
-    = TDelay fc r (changeVar old new t) (changeVar old new p)
-changeVar old new (TForce fc r p)
-    = TForce fc r (changeVar old new p)
-changeVar old new tm = tm
-
-findLater : (x : Name) -> (newer : List Name) -> Var (newer ++ x :: older)
-findLater x [] = MkVar First
-findLater {older} x (_ :: xs)
+findLater : (x : Name) -> (newer : SnocList Name) -> Var (older :< x ++ newer)
+findLater x [<] = MkVar First
+findLater {older} x (xs :< _)
     = let MkVar p = findLater {older} x xs in
           MkVar (Later p)
 
 toRig1 : {idx : Nat} -> (0 p : IsVar nm idx vs) -> Env Term vs -> Env Term vs
-toRig1 First (b :: bs)
+toRig1 First (bs :< b)
     = if isErased (multiplicity b)
-         then setMultiplicity b linear :: bs
-         else b :: bs
-toRig1 (Later p) (b :: bs) = b :: toRig1 p bs
+         then bs :< setMultiplicity b linear
+         else bs :< b
+toRig1 (Later p) (bs :< b) = toRig1 p bs :< b
 
 toRig0 : {idx : Nat} -> (0 p : IsVar nm idx vs) -> Env Term vs -> Env Term vs
-toRig0 First (b :: bs) = setMultiplicity b erased :: bs
-toRig0 (Later p) (b :: bs) = b :: toRig0 p bs
+toRig0 First (bs :< b) = bs :< setMultiplicity b erased
+toRig0 (Later p) (bs :< b) = toRig0 p bs :< b
 
 -- When we abstract over the evironment, pi needs to be explicit
 explicitPi : Env Term vs -> Env Term vs
-explicitPi (Pi fc c _ ty :: env) = Pi fc c Explicit ty :: explicitPi env
-explicitPi (b :: env) = b :: explicitPi env
-explicitPi [] = []
+explicitPi (env :< Pi fc c _ ty)  = explicitPi env :< Pi fc c Explicit ty
+explicitPi (env :< b) = explicitPi env :< b
+explicitPi [<] = [<]
 
 allow : Maybe (Var vs) -> Env Term vs -> Env Term vs
 allow Nothing env = env
@@ -87,42 +60,20 @@ findImpsIn : {vars : _} ->
              FC -> Env Term vars -> List (Name, Term vars) -> Term vars ->
              Core ()
 findImpsIn fc env ns (Bind _ n b@(Pi _ _ Implicit ty) sc)
-    = findImpsIn fc (b :: env)
+    = findImpsIn fc (env :< b)
                  ((n, weaken ty) :: map (\x => (fst x, weaken (snd x))) ns)
                  sc
 findImpsIn fc env ns (Bind _ n b sc)
-    = findImpsIn fc (b :: env)
+    = findImpsIn fc (env :< b)
                  (map (\x => (fst x, weaken (snd x))) ns)
                  sc
 findImpsIn fc env ns ty
     = when (not (isNil ns)) $
            throw (TryWithImplicits fc env (reverse ns))
 
-merge : {vs : List Name} ->
-        List (Var vs) -> List (Var vs) -> List (Var vs)
-merge [] xs = xs
-merge (v :: vs) xs
-    = merge vs (v :: filter (not . sameVar v) xs)
-
--- Extend the list of variables we need in the environment so far, removing
--- duplicates
-extendNeeded : {vs : _} ->
-               Binder (Term vs) ->
-               Env Term vs -> List (Var vs) -> List (Var vs)
-extendNeeded (Let _ _ ty val) env needed
-    = merge (findUsedLocs env ty) (merge (findUsedLocs env val) needed)
-extendNeeded (PLet _ _ ty val) env needed
-    = merge (findUsedLocs env ty) (merge (findUsedLocs env val) needed)
-extendNeeded b env needed
-    = merge (findUsedLocs env (binderType b)) needed
-
-isNeeded : Nat -> List (Var vs) -> Bool
-isNeeded x [] = False
-isNeeded x (MkVar {i} _ :: xs) = x == i || isNeeded x xs
-
 findScrutinee : {vs : _} ->
                 Env Term vs -> RawImp -> Maybe (Var vs)
-findScrutinee {vs = n' :: _} (b :: bs) (IVar loc' n)
+findScrutinee {vs = _ :< n'} (bs :< b) (IVar loc' n)
     = if n' == n && not (isLet b)
          then Just (MkVar First)
          else do MkVar p <- findScrutinee bs (IVar loc' n)
@@ -159,8 +110,6 @@ caseBlock : {vars : _} ->
             {auto m : Ref MD Metadata} ->
             {auto u : Ref UST UState} ->
             {auto e : Ref EST (EState vars)} ->
-            {auto s : Ref Syn SyntaxInfo} ->
-            {auto o : Ref ROpts REPLOpts} ->
             RigCount ->
             ElabInfo -> FC ->
             NestedNames vars ->
@@ -201,7 +150,7 @@ caseBlock {vars} rigc elabinfo fc nest env scr scrtm scrty caseRig alts expected
          let splitOn = findScrutinee env scr
 
          caseretty_in <- case expected of
-                           Just ty => getTerm ty
+                           Just ty => quote env ty
                            _ =>
                               do nmty <- genName "caseTy"
                                  u <- uniVar fc
@@ -215,14 +164,10 @@ caseBlock {vars} rigc elabinfo fc nest env scr scrtm scrty caseRig alts expected
                             (maybe (Bind fc scrn (Pi fc caseRig Explicit scrty)
                                        (weaken caseretty))
                                    (const caseretty) splitOn)
-         -- If we can normalise the type without the result being excessively
-         -- big do it. It's the depth of stuck applications - 10 is already
-         -- pretty much unreadable!
-         casefnty <- normaliseSizeLimit defs 10 [] casefnty
          (erasedargs, _) <- findErased casefnty
 
          logEnv "elab.case" 10 "Case env" env
-         logTermNF "elab.case" 2 ("Case function type: " ++ show casen) [] casefnty
+         logTermNF "elab.case" 2 ("Case function type: " ++ show casen) [<] casefnty
          traverse_ addToSave (keys (getMetas casefnty))
 
          -- If we've had to add implicits to the case type (because there
@@ -230,10 +175,10 @@ caseBlock {vars} rigc elabinfo fc nest env scr scrtm scrty caseRig alts expected
          -- way out is to throw an error and try again with the implicits
          -- actually bound! This is rather hacky, but a lot less fiddly than
          -- the alternative of fixing up the environment
-         when (not (isNil fullImps)) $ findImpsIn fc [] [] casefnty
+         when (not (isNil fullImps)) $ findImpsIn fc [<] [] casefnty
          cidx <- addDef casen ({ eraseArgs := erasedargs }
                                 (newDef fc casen (if isErased rigc then erased else top)
-                                      [] casefnty vis None))
+                                      [<] casefnty vis None))
 
          -- set the totality of the case block to be the same as that
          -- of the parent function
@@ -246,7 +191,7 @@ caseBlock {vars} rigc elabinfo fc nest env scr scrtm scrty caseRig alts expected
 
          let applyEnv = applyToFull fc caseRef env
          let appTm : Term vars
-                   = maybe (App fc applyEnv scrtm)
+                   = maybe (App fc applyEnv caseRig scrtm)
                            (const applyEnv)
                            splitOn
 
@@ -264,7 +209,7 @@ caseBlock {vars} rigc elabinfo fc nest env scr scrtm scrty caseRig alts expected
          -- we come out again, so save them
          let olddelayed = delayedElab ust
          put UST ({ delayedElab := [] } ust)
-         processDecl [InCase] nest' [] (IDef fc casen alts')
+         processDecl [InCase] nest' [<] (IDef fc casen alts')
 
          -- If there's no duplication of the scrutinee in the block,
          -- flag it as inlinable.
@@ -279,15 +224,15 @@ caseBlock {vars} rigc elabinfo fc nest env scr scrtm scrty caseRig alts expected
          ust <- get UST
          put UST ({ delayedElab := olddelayed } ust)
 
-         pure (appTm, gnf env caseretty)
+         pure (appTm, !(nf env caseretty))
   where
     mkLocalEnv : Env Term vs -> Env Term vs
-    mkLocalEnv [] = []
-    mkLocalEnv (b :: bs)
+    mkLocalEnv [<] = [<]
+    mkLocalEnv (bs :< b)
         = let b' = if isLinear (multiplicity b)
                       then setMultiplicity b erased
                       else b in
-              b' :: mkLocalEnv bs
+              mkLocalEnv bs :< b'
 
     -- Return the original name in the environment, and what it needs to be
     -- called in the case block. We need to mapping to build the ICaseLocal
@@ -303,8 +248,8 @@ caseBlock {vars} rigc elabinfo fc nest env scr scrtm scrty caseRig alts expected
     -- the LHS of the case to be applied to.
     addEnv : {vs : _} ->
              Int -> Env Term vs -> List Name -> (List (Name, Name), List RawImp)
-    addEnv idx [] used = ([], [])
-    addEnv idx {vs = v :: vs} (b :: bs) used
+    addEnv idx [<] used = ([], [])
+    addEnv idx {vs = vs :< v} (bs :< b) used
         = let n = getBindName idx v used
               (ns, rest) = addEnv (idx + 1) bs (snd n :: used)
               ns' = n :: ns in
@@ -373,15 +318,12 @@ caseBlock {vars} rigc elabinfo fc nest env scr scrtm scrty caseRig alts expected
               lhs' = apply (IVar loc' casen) args' in
               ImpossibleClause loc' (applyNested nest lhs')
 
-
 export
 checkCase : {vars : _} ->
             {auto c : Ref Ctxt Defs} ->
             {auto m : Ref MD Metadata} ->
             {auto u : Ref UST UState} ->
             {auto e : Ref EST (EState vars)} ->
-            {auto s : Ref Syn SyntaxInfo} ->
-            {auto o : Ref ROpts REPLOpts} ->
             RigCount -> ElabInfo ->
             NestedNames vars -> Env Term vars ->
             FC -> (scr : RawImp) -> (ty : RawImp) -> List ImpClause ->
@@ -394,7 +336,7 @@ checkCase rig elabinfo nest env fc scr scrty_in alts exp
                              _ => pure scrty_in
            u <- uniVar fc
            (scrtyv, scrtyt) <- check erased elabinfo nest env scrty_exp
-                                     (Just (gType fc u))
+                                     (Just (VType fc u))
            logTerm "elab.case" 10 "Expected scrutinee type" scrtyv
            -- Try checking at the given multiplicity; if that doesn't work,
            -- try checking at Rig1 (meaning that we're using a linear variable
@@ -403,49 +345,49 @@ checkCase rig elabinfo nest env fc scr scrty_in alts exp
            log "elab.case" 5 $ "Checking " ++ show scr ++ " at " ++ show chrig
 
            (scrtm_in, gscrty, caseRig) <- handle
-              (do c <- runDelays (const True) $ check chrig elabinfo nest env scr (Just (gnf env scrtyv))
+              (do c <- runDelays (const True) $ check chrig elabinfo nest env scr (Just !(nf env scrtyv))
                   pure (fst c, snd c, chrig))
             $ \case
                 e@(LinearMisuse _ _ r _)
                   => branchOne
                      (do c <- runDelays (const True) $ check linear elabinfo nest env scr
-                              (Just (gnf env scrtyv))
+                              (Just !(nf env scrtyv))
                          pure (fst c, snd c, linear))
                      (throw e)
                      r
                 e => throw e
 
-           scrty <- getTerm gscrty
+           scrty <- quote env gscrty
            logTermNF "elab.case" 5 "Scrutinee type" env scrty
            defs <- get Ctxt
-           checkConcrete !(nf defs env scrty)
+           checkConcrete !(expand !(nf env scrty))
            caseBlock rig elabinfo fc nest env scr scrtm_in scrty caseRig alts exp
   where
     -- For the moment, throw an error if we haven't been able to work out
     -- the type of the case scrutinee, because we'll need it to build the
     -- type of the case block. But (TODO) consider delaying on failure?
     checkConcrete : NF vs -> Core ()
-    checkConcrete (NApp _ (NMeta n i _) _)
+    checkConcrete (VMeta{})
         = throw (GenericMsg fc "Can't infer type for case scrutinee")
     checkConcrete _ = pure ()
 
-    applyTo : Defs -> RawImp -> NF [] -> Core RawImp
-    applyTo defs ty (NBind fc _ (Pi _ _ Explicit _) sc)
+    applyTo : Defs -> RawImp -> NF [<] -> Core RawImp
+    applyTo defs ty (VBind fc _ (Pi _ _ Explicit _) sc)
         = applyTo defs (IApp fc ty (Implicit fc False))
-               !(sc defs (toClosure defaultOpts [] (Erased fc Placeholder)))
-    applyTo defs ty (NBind _ x (Pi _ _ _ _) sc)
+               !(expand !(sc (VErased fc Placeholder)))
+    applyTo defs ty (VBind _ x (Pi _ _ _ _) sc)
         = applyTo defs (INamedApp fc ty x (Implicit fc False))
-               !(sc defs (toClosure defaultOpts [] (Erased fc Placeholder)))
+               !(expand !(sc (VErased fc Placeholder)))
     applyTo defs ty _ = pure ty
 
     -- Get the name and type of the family the scrutinee is in
-    getRetTy : Defs -> NF [] -> Core (Maybe (Name, NF []))
-    getRetTy defs (NBind fc _ (Pi _ _ _ _) sc)
-        = getRetTy defs !(sc defs (toClosure defaultOpts [] (Erased fc Placeholder)))
-    getRetTy defs (NTCon _ n _ arity _)
+    getRetTy : Defs -> NF [<] -> Core (Maybe (Name, NF [<]))
+    getRetTy defs (VBind fc _ (Pi _ _ _ _) sc)
+        = getRetTy defs !(expand !(sc (VErased fc Placeholder)))
+    getRetTy defs (VTCon _ n arity _)
         = do Just ty <- lookupTyExact n (gamma defs)
                   | Nothing => pure Nothing
-             pure (Just (n, !(nf defs [] ty)))
+             pure (Just (n, !(expand !(nf [<] ty))))
     getRetTy _ _ = pure Nothing
 
     -- Guess a scrutinee type by looking at the alternatives, so that we
@@ -458,7 +400,7 @@ checkCase rig elabinfo nest env fc scr scrty_in alts exp
                   do defs <- get Ctxt
                      [(n', (_, ty))] <- lookupTyName n (gamma defs)
                          | _ => guessScrType xs
-                     Just (tyn, tyty) <- getRetTy defs !(nf defs [] ty)
+                     Just (tyn, tyty) <- getRetTy defs !(expand !(nf [<] ty))
                          | _ => guessScrType xs
                      applyTo defs (IVar fc tyn) tyty
                _ => guessScrType xs

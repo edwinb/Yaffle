@@ -938,7 +938,7 @@ processDef opts nest env fc n_in cs_in
          traverse_ warnUnreachable unreachable
 
          logC "declare.def" 2 $
-                 do t <- toFullNames tree_ct
+                 do t <- toFullNames !(normaliseHoles [<] tree_ct)
                     pure ("Case tree for " ++ show n ++ ": " ++ show t)
          log "declare.def" 10 $ "Patterns: " ++ show pats
 

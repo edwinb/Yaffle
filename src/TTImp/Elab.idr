@@ -124,6 +124,10 @@ elabTermSub {vars} defining mode opts nest env env' sub tm ty
 
          defs <- get Ctxt
 
+         -- To reduce the 'always reduce' holes, like postponed guesses,
+         -- delayed terms, etc
+         chktm <- quote env !(nf env chktm)
+
          -- Linearity and hole checking.
          -- on the LHS, all holes need to have been solved
          chktm <- case mode of

@@ -159,6 +159,18 @@ parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
            alts' <- traverse (evalCaseAlt locs env) alts
            pure (VCase fc r sc scTy' alts')
 
+  -- We've turned the spine into a list so that the argument positions
+  -- correspond when going through the CaseScope
+  evalCaseScope : {vars : _} ->
+                  LocalEnv free vars -> Env Term vars ->
+                  List (FC, RigCount, Glued vars) -> CaseScope (vars ++ free) ->
+                  Core (Glued vars) -> -- what to do if stuck
+                  Core (Glued vars)
+  evalCaseScope locs env [] (RHS tm) stuck = eval locs env tm
+  evalCaseScope locs env ((_, _, v) :: sp) (Arg r x sc) stuck
+      = evalCaseScope (locs :< v) env sp sc stuck
+  evalCaseScope _ _ _ _ stuck = stuck
+
   tryAlts : {vars : _} ->
             LocalEnv free vars -> Env Term vars ->
             (sc : NF vars) -> -- scrutinee, which we assume to be in
@@ -169,19 +181,11 @@ parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
   tryAlts locs env (VErased _ (Dotted v)) alts stuck
       = tryAlts locs env v alts stuck
   tryAlts {vars} locs env sc@(VDCon _ _ t a sp) (ConCase _ _ t' cscope :: as) stuck
-      = if t == t' then evalCaseScope locs (cast sp) cscope
+      = if t == t' then evalCaseScope locs env (cast sp) cscope stuck
            else tryAlts locs env sc as stuck
-    where
-      -- We've turned the spine into a list so that the argument positions
-      -- correspond when going through the CaseScope
-      evalCaseScope : forall free . LocalEnv free vars ->
-                      List (FC, RigCount, Glued vars) -> CaseScope (vars ++ free) ->
-                      Core (Glued vars)
-      evalCaseScope locs [] (RHS tm) = eval locs env tm
-      evalCaseScope locs ((_, _, v) :: sp) (Arg r x sc)
-          = evalCaseScope (locs :< v) sp sc
-      evalCaseScope _ _ _ = stuck
-
+  tryAlts {vars} locs env sc@(VTCon _ n a sp) (ConCase _ n' _ cscope :: as) stuck
+      = if n == n' then evalCaseScope locs env (cast sp) cscope stuck
+           else tryAlts locs env sc as stuck
   tryAlts locs env sc@(VDelay _ _ ty arg) (DelayCase _ ty' arg' rhs :: as) stuck
       = eval (locs :< ty :< arg) env rhs
   tryAlts locs env sc@(VPrimVal _ c) (ConstCase _ c' rhs :: as) stuck
@@ -268,11 +272,13 @@ parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
       = do defs <- get Ctxt
            Just def <- lookupCtxtExact n (gamma defs)
                 | Nothing => pure (VApp fc nt n [<] (pure Nothing))
-           let Function _ fn _ _ = definition def
+           let Function fi fn _ _ = definition def
                 | _ => pure (VApp fc nt n [<] (pure Nothing))
-           pure $ VApp fc nt n [<] $
-                    do res <- eval locs env (embed fn)
-                       pure (Just res)
+           if alwaysReduce fi
+              then eval locs env (embed fn)
+              else pure $ VApp fc nt n [<] $
+                          do res <- eval locs env (embed fn)
+                             pure (Just res)
   eval locs env (Meta fc n i scope)
        = do scope' <- traverse (\ (q, val) =>
                                      do val' <- eval locs env val
@@ -280,12 +286,15 @@ parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
             defs <- get Ctxt
             Just def <- lookupCtxtExact n (gamma defs)
                  | Nothing => pure (VMeta fc n i scope' [<] (pure Nothing))
-            let Function _ fn _ _ = definition def
+            let Function fi fn _ _ = definition def
                  | _ => pure (VMeta fc n i scope' [<] (pure Nothing))
-            pure $ VMeta fc n i scope' [<] $
-                     do evalfn <- eval locs env (embed fn)
-                        res <- applyAll fc evalfn scope'
-                        pure (Just res)
+            if alwaysReduce fi
+               then do evalfn <- eval locs env (embed fn)
+                       applyAll fc evalfn scope'
+               else pure $ VMeta fc n i scope' [<] $
+                       do evalfn <- eval locs env (embed fn)
+                          res <- applyAll fc evalfn scope'
+                          pure (Just res)
   eval locs env (Bind fc x (Lam bfc r p ty) sc)
       = pure $ VLam fc x r !(evalPiInfo locs env p) !(eval locs env ty)
                     (\arg => eval (locs :< arg) env sc)

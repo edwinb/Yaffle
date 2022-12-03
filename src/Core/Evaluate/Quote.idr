@@ -275,7 +275,11 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteGen bounds env (VCase fc rig sc scTy alts) s
       = do sc' <- quoteGen bounds env sc s
            scTy' <- quoteGen bounds env scTy s
-           alts' <- traverse (quoteAlt BlockApp bounds env) alts
+           let s' = case s of
+                         NF _ => ExpandHoles
+                         ExpandHoles => ExpandHoles
+                         _ => BlockApp
+           alts' <- traverse (quoteAlt s' bounds env) alts
            pure $ Case fc rig sc' scTy' alts'
   quoteGen bounds env (VDelayed fc r ty) s
       = do ty' <- quoteGen bounds env ty s

@@ -35,6 +35,7 @@ data Name : Type where
      PV : Name -> Int -> Name -- pattern variable name; int is the resolved function id
      DN : String -> Name -> Name -- a name and how to display it
      Nested : (Int, Int) -> Name -> Name -- nested function name
+     CaseBlock : String -> Int -> Name -- case block nested in (resolved) name
      WithBlock : String -> Int -> Name -- with block nested in (resolved) name
      Resolved : Int -> Name -- resolved, index into context
 
@@ -121,6 +122,7 @@ isSourceName (UN _) = True
 isSourceName (MN _ _) = False
 isSourceName (PV n _) = isSourceName n
 isSourceName (DN _ n) = isSourceName n
+isSourceName (CaseBlock _ _) = False
 isSourceName (WithBlock _ _) = False
 isSourceName (Nested _ n) = isSourceName n
 isSourceName (Resolved _) = False
@@ -156,6 +158,7 @@ nameRoot (MN n _) = n
 nameRoot (PV n _) = nameRoot n
 nameRoot (DN _ n) = nameRoot n
 nameRoot (Nested _ inner) = nameRoot inner
+nameRoot (CaseBlock n _) = "$" ++ show n
 nameRoot (WithBlock n _) = "$" ++ show n
 nameRoot (Resolved i) = "$" ++ show i
 
@@ -167,6 +170,7 @@ displayName (MN n _) = (Nothing, n)
 displayName (PV n _) = displayName n
 displayName (DN n _) = (Nothing, n)
 displayName (Nested _ n) = displayName n
+displayName (CaseBlock outer _) = (Nothing, "case block in " ++ show outer)
 displayName (WithBlock outer _) = (Nothing, "with block in " ++ show outer)
 displayName (Resolved i) = (Nothing, "$resolved" ++ show i)
 
@@ -221,6 +225,7 @@ Show Name where
   show (DN str n) = str
   show (Nested (outer, idx) inner)
       = show outer ++ ":" ++ show idx ++ ":" ++ show inner
+  show (CaseBlock outer i) = "case block in " ++ outer
   show (WithBlock outer i) = "with block in " ++ outer
   show (Resolved x) = "$resolved" ++ show x
 
@@ -239,6 +244,7 @@ covering
   showPrec d (PV n i) = showCon d "PV" $ showArg n ++ showArg i
   showPrec d (DN str n) = showCon d "DN" $ showArg str ++ showArg n
   showPrec d (Nested ij n) = showCon d "Nested" $ showArg ij ++ showArg n
+  showPrec d (CaseBlock str i) = showCon d "CaseBlock" $ showArg str ++ showArg i
   showPrec d (WithBlock str i) = showCon d "WithBlock" $ showArg str ++ showArg i
   showPrec d (Resolved i) = showCon d "Resolved" $ showArg i
 
@@ -273,6 +279,7 @@ mutual
     pretty (DN str _) = pretty str
     pretty (Nested (outer, idx) inner)
       = byShow outer <+> colon <+> byShow idx <+> colon <+> pretty inner
+    pretty (CaseBlock outer _) = reflow "case block in" <++> pretty outer
     pretty (WithBlock outer _) = reflow "with block in" <++> pretty outer
     pretty (Resolved x) = pretty "$resolved" <+> pretty (show x)
 
@@ -292,6 +299,7 @@ Eq Name where
     (==) (PV x y) (PV x' y') = x == x' && y == y'
     (==) (DN _ n) (DN _ n') = n == n'
     (==) (Nested x y) (Nested x' y') = x == x' && y == y'
+    (==) (CaseBlock x y) (CaseBlock x' y') = y == y' && x == x'
     (==) (WithBlock x y) (WithBlock x' y') = y == y' && x == x'
     (==) (Resolved x) (Resolved x') = x == x'
     (==) _ _ = False
@@ -315,8 +323,9 @@ nameTag (MN _ _) = 2
 nameTag (PV _ _) = 3
 nameTag (DN _ _) = 4
 nameTag (Nested _ _) = 5
-nameTag (WithBlock _ _) = 6
-nameTag (Resolved _) = 7
+nameTag (CaseBlock _ _) = 6
+nameTag (WithBlock _ _) = 7
+nameTag (Resolved _) = 8
 
 export
 Ord Name where
@@ -340,6 +349,11 @@ Ord Name where
                LT => LT
     compare (DN _ n) (DN _ n') = compare n n'
     compare (Nested x y) (Nested x' y')
+        = case compare y y' of
+               EQ => compare x x'
+               GT => GT
+               LT => LT
+    compare (CaseBlock x y) (CaseBlock x' y')
         = case compare y y' of
                EQ => compare x x'
                GT => GT
@@ -394,6 +408,11 @@ nameEq (Nested x y) (Nested x' y') with (decEq x x')
   nameEq (Nested x y) (Nested x y') | (Yes Refl) with (nameEq y y')
     nameEq (Nested x y) (Nested x y') | (Yes Refl) | Nothing = Nothing
     nameEq (Nested x y) (Nested x y) | (Yes Refl) | (Just Refl) = Just Refl
+nameEq (CaseBlock x y) (CaseBlock x' y') with (decEq x x')
+  nameEq (CaseBlock x y) (CaseBlock x' y') | (No p) = Nothing
+  nameEq (CaseBlock x y) (CaseBlock x y') | (Yes Refl) with (decEq y y')
+    nameEq (CaseBlock x y) (CaseBlock x y') | (Yes Refl) | (No p) = Nothing
+    nameEq (CaseBlock x y) (CaseBlock x y) | (Yes Refl) | (Yes Refl) = Just Refl
 nameEq (WithBlock x y) (WithBlock x' y') with (decEq x x')
   nameEq (WithBlock x y) (WithBlock x' y') | (No p) = Nothing
   nameEq (WithBlock x y) (WithBlock x y') | (Yes Refl) with (decEq y y')

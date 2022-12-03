@@ -34,6 +34,10 @@ Eq Phase where
   RunTime == RunTime = True
   _ == _ = False
 
+Show Phase where
+  show (CompileTime r) = "Compile time " ++ show r
+  show RunTime = "Run time"
+
 data ArgType : SnocList Name -> Type where
      Known : RigCount -> (ty : Term vars) -> ArgType vars -- arg has type 'ty'
      Stuck : (fty : Term vars) -> ArgType vars
@@ -428,35 +432,58 @@ nextName root
          put PName (x + 1)
          pure (MN root x)
 
-nextNames : {vars : _} ->
-            {auto i : Ref PName Int} ->
+getArgTys : {vars : _} ->
             {auto c : Ref Ctxt Defs} ->
-            FC -> String -> SnocList (RigCount, Pat) -> Maybe (NF vars) ->
-            Core (args ** (SizeOf args, NamedPats (vars ++ args) args))
-nextNames fc root [<] fty = pure ([<] ** (zero, []))
-nextNames {vars} fc root (pats :< (c, p)) fty
-     = do defs <- get Ctxt
-          n <- nextName root
-          let env = mkEnv fc vars
-          fa_tys <- the (Core (Maybe (NF vars), ArgType vars)) $
-              case fty of
-                   Nothing => pure (Nothing, Unknown)
-                   Just (VBind pfc _ (Pi _ c _ fargc) fsc) =>
-                      do farg <- expand fargc
-                         case farg of
-                              VErased _ _ =>
-                                pure (Just !(expand !(fsc (vRef pfc Bound n))),
-                                  Unknown)
-                              _ => pure (Just !(expand !(fsc (vRef pfc Bound n))),
-                                      Known c !(quote env farg))
-                   Just t =>
-                      pure (Nothing, Stuck !(quote env t))
-          (args ** (l, ps)) <- nextNames {vars} fc root pats (fst fa_tys)
-          let argTy = case snd fa_tys of
+            Env Term vars -> List Name -> NF vars -> Core (List (ArgType vars))
+getArgTys env (n :: ns) (VBind pfc _ (Pi _ c _ farg) fsc)
+    = do rest <- getArgTys env ns !(expand !(fsc (vRef pfc Bound n)))
+         pure (Known c !(quote env farg) :: rest)
+getArgTys env (n :: ns) t
+    = pure [Stuck !(quote env t)]
+getArgTys _ _ _ = pure []
+
+nextNames' : {vars : _} ->
+             {auto i : Ref PName Int} ->
+             {auto c : Ref Ctxt Defs} ->
+             FC ->
+             (pats : SnocList (RigCount, Pat)) ->
+             (ns : SnocList Name) ->
+             LengthMatch pats ns ->
+             List (ArgType vars) ->
+             Core (args ** (SizeOf args, NamedPats (vars ++ args) args))
+nextNames' fc [<] [<] _ _ = pure ([<] ** (zero, []))
+nextNames' fc (pats :< (c, p)) (ns :< n) (SnocMatch prf) (argTy :: as)
+    = do (args ** (l, ps)) <- nextNames' fc pats ns prf as
+         let argTy' = case argTy of
                            Unknown => Unknown
                            Known rig t => Known rig (weakenNs (suc l) t)
                            Stuck t => Stuck (weakenNs (suc l) t)
-          pure (args :< n ** (suc l, MkInfo c p First argTy :: weaken ps))
+         pure (args :< n ** (suc l, MkInfo c p First argTy' :: weaken ps))
+nextNames' fc (pats :< (c, p)) (ns :< n) (SnocMatch prf) []
+    = do (args ** (l, ps)) <- nextNames' fc pats ns prf []
+         pure (args :< n ** (suc l, MkInfo c p First Unknown :: weaken ps))
+
+nextNames : {vars : _} ->
+            {auto i : Ref PName Int} ->
+            {auto c : Ref Ctxt Defs} ->
+            FC -> String -> SnocList (RigCount, Pat) -> NF vars ->
+            Core (args ** (SizeOf args, NamedPats (vars ++ args) args))
+nextNames {vars} fc root pats fty
+     = do defs <- get Ctxt
+          (args ** lprf) <- nextNames pats
+          let env = mkEnv fc vars
+          -- The arguments are in reverse order, so we need to
+          -- read what we know off 'fty' then reverse it
+          argTys <- getArgTys env (cast args) !(expand fty)
+          nextNames' fc pats args lprf (reverse argTys)
+  where
+    nextNames : (vars : SnocList a) ->
+                Core (ns : SnocList Name ** LengthMatch vars ns)
+    nextNames [<] = pure ([<] ** LinMatch)
+    nextNames (xs :< x)
+        = do n <- nextName root
+             (ns ** p) <- nextNames xs
+             pure (ns :< n ** SnocMatch p)
 
 -- replace the prefix of patterns with 'pargs'
 newPats : (pargs : SnocList (RigCount, Pat)) -> LengthMatch pargs ns ->
@@ -529,7 +556,7 @@ groupCons fc fn pvars cs
                               Just t <- lookupTyExact n (gamma defs)
                                    | Nothing => pure (VErased fc Placeholder)
                               expand !(nf (mkEnv fc vars') (embed t))
-             (patnames ** (l, newargs)) <- nextNames {vars=vars'} fc "e" pargs (Just cty)
+             (patnames ** (l, newargs)) <- nextNames {vars=vars'} fc "e" pargs cty
              -- Update non-linear names in remaining patterns (to keep
              -- explicit dependencies in types accurate)
              let pats' = updatePatNames (updateNames (zip patnames (map snd pargs)))
@@ -575,7 +602,7 @@ groupCons fc fn pvars cs
                             pure (VBind fc (MN "x" 0) (Pi fc top Explicit a)
                                      (\av => pure (VDelayed fc LUnknown a))))
              ([< argname, tyname] ** (l, newargs)) <-
-                  nextNames {vars=vars'} fc "e" [< (top, parg), (top, pty)] (Just dty)
+                  nextNames {vars=vars'} fc "e" [< (top, parg), (top, pty)] dty
                 | _ => throw (InternalError "Error compiling Delay pattern match")
              let pats' = updatePatNames (updateNames [< (argname, parg),
                                                         (tyname, pty) ])
@@ -664,7 +691,7 @@ getFirstPat (p :: _) = pat p
 getFirstArgType : NamedPats ns (ps :< p) -> ArgType ns
 getFirstArgType (p :: _) = argType p
 
--- TODO: Idris 2 has an optional heuristic here, but I'm leaving it own
+-- TODO: Idris 2 has an optional heuristic here, but I'm leaving it out
 -- for now because it is fiddly to port
 nextIdx: {p : _} ->
          {ps : _} ->
@@ -1022,7 +1049,7 @@ mkPatClause fc fn args ty pid (ps, rhs)
                do nty <- expand !(nf [<] ty)
                   -- The arguments are in reverse order, so we need to
                   -- read what we know off 'nty' then reverse it
-                  argTys <- getArgTys (cast args) nty
+                  argTys <- getArgTys [<] (cast args) nty
                   ns <- mkNames args ps eq (reverse argTys)
                   log "compile.casetree" 20 $
                     "Make pat clause for names " ++ show ns
@@ -1032,14 +1059,6 @@ mkPatClause fc fn args ty pid (ps, rhs)
                                    (weakenNs (mkSizeOf args) rhs))))
             (checkLengthMatch args ps)
   where
-    getArgTys : List Name -> NF [<] -> Core (List (ArgType [<]))
-    getArgTys (n :: ns) (VBind pfc _ (Pi _ c _ farg) fsc)
-        = do rest <- getArgTys ns !(expand !(fsc (vRef pfc Bound n)))
-             pure (Known c !(quote [<] farg) :: rest)
-    getArgTys (n :: ns) t
-        = pure [Stuck !(quote [<] t)]
-    getArgTys _ _ = pure []
-
     mkNames : (vars : SnocList Name) -> (ps : SnocList (Pat, RigCount)) ->
               LengthMatch vars ps -> List (ArgType [<]) ->
               Core (NamedPats vars vars)
@@ -1070,7 +1089,7 @@ patCompile fc fn phase ty (p :: ps) def
     = do let (ns ** num) = getNames 0 (fst p)
          pats <- mkPatClausesFrom 0 ns (p :: ps)
          -- higher verbosity: dump the raw data structure
-         log "compile.casetree" 10 $ show pats
+         log "compile.casetree" 5 $ "Patterns, " ++ show phase ++ ":" ++  show pats
          i <- newRef PName (the Int 0)
          cases <- match fc fn phase pats
                         (rewrite sym (appendLinLeftNeutral ns) in
@@ -1255,7 +1274,7 @@ makePMDef fc phase fn ty clauses
 
     labelPat : Int -> List a -> List (String, a)
     labelPat i [] = []
-    labelPat i (x :: xs) = ("pat" ++ show i ++ ":", x) :: labelPat (i + 1) xs
+    labelPat i (x :: xs) = ("PV" ++ show i ++ ":", x) :: labelPat (i + 1) xs
 
     mkSubstEnv : Int -> String -> Env Term vars -> SubstEnv vars [<]
     mkSubstEnv i pname [<] = Lin
