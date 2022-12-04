@@ -64,6 +64,11 @@ data Error : Type where
      NotFunctionType : {vars : _} ->
                    FC -> Defs -> Env Term vars ->
                    Term vars -> Error
+     RewriteNoChange : {vars : _} ->
+                       FC -> Env Term vars -> Term vars -> Term vars -> Error
+     NotRewriteRule : {vars : _} ->
+                      FC -> Env Term vars -> Term vars -> Error
+
      CaseCompile : FC -> Name -> CaseError -> Error
      MatchTooSpecific : {vars : _} ->
                         FC -> Env Term vars -> Term vars -> Error
@@ -185,6 +190,11 @@ Show Error where
   show (AlreadyDefined fc n) = show fc ++ ":" ++ show n ++ " is already defined"
   show (NotFunctionType fc defs env t)
       = show fc ++ ":" ++ show t ++ " is not a function type"
+  show (RewriteNoChange fc env rule ty)
+      = show fc ++ ":Rewriting by " ++ show rule ++ " did not change type " ++ show ty
+  show (NotRewriteRule fc env rule)
+      = show fc ++ ":" ++ show rule ++ " is not a rewrite rule type"
+
   show (CaseCompile fc n DifferingArgNumbers)
       = show fc ++ ":Patterns for " ++ show n ++ " have different numbers of arguments"
   show (CaseCompile fc n DifferingTypes)

@@ -712,7 +712,7 @@ directive fname indents
          rw <- name
          end <- location
          pure (let fc = MkFC fname start end in
-                   IPragma (\c, nest, env => setRewrite {c} fc eq rw))
+                   IPragma (\nest, env => setRewrite {c} fc eq rw))
     -}
 -- Declared at the top
 -- topDecl : OriginDesc -> IndentInfo -> Rule ImpDecl
