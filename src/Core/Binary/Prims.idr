@@ -60,6 +60,12 @@ Show BinaryMode where
   show Read = "Read"
   show Write = "Write"
 
+export
+Eq BinaryMode where
+  Read == Read = True
+  Write == Write = True
+  _ == _ = False
+
 public export
 Table : BinaryMode -> Type
 Table Read = IntMap String
@@ -84,6 +90,16 @@ Show TTCError where
   show (EndOfBuffer when) = "End of buffer when reading " ++ when
   show (Corrupt ty) = "Corrupt TTC data for " ++ ty
   show (BadBinaryMode b) = "Internal TTC error in binary mode " ++ show b
+
+export
+Eq TTCError where
+  CantCreateBuffer == CantCreateBuffer = True
+  CantExpandBuffer == CantExpandBuffer = True
+  Format x1 y1 z1 == Format x2 y2 z2 = x1 == x2 && y1 == y2 && z1 == z2
+  EndOfBuffer x1 == EndOfBuffer x2 = x1 == x2
+  Corrupt x1 == Corrupt x2 = x1 == x2
+  BadBinaryMode x1 == BadBinaryMode x2 = x1 == x2
+  _ == _ = False
 
 public export
 CoreTTC : Type -> Type

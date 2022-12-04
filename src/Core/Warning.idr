@@ -13,6 +13,11 @@ data Warning : Type where
      UnreachableClause : {vars : _} ->
                          FC -> Env Term vars -> Term vars -> Warning
      ShadowingGlobalDefs : FC -> List1 (String, List1 Name) -> Warning
+     ||| First FC is type
+     ||| @ shadowed list of names which are shadowed,
+     |||   where they originally appear
+     |||   and where they are shadowed
+     ShadowingLocalBindings : FC -> (shadowed : List1 (String, FC, FC)) -> Warning
      ||| A warning about a deprecated definition. Supply an FC and Name to
      ||| have the documentation for the definition printed with the warning.
      Deprecated : String -> Maybe (FC, Name) -> Warning
@@ -28,5 +33,6 @@ Show Warning where
     show (ParserWarning _ msg) = msg
     show (UnreachableClause _ _ _) = ":Unreachable clause"
     show (ShadowingGlobalDefs _ _) = ":Shadowing names"
+    show (ShadowingLocalBindings _ _) = ":Shadowing names"
     show (Deprecated name _) = ":Deprecated " ++ name
     show (GenericWarn msg) = msg

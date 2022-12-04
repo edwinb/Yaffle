@@ -35,6 +35,7 @@ data CaseError = DifferingArgNumbers
 
 public export
 data Error : Type where
+     Fatal : Error -> Error -- flag as unrecoverable (so don't postpone awaiting further info)
      CantConvert : {vars : _} ->
                    FC -> Defs -> Env Term vars ->
                    Term vars -> Term vars -> Error
@@ -78,6 +79,11 @@ data Error : Type where
      NotTotal : FC -> Name -> PartialReason -> Error
      LinearUsed : FC -> Nat -> Name -> Error
      LinearMisuse : FC -> Name -> RigCount -> RigCount -> Error
+     BorrowPartial : {vars : _} ->
+                     FC -> Env Term vars -> Term vars -> Term vars -> Error
+     BorrowPartialType : {vars : _} ->
+                         FC -> Env Term vars -> Term vars -> Error
+
      AmbiguousName : FC -> List Name -> Error
      AmbiguousElab : {vars : _} ->
                      FC -> Env Term vars -> List (Defs, Term vars) -> Error
@@ -104,20 +110,37 @@ data Error : Type where
                      FC -> Defs -> Env Term vars -> Term vars ->
                      Maybe Error -> Error
      UnsolvedHoles : List (FC, Name) -> Error
+     CantInferArgType : {vars : _} ->
+                        FC -> Env Term vars -> Name -> Name -> Term vars -> Error
+     SolvedNamedHole : {vars : _} ->
+                       FC -> Env Term vars -> Name -> Term vars -> Error
+     VisibilityError : FC -> Visibility -> Name -> Visibility -> Name -> Error
+
      DeterminingArg : {vars : _} ->
                       FC -> Name -> Int -> Env Term vars -> Term vars -> Error
 
      MaybeMisspelling : Error -> List1 String -> Error
      ModuleNotFound : FC -> ModuleIdent -> Error
 
+     BadImplicit : FC -> String -> Error
+     BadRunElab : {vars : _} ->
+                  FC -> Env Term vars -> Term vars -> (description : String) -> Error
+     RunElabFail : Error -> Error
+
      GenericMsg : FC -> String -> Error
      UserError : String -> Error
+     CantFindPackage : String -> Error
      LitFail : FC -> Error
      LexFail : FC -> String -> Error
      ParseFail : List1 (FC, String) -> Error
+     CyclicImports : List ModuleIdent -> Error
+     ForceNeeded : Error
      InternalError : String -> Error
      TTCErr : TTCError -> Error
      FileErr : TFileError -> Error
+     NoForeignCC : FC -> List String -> Error
+     BadMultiline : FC -> String -> Error
+     Timeout : String -> Error
      FailingDidNotFail : FC -> Error
      FailingWrongError : FC -> String -> List1 Error -> Error
 
@@ -133,13 +156,13 @@ getWarningLoc : Warning -> Maybe FC
 getWarningLoc (ParserWarning fc _) = Just fc
 getWarningLoc (UnreachableClause fc _ _) = Just fc
 getWarningLoc (ShadowingGlobalDefs fc _) = Just fc
--- getWarningLoc (ShadowingLocalBindings fc _) = Just fc
+getWarningLoc (ShadowingLocalBindings fc _) = Just fc
 getWarningLoc (Deprecated _ fcAndName) = fst <$> fcAndName
 getWarningLoc (GenericWarn _) = Nothing
 
 export
 getErrorLoc : Error -> Maybe FC
--- getErrorLoc (Fatal err) = getErrorLoc err
+getErrorLoc (Fatal err) = getErrorLoc err
 getErrorLoc (CantConvert loc _ _ _ _) = Just loc
 getErrorLoc (CantSolveEq loc _ _ _ _) = Just loc
 getErrorLoc (PatternVariableUnifies loc _ _ _ _) = Just loc
@@ -154,8 +177,8 @@ getErrorLoc (NotCovering loc _ _) = Just loc
 getErrorLoc (NotTotal loc _ _) = Just loc
 getErrorLoc (LinearUsed loc _ _) = Just loc
 getErrorLoc (LinearMisuse loc _ _ _) = Just loc
--- getErrorLoc (BorrowPartial loc _ _ _) = Just loc
--- getErrorLoc (BorrowPartialType loc _ _) = Just loc
+getErrorLoc (BorrowPartial loc _ _ _) = Just loc
+getErrorLoc (BorrowPartialType loc _ _) = Just loc
 getErrorLoc (AmbiguousName loc _) = Just loc
 getErrorLoc (AmbiguousElab loc _ _) = Just loc
 getErrorLoc (AmbiguousSearch loc _ _ _) = Just loc
@@ -174,9 +197,9 @@ getErrorLoc (CantSolveGoal loc _ _ _ _) = Just loc
 getErrorLoc (DeterminingArg loc _ _ _ _) = Just loc
 getErrorLoc (UnsolvedHoles ((loc, _) :: _)) = Just loc
 getErrorLoc (UnsolvedHoles []) = Nothing
--- getErrorLoc (CantInferArgType loc _ _ _ _) = Just loc
--- getErrorLoc (SolvedNamedHole loc _ _ _) = Just loc
--- getErrorLoc (VisibilityError loc _ _ _ _) = Just loc
+getErrorLoc (CantInferArgType loc _ _ _ _) = Just loc
+getErrorLoc (SolvedNamedHole loc _ _ _) = Just loc
+getErrorLoc (VisibilityError loc _ _ _ _) = Just loc
 getErrorLoc (NonLinearPattern loc _) = Just loc
 getErrorLoc (BadPattern loc _) = Just loc
 getErrorLoc (NoDeclaration loc _) = Just loc
@@ -187,24 +210,24 @@ getErrorLoc (NotRewriteRule loc _ _) = Just loc
 getErrorLoc (CaseCompile loc _ _) = Just loc
 getErrorLoc (MatchTooSpecific loc _ _) = Just loc
 getErrorLoc (BadDotPattern loc _ _ _ _) = Just loc
--- getErrorLoc (BadImplicit loc _) = Just loc
--- getErrorLoc (BadRunElab loc _ _ _) = Just loc
--- getErrorLoc (RunElabFail e) = getErrorLoc e
+getErrorLoc (BadImplicit loc _) = Just loc
+getErrorLoc (BadRunElab loc _ _ _) = Just loc
+getErrorLoc (RunElabFail e) = getErrorLoc e
 getErrorLoc (GenericMsg loc _) = Just loc
 getErrorLoc (TTCErr _) = Nothing
 getErrorLoc (FileErr _) = Nothing
--- getErrorLoc (CantFindPackage _) = Nothing
+getErrorLoc (CantFindPackage _) = Nothing
 getErrorLoc (LitFail loc) = Just loc
 getErrorLoc (LexFail loc _) = Just loc
 getErrorLoc (ParseFail ((loc, _) ::: _)) = Just loc
 getErrorLoc (ModuleNotFound loc _) = Just loc
--- getErrorLoc (CyclicImports _) = Nothing
--- getErrorLoc ForceNeeded = Nothing
+getErrorLoc (CyclicImports _) = Nothing
+getErrorLoc ForceNeeded = Nothing
 getErrorLoc (InternalError _) = Nothing
 getErrorLoc (UserError _) = Nothing
--- getErrorLoc (NoForeignCC loc _) = Just loc
--- getErrorLoc (BadMultiline loc _) = Just loc
--- getErrorLoc (Timeout _) = Nothing
+getErrorLoc (NoForeignCC loc _) = Just loc
+getErrorLoc (BadMultiline loc _) = Just loc
+getErrorLoc (Timeout _) = Nothing
 getErrorLoc (InType _ _ err) = getErrorLoc err
 getErrorLoc (InCon _ _ err) = getErrorLoc err
 getErrorLoc (FailingDidNotFail fc) = pure fc
@@ -219,14 +242,14 @@ killWarningLoc : Warning -> Warning
 killWarningLoc (ParserWarning fc x) = ParserWarning emptyFC x
 killWarningLoc (UnreachableClause fc x y) = UnreachableClause emptyFC x y
 killWarningLoc (ShadowingGlobalDefs fc xs) = ShadowingGlobalDefs emptyFC xs
--- killWarningLoc (ShadowingLocalBindings fc xs) =
---     ShadowingLocalBindings emptyFC $ (\(n, _, _) => (n, emptyFC, emptyFC)) <$> xs
+killWarningLoc (ShadowingLocalBindings fc xs) =
+    ShadowingLocalBindings emptyFC $ (\(n, _, _) => (n, emptyFC, emptyFC)) <$> xs
 killWarningLoc (Deprecated x y) = Deprecated x (map ((emptyFC,) . snd) y)
 killWarningLoc (GenericWarn x) = GenericWarn x
 
 export
 killErrorLoc : Error -> Error
--- killErrorLoc (Fatal err) = Fatal (killErrorLoc err)
+killErrorLoc (Fatal err) = Fatal (killErrorLoc err)
 killErrorLoc (CantConvert fc x y z w) = CantConvert emptyFC x y z w
 killErrorLoc (CantSolveEq fc x y z w) = CantSolveEq emptyFC x y z w
 killErrorLoc (PatternVariableUnifies fc fct x y z) = PatternVariableUnifies emptyFC emptyFC x y z
@@ -241,8 +264,8 @@ killErrorLoc (NotCovering fc x y) = NotCovering emptyFC x y
 killErrorLoc (NotTotal fc x y) = NotTotal emptyFC x y
 killErrorLoc (LinearUsed fc k x) = LinearUsed emptyFC k x
 killErrorLoc (LinearMisuse fc x y z) = LinearMisuse emptyFC x y z
--- killErrorLoc (BorrowPartial fc x y z) = BorrowPartial emptyFC x y z
--- killErrorLoc (BorrowPartialType fc x y) = BorrowPartialType emptyFC x y
+killErrorLoc (BorrowPartial fc x y z) = BorrowPartial emptyFC x y z
+killErrorLoc (BorrowPartialType fc x y) = BorrowPartialType emptyFC x y
 killErrorLoc (AmbiguousName fc xs) = AmbiguousName emptyFC xs
 killErrorLoc (AmbiguousElab fc x xs) = AmbiguousElab emptyFC x xs
 killErrorLoc (AmbiguousSearch fc x y xs) = AmbiguousSearch emptyFC x y xs
@@ -259,9 +282,9 @@ killErrorLoc (BadUnboundImplicit fc x y z) = BadUnboundImplicit emptyFC x y z
 killErrorLoc (CantSolveGoal fc x y z w) = CantSolveGoal emptyFC x y z w
 killErrorLoc (DeterminingArg fc x y z w) = DeterminingArg emptyFC x y z w
 killErrorLoc (UnsolvedHoles xs) = UnsolvedHoles xs
--- killErrorLoc (CantInferArgType fc x y z w) = CantInferArgType emptyFC x y z w
--- killErrorLoc (SolvedNamedHole fc x y z) = SolvedNamedHole emptyFC x y z
--- killErrorLoc (VisibilityError fc x y z w) = VisibilityError emptyFC x y z w
+killErrorLoc (CantInferArgType fc x y z w) = CantInferArgType emptyFC x y z w
+killErrorLoc (SolvedNamedHole fc x y z) = SolvedNamedHole emptyFC x y z
+killErrorLoc (VisibilityError fc x y z w) = VisibilityError emptyFC x y z w
 killErrorLoc (NonLinearPattern fc x) = NonLinearPattern emptyFC x
 killErrorLoc (BadPattern fc x) = BadPattern emptyFC x
 killErrorLoc (NoDeclaration fc x) = NoDeclaration emptyFC x
@@ -272,24 +295,24 @@ killErrorLoc (NotRewriteRule fc x y) = NotRewriteRule emptyFC x y
 killErrorLoc (CaseCompile fc x y) = CaseCompile emptyFC x y
 killErrorLoc (MatchTooSpecific fc x y) = MatchTooSpecific emptyFC x y
 killErrorLoc (BadDotPattern fc x y z w) = BadDotPattern emptyFC x y z w
--- killErrorLoc (BadImplicit fc x) = BadImplicit emptyFC x
--- killErrorLoc (BadRunElab fc x y description) = BadRunElab emptyFC x y description
--- killErrorLoc (RunElabFail e) = RunElabFail $ killErrorLoc e
+killErrorLoc (BadImplicit fc x) = BadImplicit emptyFC x
+killErrorLoc (BadRunElab fc x y description) = BadRunElab emptyFC x y description
+killErrorLoc (RunElabFail e) = RunElabFail $ killErrorLoc e
 killErrorLoc (GenericMsg fc x) = GenericMsg emptyFC x
 killErrorLoc (TTCErr x) = TTCErr x
 killErrorLoc (FileErr x) = FileErr x
--- killErrorLoc (CantFindPackage x) = CantFindPackage x
+killErrorLoc (CantFindPackage x) = CantFindPackage x
 killErrorLoc (LitFail fc) = LitFail emptyFC
 killErrorLoc (LexFail fc x) = LexFail emptyFC x
 killErrorLoc (ParseFail xs) = ParseFail $ map ((emptyFC,) . snd) $ xs
 killErrorLoc (ModuleNotFound fc x) = ModuleNotFound emptyFC x
--- killErrorLoc (CyclicImports xs) = CyclicImports xs
--- killErrorLoc ForceNeeded = ForceNeeded
+killErrorLoc (CyclicImports xs) = CyclicImports xs
+killErrorLoc ForceNeeded = ForceNeeded
 killErrorLoc (InternalError x) = InternalError x
 killErrorLoc (UserError x) = UserError x
--- killErrorLoc (NoForeignCC fc xs) = NoForeignCC emptyFC xs
--- killErrorLoc (BadMultiline fc x) = BadMultiline emptyFC x
--- killErrorLoc (Timeout x) = Timeout x
+killErrorLoc (NoForeignCC fc xs) = NoForeignCC emptyFC xs
+killErrorLoc (BadMultiline fc x) = BadMultiline emptyFC x
+killErrorLoc (Timeout x) = Timeout x
 killErrorLoc (FailingDidNotFail fc) = FailingDidNotFail emptyFC
 killErrorLoc (FailingWrongError fc x errs) = FailingWrongError emptyFC x (map killErrorLoc errs)
 killErrorLoc (InType fc x err) = InType emptyFC x (killErrorLoc err)
@@ -304,6 +327,7 @@ killErrorLoc (WarningAsError wrn) = WarningAsError (killWarningLoc wrn)
 
 export
 Show Error where
+  show (Fatal err) = show err
   show (CantConvert fc defs env x y)
       = show fc ++ ":Can't convert " ++ show x ++ " with " ++ show y
   show (CantSolveEq fc _ env x y)
@@ -330,7 +354,11 @@ Show Error where
       = show fc ++ ":Can't match on " ++ show x ++
            " (" ++ show reason ++ ")" ++
            " - it elaborates to " ++ show y
-
+  show (BorrowPartial fc env t arg)
+      = show fc ++ ":" ++ show t ++ " borrows argument " ++ show arg ++
+                   " so must be fully applied"
+  show (BorrowPartialType fc env t)
+      = show fc ++ ":" ++ show t ++ " borrows, so must return a concrete type"
   show (AmbiguousName fc ns) = show fc ++ ":Ambiguous name " ++ show ns
   show (AmbiguousElab fc env ts) = show fc ++ ":Ambiguous elaboration " ++ show (map snd ts)
   show (AmbiguousSearch fc env tgt ts) = show fc ++ ":Ambiguous search " ++ show ts
@@ -359,6 +387,13 @@ Show Error where
   show (CyclicMeta fc env n tm)
       = show fc ++ ":Cycle detected in metavariable solution " ++ show n
              ++ " = " ++ show tm
+  show (CantInferArgType fc env n h ty)
+      = show fc ++ ":Can't infer type for " ++ show n ++
+                   " (got " ++ show ty ++ " with hole " ++ show h ++ ")"
+  show (SolvedNamedHole fc _ h _) = show fc ++ ":Named hole " ++ show h ++ " is solved by unification"
+  show (VisibilityError fc vx x vy y)
+      = show fc ++ ":" ++ show vx ++ " " ++ show x ++ " cannot refer to "
+                       ++ show vy ++ " " ++ show y
   show (NonLinearPattern fc n) = show fc ++ ":Non linear pattern variable " ++ show n
   show (BadPattern fc n) = show fc ++ ":Pattern not allowed here: " ++ show n
 
@@ -435,17 +470,25 @@ Show Error where
          _ => " any of: " ++ showSep ", " (map show (forget ns)) ++ "?"
   show (ModuleNotFound fc ns)
       = show fc ++ ":" ++ show ns ++ " not found"
+  show (BadImplicit fc str) = show fc ++ ":" ++ str ++ " can't be bound here"
+  show (BadRunElab fc env script desc) = show fc ++ ":Bad elaborator script " ++ show script ++ " (" ++ desc ++ ")"
+  show (RunElabFail e) = "Error during reflection: " ++ show e
   show (GenericMsg fc str) = show fc ++ ":" ++ str
   show (UserError str) = "Error: " ++ str
-
+  show (CantFindPackage fname) = "Can't find package " ++ fname
   show (LitFail fc) = show fc ++ ":Can't parse literate"
   show (LexFail fc err) = show fc ++ ":Lexer error (" ++ show err ++ ")"
   show (ParseFail errs) = "Parse errors (" ++ show errs ++ ")"
+  show (CyclicImports ns)
+      = "Module imports form a cycle: " ++ showSep " -> " (map show ns)
+  show ForceNeeded = "Internal error when resolving implicit laziness"
   show (InternalError str) = "INTERNAL ERROR: " ++ str
-
   show (TTCErr err) = "TTC error: " ++ show err
   show (FileErr err) = "File error: " ++ show err
-
+  show (NoForeignCC fc specs) = show fc ++
+       ":The given specifier " ++ show specs ++ " was not accepted by any available backend."
+  show (BadMultiline fc str) = "Invalid multiline string: " ++ str
+  show (Timeout str) = "Timeout in " ++ str
   show (FailingDidNotFail _) = "Failing block did not fail"
   show (FailingWrongError fc msg err)
        = assert_total $
@@ -507,15 +550,9 @@ Eq Warning where
   ParserWarning fc1 x1 == ParserWarning fc2 x2 = fc1 == fc2 && x1 == x2
   UnreachableClause fc1 rho1 s1 == UnreachableClause fc2 rho2 s2 = fc1 == fc2
   ShadowingGlobalDefs fc1 xs1 == ShadowingGlobalDefs fc2 xs2 = fc1 == fc2 && xs1 == xs2
+  ShadowingLocalBindings fc1 xs1 == ShadowingLocalBindings fc2 xs2 = fc1 == fc2 && xs1 == xs2
   Deprecated x1 y1 == Deprecated x2 y2 = x1 == x2 && y1 == y2
   GenericWarn x1 == GenericWarn x2 = x1 == x2
-  _ == _ = False
-
-export
-Eq TTCError where
-  Format x1 y1 z1 == Format x2 y2 z2 = x1 == x2 && y1 == y2 && z1 == z2
-  EndOfBuffer x1 == EndOfBuffer x2 = x1 == x2
-  Corrupt x1 == Corrupt x2 = x1 == x2
   _ == _ = False
 
 export
@@ -537,7 +574,7 @@ Eq TFileError where
 -- Not fully correct, see e.g. `CantConvert` where we don't check the Env
 export
 Eq Error where
---   Fatal err1 == Fatal err2 = err1 == err2
+  Fatal err1 == Fatal err2 = err1 == err2
   CantConvert fc1 gam1 rho1 s1 t1 == CantConvert fc2 gam2 rho2 s2 t2 = fc1 == fc2
   CantSolveEq fc1 gam1 rho s1 t1 == CantSolveEq fc2 gam2 rho2 s2 t2 = fc1 == fc2
   PatternVariableUnifies fc1 fct1 rho1 n1 s1 == PatternVariableUnifies fc2 fct2 rho2 n2 s2 = fc1 == fc2 && fct1 == fct2 && n1 == n2
@@ -552,8 +589,8 @@ Eq Error where
   NotTotal fc1 n1 x1 == NotTotal fc2 n2 x2 = fc1 == fc2 && n1 == n2
   LinearUsed fc1 k1 n1 == LinearUsed fc2 k2 n2 = fc1 == fc2 && k1 == k2 && n1 == n2
   LinearMisuse fc1 n1 x1 y1 == LinearMisuse fc2 n2 x2 y2 = fc1 == fc2 && n1 == n2 && x1 == x2 && y1 == y2
---   BorrowPartial fc1 rho1 s1 t1 == BorrowPartial fc2 rho2 s2 t2 = fc1 == fc2
---   BorrowPartialType fc1 rho1 s1 == BorrowPartialType fc2 rho2 s2 = fc1 == fc2
+  BorrowPartial fc1 rho1 s1 t1 == BorrowPartial fc2 rho2 s2 t2 = fc1 == fc2
+  BorrowPartialType fc1 rho1 s1 == BorrowPartialType fc2 rho2 s2 = fc1 == fc2
   AmbiguousName fc1 xs1 == AmbiguousName fc2 xs2 = fc1 == fc2 && xs1 == xs2
   AmbiguousElab fc1 rho1 xs1 == AmbiguousElab fc2 rho2 xs2 = fc1 == fc2
   AmbiguousSearch fc1 rho1 s1 xs1 == AmbiguousSearch fc2 rho2 s2 xs2 = fc1 == fc2
@@ -570,10 +607,10 @@ Eq Error where
   CantSolveGoal fc1 gam1 rho1 s1 x1 == CantSolveGoal fc2 gam2 rho2 s2 x2 = fc1 == fc2
   DeterminingArg fc1 n1 x1 rho1 s1 == DeterminingArg fc2 n2 x2 rho2 s2 = fc1 == fc2 && n1 == n2 && x1 == x2
   UnsolvedHoles xs1 == UnsolvedHoles xs2 = xs1 == xs2
---   CantInferArgType fc1 rho1 n1 m1 s1 == CantInferArgType fc2 rho2 n2 m2 s2 = fc1 == fc2 && n1 == n2 && m1 == m2
---   SolvedNamedHole fc1 rho1 n1 s1 == SolvedNamedHole fc2 rho2 n2 s2 = fc1 == fc2 && n1 == n2
---   VisibilityError fc1 x1 n1 y1 m1 == VisibilityError fc2 x2 n2 y2 m2
---     = fc1 == fc2 && x1 == x2 && n1 == n2 && y1 == y2 && m1 == m2
+  CantInferArgType fc1 rho1 n1 m1 s1 == CantInferArgType fc2 rho2 n2 m2 s2 = fc1 == fc2 && n1 == n2 && m1 == m2
+  SolvedNamedHole fc1 rho1 n1 s1 == SolvedNamedHole fc2 rho2 n2 s2 = fc1 == fc2 && n1 == n2
+  VisibilityError fc1 x1 n1 y1 m1 == VisibilityError fc2 x2 n2 y2 m2
+    = fc1 == fc2 && x1 == x2 && n1 == n2 && y1 == y2 && m1 == m2
   NonLinearPattern fc1 n1 == NonLinearPattern fc2 n2 = fc1 == fc2 && n1 == n2
   BadPattern fc1 n1 == BadPattern fc2 n2 =  fc1 == fc2 && n1 == n2
   NoDeclaration fc1 n1 == NoDeclaration fc2 n2 = fc1 == fc2 && n1 == n2
@@ -584,24 +621,24 @@ Eq Error where
   CaseCompile fc1 n1 x1 == CaseCompile fc2 n2 x2 = fc1 == fc2 && n1 == n2
   MatchTooSpecific fc1 rho1 s1 == MatchTooSpecific fc2 rho2 s2 = fc1 == fc2
   BadDotPattern fc1 rho1 x1 s1 t1 == BadDotPattern fc2 rho2 x2 s2 t2 = fc1 == fc2
---   BadImplicit fc1 x1 == BadImplicit fc2 x2 = fc1 == fc2 && x1 == x2
---   BadRunElab fc1 rho1 s1 d1 == BadRunElab fc2 rho2 s2 d2 = fc1 == fc2 && d1 == d2
---   RunElabFail e1 == RunElabFail e2 = e1 == e2
+  BadImplicit fc1 x1 == BadImplicit fc2 x2 = fc1 == fc2 && x1 == x2
+  BadRunElab fc1 rho1 s1 d1 == BadRunElab fc2 rho2 s2 d2 = fc1 == fc2 && d1 == d2
+  RunElabFail e1 == RunElabFail e2 = e1 == e2
   GenericMsg fc1 x1 == GenericMsg fc2 x2 = fc1 == fc2 && x1 == x2
   TTCErr x1 == TTCErr x2 = x1 == x2
   FileErr x1 == FileErr x2 = x1 == x2
---   CantFindPackage x1 == CantFindPackage x2 = x1 == x2
+  CantFindPackage x1 == CantFindPackage x2 = x1 == x2
   LitFail fc1 == LitFail fc2 = fc1 == fc2
   LexFail fc1 x1 == LexFail fc2 x2 = fc1 == fc2 && x1 == x2
   ParseFail xs1 == ParseFail xs2 = xs1 == xs2
   ModuleNotFound fc1 x1 == ModuleNotFound fc2 x2 = fc1 == fc2 && x1 == x2
---   CyclicImports xs1 == CyclicImports xs2 = xs1 == xs2
---   ForceNeeded == ForceNeeded = True
+  CyclicImports xs1 == CyclicImports xs2 = xs1 == xs2
+  ForceNeeded == ForceNeeded = True
   InternalError x1 == InternalError x2 = x1 == x2
   UserError x1 == UserError x2 = x1 == x2
---   NoForeignCC fc1 xs1 == NoForeignCC fc2 xs2 = fc1 == fc2 && xs1 == xs2
---   BadMultiline fc1 x1 == BadMultiline fc2 x2 = fc1 == fc2 && x1 == x2
---   Timeout x1 == Timeout x2 = x1 == x2
+  NoForeignCC fc1 xs1 == NoForeignCC fc2 xs2 = fc1 == fc2 && xs1 == xs2
+  BadMultiline fc1 x1 == BadMultiline fc2 x2 = fc1 == fc2 && x1 == x2
+  Timeout x1 == Timeout x2 = x1 == x2
   FailingDidNotFail fc1 == FailingDidNotFail fc2 = fc1 == fc2
   FailingWrongError fc1 x1 err1 == FailingWrongError fc2 x2 err2
     = fc1 == fc2 && x1 == x2 && assert_total (err1 == err2)
