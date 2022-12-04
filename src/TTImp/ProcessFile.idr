@@ -14,6 +14,7 @@ import TTImp.ProcessBuiltin
 import TTImp.ProcessData
 import TTImp.ProcessDef
 import TTImp.ProcessRecord
+import TTImp.ProcessTransform
 import TTImp.ProcessType
 import TTImp.TTImp
 import TTImp.Elab.Check

@@ -62,6 +62,7 @@ modules
     TTImp.ProcessDef,
     TTImp.ProcessFile,
     TTImp.ProcessRecord,
+    TTImp.ProcessTransform,
     TTImp.ProcessType,
     TTImp.TTImp,
     TTImp.TTImp.Functor,
