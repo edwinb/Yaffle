@@ -48,7 +48,7 @@ process : {auto c : Ref Ctxt Defs} ->
 process (Eval ttimp)
     = do (tm, _) <- elabTerm 0 InExpr [] (MkNested []) [<] ttimp Nothing
          defs <- get Ctxt
-         tmnf <- normalise [<] tm
+         tmnf <- toFullNames !(normalise [<] tm)
          coreLift_ (printLn !(unelabNoImp [<] tmnf))
          pure True
 process (Check (IVar _ n))
@@ -60,14 +60,14 @@ process (Check (IVar _ n))
     printName : (Name, Int, ClosedTerm) -> Core ()
     printName (n, _, tyh)
         = do defs <- get Ctxt
-             ty <- normaliseHoles [<] tyh
+             ty <- toFullNames !(normaliseHoles [<] tyh)
              coreLift_ $ putStrLn $ show n ++ " : " ++
                                     show !(unelabNoImp [<] ty)
 process (Check ttimp)
     = do (tm, gty) <- elabTerm 0 InExpr [] (MkNested []) [<] ttimp Nothing
          defs <- get Ctxt
          tyh <- quote [<] gty
-         ty <- normaliseHoles [<] tyh
+         ty <- toFullNames !(normaliseHoles [<] tyh)
          coreLift_ (printLn !(unelab [<] ty))
          pure True
 {-

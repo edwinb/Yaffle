@@ -229,7 +229,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                 (fnType : NF vars) -> SnocList (Glued vars) ->
                 Core (Maybe (SnocList (Glued vars)))
   getArgTypes (VBind _ n (Pi _ _ _ ty) sc) (as :< a)
-     = do Just scTys <- getArgTypes !(expandNoCase !(sc a)) as
+     = do Just scTys <- getArgTypes !(expand !(sc a)) as
                | Nothing => pure Nothing
           pure (Just (scTys :< ty))
   getArgTypes _ [<] = pure (Just [<])
@@ -251,10 +251,10 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            -- argument types match up
            Just vty <- lookupTyExact (Resolved mref) (gamma defs)
                 | Nothing => ufail fc ("No such metavariable " ++ show mname)
-           vargTys <- getArgTypes !(expandNoCase !(nf env (embed vty)))
+           vargTys <- getArgTypes !(expand !(nf env (embed vty)))
                                   (cast (map snd args) ++ map third sp) --  ++ sp)
            nargTys <- maybe (pure Nothing)
-                            (\ty => getArgTypes !(expandNoCase !(nf env (embed ty)))
+                            (\ty => getArgTypes !(expand !(nf env (embed ty)))
                                                 $ map third args')
                             nty
 --            -- If the rightmost arguments have the same type, or we don't
@@ -353,7 +353,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   solveHole fc mode env mname mref margs margs' locs submv solfull stm solnf
       = do defs <- get Ctxt
            ust <- get UST
-           if solutionHeadSame !(expandNoCase solnf) || inNoSolve mref (noSolve ust)
+           if solutionHeadSame !(expand solnf) || inNoSolve mref (noSolve ust)
               then pure $ Just success
               else do Just hdef <- lookupCtxtExact (Resolved mref) (gamma defs)
                            | Nothing => throw (InternalError ("Can't happen: Lost hole " ++ show mname))
@@ -397,7 +397,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                      let Hole _ _ = definition hdef
                         | _ => postponePatVar swap mode fc env mname mref args sp tmnf
                      if invertible hdef
-                        then unifyHoleApp swap mode fc env mname mref args sp !(expandNoCase tmnf)
+                        then unifyHoleApp swap mode fc env mname mref args sp !(expand tmnf)
                         else postponePatVar swap mode fc env mname mref args sp tmnf
                 Just (newvars ** (locs, submv)) =>
                   do Just hdef <- lookupCtxtExact (Resolved mref) (gamma defs)
@@ -435,8 +435,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   unifyNoEta : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
           Value f vars -> Value f' vars -> Core UnifyResult
-  unifyNoEta mode fc env (VAs _ _ _ x) y = unifyNoEta mode fc env !(expandNoCase x) y
-  unifyNoEta mode fc env x (VAs _ _ _ y) = unifyNoEta mode fc env x !(expandNoCase y)
+  unifyNoEta mode fc env (VAs _ _ _ x) y = unifyNoEta mode fc env !(expand x) y
+  unifyNoEta mode fc env x (VAs _ _ _ y) = unifyNoEta mode fc env x !(expand y)
   -- Deal with metavariable cases first
   -- If they're both holes, solve the one with the bigger context
   unifyNoEta mode fc env x@(VMeta fcx nx ix margsx argsx _) y@(VMeta fcy ny iy margsy argsy _)
@@ -452,8 +452,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
               then unifyArgs mode fc env
                              (map snd margsx ++ spineToValues argsx)
                              (map snd margsy ++ spineToValues argsy)
-              else do xvs <- traverse (\ (c, t) => pure (c, asGlued !(expandNoCase t))) margsx
-                      yvs <- traverse (\ (c, t) => pure (c, asGlued !(expandNoCase t))) margsy
+              else do xvs <- traverse (\ (c, t) => pure (c, asGlued !(expand t))) margsx
+                      yvs <- traverse (\ (c, t) => pure (c, asGlued !(expand t))) margsy
                       let xlocs = localsIn (map snd xvs)
                       let ylocs = localsIn (map snd yvs)
                       -- Solve the one with the bigger context, and if they're
@@ -517,9 +517,11 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = do cs <- unify (lower mode) fc env vx vy
            cs' <- unifySpine (lower mode) fc env spx spy
            pure (union cs cs')
+  unifyNoEta mode fc env x@(VCase{}) y@(VCase{})
+      = unifyIfEq True fc mode env (asGlued x) (asGlued y)
   unifyNoEta mode fc env x_in y_in
-      = do x <- expandNoCase x_in
-           y <- expandNoCase y_in
+      = do x <- expand x_in
+           y <- expand y_in
            unifyIfEq (isDelay x || isDelay y) fc mode env (asGlued x) (asGlued y)
     where
       -- If one of them is a delay, and they're not equal, we'd better
@@ -649,7 +651,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
           UnifyInfo -> FC -> Env Term vars ->
           NF vars -> NF vars -> Core UnifyResult
   unifyLazy mode fc env (VDelayed _ _ x) (VDelayed _ _ y)
-      = unifyWithEta (lower mode) fc env !(expandNoCase x) !(expandNoCase y)
+      = unifyWithEta (lower mode) fc env !(expand x) !(expand y)
   unifyLazy mode fc env x@(VDelayed _ r tmx) tmy
         -- TODO: why 'isHoleApp'
       = if isHoleApp tmy && not (umode mode == InMatch)
@@ -674,21 +676,21 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            then do c <- convertSpine fc env spx spy
                    if c
                       then pure success
-                      else do valx' <- expandNoCase x
-                              valy' <- expandNoCase y
+                      else do valx' <- expand x
+                              valy' <- expand y
                               if lazy
                                 then unifyLazy mode fc env valx' valy'
                                 else unifyWithEta mode fc env valx' valy'
-           else do valx' <- expandNoCase x
-                   valy' <- expandNoCase y
+           else do valx' <- expand x
+                   valy' <- expand y
                    if lazy
                       then unifyLazy mode fc env valx' valy'
                       else unifyWithEta mode fc env valx' valy'
   -- Otherwise, make sure the top level thing is expanded (so not a reducible
   -- VApp or VMeta node) then move on
   unifyExpandApps lazy mode fc env x y
-      = do x' <- expandNoCase x
-           y' <- expandNoCase y
+      = do x' <- expand x
+           y' <- expand y
            if lazy
               then unifyLazy mode fc env x' y'
               else unifyWithEta mode fc env x' y'
@@ -964,7 +966,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       getHoleName : Term [<] -> Core (Maybe Name)
       getHoleName tm
           = do defs <- get Ctxt
-               VMeta _ n' i _ _ _ <- expandNoCase !(nf [<] tm)
+               VMeta _ n' i _ _ _ <- expand !(nf [<] tm)
                    | _ => pure Nothing
                pure (Just n')
 

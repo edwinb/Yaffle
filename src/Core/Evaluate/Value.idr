@@ -105,6 +105,7 @@ getLoc (VType fc x) = fc
 
 -- If a value is an App or Meta node, then it might be reducible. Expand it
 -- just enough that we have the right top level node.
+-- Don't expand Apps to a blocked top level cases
 -- The 'believe_me' are there to save us deconstructing and reconstructing
 -- just to change a compile-time only index
 export
@@ -112,27 +113,14 @@ expand : Value f vars -> Core (NF vars)
 expand v@(VApp fc nt n sp val)
     = do Just val' <- val
               | Nothing => pure (believe_me v)
-         expand val'
+         case val' of
+              VCase{} => pure (believe_me v)
+              _ => expand val'
 expand v@(VMeta fc n i args sp val)
     = do Just val' <- val
               | Nothing => pure (believe_me v)
          expand val'
 expand val = pure (believe_me val)
-
--- as above, but leave case expressions as blocked apps
-export
-expandNoCase : Value f vars -> Core (NF vars)
-expandNoCase v@(VApp fc nt n sp val)
-    = do Just val' <- val
-              | Nothing => pure (believe_me v)
-         case val' of
-              VCase{} => pure (believe_me v)
-              _ => expandNoCase val'
-expandNoCase v@(VMeta fc n i args sp val)
-    = do Just val' <- val
-              | Nothing => pure (believe_me v)
-         expandNoCase val'
-expandNoCase val = pure (believe_me val)
 
 -- It's safe to pretend an NF is Glued, if we need it
 export
