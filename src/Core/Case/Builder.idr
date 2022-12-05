@@ -445,44 +445,44 @@ getArgTys _ _ _ = pure []
 nextNames' : {vars : _} ->
              {auto i : Ref PName Int} ->
              {auto c : Ref Ctxt Defs} ->
-             FC ->
+             RigCount -> FC ->
              (pats : SnocList (RigCount, Pat)) ->
              (ns : SnocList Name) ->
              LengthMatch pats ns ->
              List (ArgType vars) ->
              Core (args ** (SizeOf args, NamedPats (vars ++ args) args))
-nextNames' fc [<] [<] _ _ = pure ([<] ** (zero, []))
-nextNames' fc (pats :< (c, p)) (ns :< n) (SnocMatch prf) (argTy :: as)
-    = do (args ** (l, ps)) <- nextNames' fc pats ns prf as
+nextNames' rig fc [<] [<] _ _ = pure ([<] ** (zero, []))
+nextNames' rig fc (pats :< (c, p)) (ns :< n) (SnocMatch prf) (argTy :: as)
+    = do (args ** (l, ps)) <- nextNames' rig fc pats ns prf as
          let argTy' = case argTy of
                            Unknown => Unknown
                            Known rig t => Known rig (weakenNs (suc l) t)
                            Stuck t => Stuck (weakenNs (suc l) t)
-         pure (args :< n ** (suc l, MkInfo c p First argTy' :: weaken ps))
-nextNames' fc (pats :< (c, p)) (ns :< n) (SnocMatch prf) []
-    = do (args ** (l, ps)) <- nextNames' fc pats ns prf []
-         pure (args :< n ** (suc l, MkInfo c p First Unknown :: weaken ps))
+         pure (args :< n ** (suc l, MkInfo (rigMult rig c) p First argTy' :: weaken ps))
+nextNames' rig fc (pats :< (c, p)) (ns :< n) (SnocMatch prf) []
+    = do (args ** (l, ps)) <- nextNames' rig fc pats ns prf []
+         pure (args :< n ** (suc l, MkInfo (rigMult rig c) p First Unknown :: weaken ps))
 
 nextNames : {vars : _} ->
             {auto i : Ref PName Int} ->
             {auto c : Ref Ctxt Defs} ->
-            FC -> String -> SnocList (RigCount, Pat) -> NF vars ->
+            RigCount -> FC -> String -> SnocList (RigCount, Pat) -> NF vars ->
             Core (args ** (SizeOf args, NamedPats (vars ++ args) args))
-nextNames {vars} fc root pats fty
+nextNames {vars} rig fc root pats fty
      = do defs <- get Ctxt
-          (args ** lprf) <- nextNames pats
+          (args ** lprf) <- mkNames pats
           let env = mkEnv fc vars
           -- The arguments are in reverse order, so we need to
           -- read what we know off 'fty' then reverse it
           argTys <- getArgTys env (cast args) !(expand fty)
-          nextNames' fc pats args lprf (reverse argTys)
+          nextNames' rig fc pats args lprf (reverse argTys)
   where
-    nextNames : (vars : SnocList a) ->
+    mkNames : (vars : SnocList a) ->
                 Core (ns : SnocList Name ** LengthMatch vars ns)
-    nextNames [<] = pure ([<] ** LinMatch)
-    nextNames (xs :< x)
+    mkNames [<] = pure ([<] ** LinMatch)
+    mkNames (xs :< x)
         = do n <- nextName root
-             (ns ** p) <- nextNames xs
+             (ns ** p) <- mkNames xs
              pure (ns :< n ** SnocMatch p)
 
 -- replace the prefix of patterns with 'pargs'
@@ -538,7 +538,7 @@ groupCons fc fn pvars cs
      = gc [] cs
   where
     addConG : {vars', todo' : _} ->
-              Name -> (tag : Int) ->
+              RigCount -> Name -> (tag : Int) ->
               SnocList (RigCount, Pat) -> NamedPats vars' todo' ->
               Int -> (rhs : Term vars') ->
               (acc : List (Group vars' todo')) ->
@@ -547,7 +547,7 @@ groupCons fc fn pvars cs
     -- add new pattern arguments for each of that constructor's arguments.
     -- The type of 'ConGroup' ensures that we refer to the arguments by
     -- the same name in each of the clauses
-    addConG {vars'} {todo'} n tag pargs pats pid rhs []
+    addConG {vars'} {todo'} rig n tag pargs pats pid rhs []
         = do cty <- if n == UN (Basic "->")
                       then pure $ VBind fc (MN "_" 0) (Pi fc top Explicit (VType fc (MN "top" 0))) $
                               (\a => pure $ VBind fc (MN "_" 1) (Pi fc top Explicit (VErased fc Placeholder))
@@ -556,7 +556,7 @@ groupCons fc fn pvars cs
                               Just t <- lookupTyExact n (gamma defs)
                                    | Nothing => pure (VErased fc Placeholder)
                               expand !(nf (mkEnv fc vars') (embed t))
-             (patnames ** (l, newargs)) <- nextNames {vars=vars'} fc "e" pargs cty
+             (patnames ** (l, newargs)) <- nextNames {vars=vars'} rig fc "e" pargs cty
              -- Update non-linear names in remaining patterns (to keep
              -- explicit dependencies in types accurate)
              let pats' = updatePatNames (updateNames (zip patnames (map snd pargs)))
@@ -566,8 +566,8 @@ groupCons fc fn pvars cs
                               (newargs ++ pats')
                               pid (weakenNs l rhs)
              pure [ConGroup n tag (map fst pargs) [clause]]
-    addConG {vars'} {todo'} n tag pargs pats pid rhs (g :: gs) with (checkGroupMatch (CName n tag) pargs g)
-      addConG {vars'} {todo'} n tag pargs pats pid rhs
+    addConG {vars'} {todo'} rig n tag pargs pats pid rhs (g :: gs) with (checkGroupMatch (CName n tag) pargs g)
+      addConG {vars'} {todo'} rig n tag pargs pats pid rhs
               ((ConGroup {newargs} n tag ms ((MkPatClause pvars ps tid tm) :: rest)) :: gs)
                    | (ConMatch {newargs} lprf)
         = do let newps = newPats pargs lprf ps
@@ -583,8 +583,8 @@ groupCons fc fn pvars cs
              -- match the clauses top to bottom.
              pure ((ConGroup n tag ms (MkPatClause pvars ps tid tm :: rest ++ [newclause]))
                          :: gs)
-      addConG n tag pargs pats pid rhs (g :: gs) | NoMatch
-        = do gs' <- addConG n tag pargs pats pid rhs gs
+      addConG rig n tag pargs pats pid rhs (g :: gs) | NoMatch
+        = do gs' <- addConG rig n tag pargs pats pid rhs gs
              pure (g :: gs')
 
     -- This rather ugly special case is to deal with laziness, where Delay
@@ -602,7 +602,7 @@ groupCons fc fn pvars cs
                             pure (VBind fc (MN "x" 0) (Pi fc top Explicit a)
                                      (\av => pure (VDelayed fc LUnknown a))))
              ([< argname, tyname] ** (l, newargs)) <-
-                  nextNames {vars=vars'} fc "e" [< (top, parg), (top, pty)] dty
+                  nextNames {vars=vars'} top fc "e" [< (top, parg), (top, pty)] dty
                 | _ => throw (InternalError "Error compiling Delay pattern match")
              let pats' = updatePatNames (updateNames [< (argname, parg),
                                                         (tyname, pty) ])
@@ -649,31 +649,32 @@ groupCons fc fn pvars cs
                pure (g :: gs')
 
     addGroup : {vars, todo, idx : _} ->
+               RigCount -> -- multiplicity of the argument we're looking at
                Pat -> (0 p : IsVar nm idx vars) ->
                NamedPats vars todo -> Int -> Term vars ->
                List (Group vars todo) ->
                Core (List (Group vars todo))
     -- In 'As' replace the name on the RHS with a reference to the
     -- variable we're doing the case split on
-    addGroup (PAs fc n p) pprf pats pid rhs acc
-         = addGroup p pprf pats pid (substName n (Local fc _ pprf) rhs) acc
-    addGroup (PCon cfc n t a pargs) pprf pats pid rhs acc
+    addGroup rig (PAs fc n p) pprf pats pid rhs acc
+         = addGroup rig p pprf pats pid (substName n (Local fc _ pprf) rhs) acc
+    addGroup rig (PCon cfc n t a pargs) pprf pats pid rhs acc
          = if a == length pargs
-              then addConG n t pargs pats pid rhs acc
+              then addConG rig n t pargs pats pid rhs acc
               else throw (CaseCompile cfc fn (NotFullyApplied n))
-    addGroup (PTyCon cfc n a pargs) pprf pats pid rhs acc
+    addGroup rig (PTyCon cfc n a pargs) pprf pats pid rhs acc
          = if a == length pargs
-           then addConG n 0 pargs pats pid rhs acc
+           then addConG rig n 0 pargs pats pid rhs acc
            else throw (CaseCompile cfc fn (NotFullyApplied n))
-    addGroup (PArrow _ _ s t) pprf pats pid rhs acc
-         = addConG (UN $ Basic "->") 0 [< (top, s), (top, t)] pats pid rhs acc
+    addGroup rig (PArrow _ _ s t) pprf pats pid rhs acc
+         = addConG rig (UN $ Basic "->") 0 [< (top, s), (top, t)] pats pid rhs acc
     -- Go inside the delay; we'll flag the case as needing to force its
     -- scrutinee (need to check in 'caseGroups below)
-    addGroup (PDelay _ _ pty parg) pprf pats pid rhs acc
+    addGroup rig (PDelay _ _ pty parg) pprf pats pid rhs acc
          = addDelayG pty parg pats pid rhs acc
-    addGroup (PConst _ c) pprf pats pid rhs acc
+    addGroup rig (PConst _ c) pprf pats pid rhs acc
          = addConstG c pats pid rhs acc
-    addGroup _ pprf pats pid rhs acc = pure acc -- Can't happen, not a constructor
+    addGroup _ _ pprf pats pid rhs acc = pure acc -- Can't happen, not a constructor
         -- FIXME: Is this possible to rule out with a type? Probably.
 
     gc : {a, vars, todo : _} ->
@@ -682,7 +683,7 @@ groupCons fc fn pvars cs
          Core (List (Group vars todo))
     gc acc [] = pure acc
     gc {a} acc ((MkPatClause pvars (MkInfo c pat pprf fty :: pats) pid rhs) :: cs)
-        = do acc' <- addGroup pat pprf pats pid rhs acc
+        = do acc' <- addGroup c pat pprf pats pid rhs acc
              gc acc' cs
 
 getFirstPat : NamedPats ns (ps :< p) -> Pat

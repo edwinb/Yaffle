@@ -357,7 +357,7 @@ parameters {auto c : Ref Ctxt Defs}
       = lcheck rig env pat
   lcheck rig env (Case fc scrig sc ty alts)
       = do usc <- lcheck (rigMult scrig rig) env sc
-           ualts <- lcheckAlts (presence rig) (restrictEnv env rig) scrig alts
+           ualts <- lcheckAlts (presence rig) (restrictEnv env scrig) scrig alts
            pure (usc ++ ualts)
   lcheck rig env (TDelayed fc r tm) = lcheck rig env tm
   lcheck rig env (TDelay fc r ty arg) = lcheck rig env arg
