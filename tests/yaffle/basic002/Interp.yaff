@@ -16,7 +16,7 @@ append (Cons x xs) ys = Cons x (append xs ys)
 
 data Fin : Nat -> Type where
      FZ : Fin (S k)
-     FS : Fin $k -> Fin (S k)
+     FS : Fin k -> Fin (S k)
 
 lookup : Fin k -> Vect k ty -> ty
 lookup FZ (Cons t ts) = t
@@ -62,9 +62,9 @@ interp : Env gam -> Lang gam t -> interpTy t
 interp env (Var i) = lookupEnv i env
 interp env (Val x) = x
 interp env (App f a) = interp env f (interp env a)
-interp env (Lam {s = s} scope)
+interp env (Lam scope)
    = \var => interp (ECons var env) scope
-interp $env (Op fn x y) = fn (interp env x) (interp env y)
+interp env (Op fn x y) = fn (interp env x) (interp env y)
 
 testAdd : Lang gam (Arrow (Base Nat) (Arrow (Base Nat) (Base Nat)))
 testAdd = Lam (Lam (Op plus (Var Stop) (Var (Pop Stop))))

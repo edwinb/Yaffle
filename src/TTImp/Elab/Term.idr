@@ -134,8 +134,8 @@ checkTerm rig elabinfo nest env (IAlternative fc uniq alts) exp
     = checkAlternative rig elabinfo nest env fc uniq alts exp
 checkTerm rig elabinfo nest env (IRewrite fc rule tm) exp
     = checkRewrite rig elabinfo nest env fc rule tm exp
--- checkTerm rig elabinfo nest env (ICoerced fc tm) exp
---     = checkTerm rig elabinfo nest env tm exp
+checkTerm rig elabinfo nest env (ICoerced fc tm) exp
+    = checkTerm rig elabinfo nest env tm exp
 checkTerm rig elabinfo nest env (IBindHere fc binder sc) exp
     = checkBindHere rig elabinfo nest env fc binder sc exp
 checkTerm rig elabinfo nest env (IBindVar fc n) exp

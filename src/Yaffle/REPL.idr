@@ -34,10 +34,11 @@ import System.File
 
 %default covering
 
-showInfo : (Name, Int, GlobalDef) -> Core ()
+showInfo : {auto c : Ref Ctxt Defs} ->
+           (Name, Int, GlobalDef) -> Core ()
 showInfo (n, _, d)
     = coreLift_ $ putStrLn (show n ++ " ==>\n" ++
-                   "\t" ++ show (definition d) ++ "\n" ++
+                   "\t" ++ show !(toFullNames (definition d)) ++ "\n" ++
                    "\t" ++ show (sizeChange d) ++ "\n")
 
 -- Returns 'True' if the REPL should continue
@@ -70,6 +71,11 @@ process (Check ttimp)
          ty <- toFullNames !(normaliseHoles [<] tyh)
          coreLift_ (printLn !(unelab [<] ty))
          pure True
+process (DebugInfo n)
+    = do defs <- get Ctxt
+         traverse_ showInfo !(lookupCtxtName n (gamma defs))
+         pure True
+
 {-
 process (ProofSearch n_in)
     = do defs <- get Ctxt
@@ -132,10 +138,6 @@ process (CheckTotal n)
                              coreLift_ (putStrLn (show fn ++ " is " ++ show tot)))
                                (map fst ts)
                        pure True
-process (DebugInfo n)
-    = do defs <- get Ctxt
-         traverse_ showInfo !(lookupCtxtName n (gamma defs))
-         pure True
 -}
 process Quit
     = do coreLift_ $ putStrLn "Bye for now!"

@@ -74,7 +74,6 @@ var : {g:_}->{a:_} -> Var g a -> Tm g a
 var = \ x, tm, var, lam, app, tt, pair, fst, snd, left, right, split, zero, suc, rec => var x
 
 lam : {g:_}->{a:_}->{b:_}-> Tm (snoc g a) b -> Tm g (arr a b)
--- %logging 1
 lam = \ t, tm, var, lam, app, tt, pair, fst, snd, left, right, split, zero, suc, rec =>
      lam (t tm var lam app tt pair fst snd left right split zero suc rec)
 

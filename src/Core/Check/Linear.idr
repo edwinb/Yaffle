@@ -398,5 +398,6 @@ parameters {auto c : Ref Ctxt Defs}
   linearCheck : {vars : _} ->
                 FC -> RigCount -> Env Term vars -> Term vars -> Core ()
   linearCheck fc rig env tm
-      = do used <- lcheck rig env tm
+      = do logTerm "check.linear" 10 "Checking linearity" tm
+           used <- lcheck rig env tm
            checkEnvUsage {done = [<]} fc rig env used tm

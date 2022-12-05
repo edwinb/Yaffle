@@ -44,35 +44,29 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
-* Implement enough of the Raw term elaborator that we can check type
-  declarations
-  - i.e. Implement 'check', elaboration of RawImp to TT
+* More tests for Yaffle
+* Inlining of case blocks, to take advantage of Case in the core
+  - Check this isn't causing needless duplication
+* Save checked .yaff files as TTCs
+  - Note on string table: Sometimes we shortcut TTC loading (when all we're
+    interested in is which modules it imports), in which case we'd not actually
+    want to process the string table pointlessly. So it may be that we want to
+    process it lazily, and use the RawString instance for any Strings before
+    the actual program data
 * Termination checker
   - Tests for basic operation of termination and coverage checking
-* Continue TTImp elaborator
-  - Port all the missing imports in TTImp.ProcessDef
-  - Complete ProcessDef
 * Unification details (which will come up during elaboration...):
   - Inlining things with linear quantities in the context
-  - We don't need 'inlineOnly' in the context any more, so remove once
-    unification works and inlining metavariables works as it should
 * Implement/port the missing interfaces for TTC/HasNames
 * Coverage checking of case blocks
   - We used to do this by knowing that functions referred to a case function.
     Now we'll need to do something slightly different, so make sure it's
     tested properly, where there's a non-covering case block inside a function
     where the top level cases are covering..
-* Check TTCs work
-  - Note on string table: Sometimes we shortcut TTC loading (when all we're
-    interested in is which modules it imports), in which case we'd not actually
-    want to process the string table pointlessly. So it may be that we want to
-    process it lazily, and use the RawString instance for any Strings before
-    the actual program data
 * Add universe constraints when adding data definitions
   - Find parameters + other properties we need to know elsewhere
 * Universe level solver
-* Question: Should Errors use 'Value' rather than 'Term'?
 * ???
 * PROFIT
 
-(Last updated 30th September 2022)
+(Last updated 5th December 2022)
