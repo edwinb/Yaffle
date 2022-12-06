@@ -13,7 +13,7 @@ import Data.List
 import Data.SnocList
 import Data.Vect
 
-data EvalFlags = Full | KeepAs
+data EvalFlags = Full | KeepAs | KeepLet
 
 export
 apply : FC -> Value f vars -> RigCount -> Glued vars -> Core (Glued vars)
@@ -298,9 +298,13 @@ parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
   eval locs env (Bind fc x (Lam bfc r p ty) sc)
       = pure $ VLam fc x r !(evalPiInfo locs env p) !(eval locs env ty)
                     (\arg => eval (locs :< arg) env sc)
-  eval locs env (Bind fc x (Let bfc c val ty) sc)
-      = do val' <- eval locs env val
-           eval (locs :< val') env sc
+  eval locs env (Bind fc x b@(Let bfc c val ty) sc)
+      = case flags of
+             KeepLet =>
+                  pure $ VBind fc x !(evalBinder locs env b)
+                               (\arg => eval (locs :< arg) env sc)
+             _ => do val' <- eval locs env val
+                     eval (locs :< val') env sc
   eval locs env (Bind fc x b sc)
       = pure $ VBind fc x !(evalBinder locs env b)
                      (\arg => eval (locs :< arg) env sc)
@@ -354,3 +358,8 @@ parameters {auto c : Ref Ctxt Defs}
   nfLHS : {vars : _} ->
           Env Term vars -> Term vars -> Core (Glued vars)
   nfLHS = eval KeepAs [<]
+
+  export
+  nfKeepLet : {vars : _} ->
+          Env Term vars -> Term vars -> Core (Glued vars)
+  nfKeepLet = eval KeepLet [<]
