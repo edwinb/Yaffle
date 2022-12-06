@@ -1,0 +1,21 @@
+data Pair : Type -> Type -> Type where
+     MkPair : (1 xa : a) -> (1 ya : b) -> Pair a b
+
+qswap : (1 x : Pair a b) -> Pair b a
+qswap (MkPair x y) = MkPair y x
+
+qswap2 : (1 x : Pair a b) -> Pair b a
+qswap2 (MkPair x y) = MkPair y ?help
+
+qswapCase : (1 x : Pair a b) -> Pair b a
+qswapCase x
+    = case x of
+           (MkPair s t) => MkPair t s
+
+qswap3 : (1 x : Pair a b) -> Pair b a
+qswap3 (MkPair x y) = ?halp
+
+qswapCase2 : (1 x : Pair a b) -> Pair b a
+qswapCase2 x
+    = case x of
+           (MkPair s t) => MkPair t ?hulp

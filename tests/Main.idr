@@ -24,7 +24,7 @@ ttTests = MkTestPool "TT" [] Nothing
 yaffleTests = MkTestPool "Yaffle" [] Nothing
     [ "basic001", "basic002", "basic003",
       "case001",
-      "qtt001",
+      "qtt001", "qtt002",
       "record001", "record002",
       -- Below are things that don't test anything specific, but are useful exercises
       "example001" ]

@@ -199,6 +199,13 @@ parameters {auto c : Ref Ctxt Defs}
       = when (isLinear r && used /= 1)
           (throw (LinearUsed fc used nm))
 
+  getZeroes : {vs : _} -> Env Term vs -> List (Var vs)
+  getZeroes [<] = []
+  getZeroes (bs :< b)
+      = if isErased (multiplicity b)
+           then MkVar First :: map weaken (getZeroes bs)
+           else map weaken (getZeroes bs)
+
   lcheckAlt : {vars : _} ->
               -- must be Rig0 or Rig1
               (rhsrig : RigCount) ->
@@ -219,10 +226,21 @@ parameters {auto c : Ref Ctxt Defs}
           = do let env'
                    = env :<
                      PVar fc (rigMult scrig c) Explicit (Erased fc Placeholder)
-               u' <- lcheckScope env' sc
-               let used = count 0 u'
+               usc <- lcheckScope env' sc
+               let used_in = count 0 usc
+               -- As with binders, check for holes in the scope
+               holeFound <- if isLinear c
+                               then updateHoleUsageScope (used_in == 0)
+                                             (MkVar First)
+                                             (map weaken (getZeroes env))
+                                             sc
+                               else pure False
+               let used = if isLinear (rigMult c rig) &&
+                             holeFound && used_in == 0
+                             then 1
+                             else used_in
                checkUsageOK EmptyFC used x (rigMult (rigMult scrig c) rig)
-               pure (doneScope u')
+               pure (doneScope usc)
   lcheckAlt rig env scrig (DelayCase fc t a rhs)
       = do -- See above for why the types are erased
            let env'
@@ -341,13 +359,6 @@ parameters {auto c : Ref Ctxt Defs}
                          then erased
                          else top -- checking as if an inspectable run-time type
                  _ => rig_in
-
-      getZeroes : {vs : _} -> Env Term vs -> List (Var vs)
-      getZeroes [<] = []
-      getZeroes (bs :< b)
-          = if isErased (multiplicity b)
-               then MkVar First :: map weaken (getZeroes bs)
-               else map weaken (getZeroes bs)
 
   lcheck rig env (App fc fn q arg)
       = do uf <- lcheck rig env fn
