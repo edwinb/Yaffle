@@ -1,0 +1,3 @@
+ohno:14:1--17:1:When elaborating right hand side of Main.ohno:
+ohno:14:9--16:24:When unifying: (({arg:23} : Type) -> ($resolved371 Type)) and ?Main.{delayTy:31}_[]
+	ohno:14:9--16:24:Can't convert ($resolved371 Type) with $resolved368

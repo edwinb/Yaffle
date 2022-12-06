@@ -60,13 +60,13 @@ delayOnFailure : {vars : _} ->
                  {auto m : Ref MD Metadata} ->
                  {auto u : Ref UST UState} ->
                  {auto e : Ref EST (EState vars)} ->
-                 FC -> RigCount -> Env Term vars ->
+                 FC -> RigCount -> ElabInfo -> Env Term vars ->
                  (expected : Maybe (Glued vars)) ->
                  (Error -> Bool) ->
                  (pri : DelayReason) ->
                  (Bool -> Core (Term vars, Glued vars)) ->
                  Core (Term vars, Glued vars)
-delayOnFailure fc rig env exp pred pri elab
+delayOnFailure fc rig elabinfo env exp pred pri elab
     = do ust <- get UST
          let nos = noSolve ust -- remember the holes we shouldn't solve
          handle (elab False)
@@ -79,16 +79,17 @@ delayOnFailure fc rig env exp pred pri elab
                          (ci, dtm) <- newDelayed fc linear env nm !(quote env expected)
                          defs <- get Ctxt
                          update UST { delayedElab $=
-                                 ((pri, ci, localHints defs,
-                                   mkClosedElab fc env
-                                      (deeper
-                                        (do ust <- get UST
-                                            let nos' = noSolve ust
-                                            put UST ({ noSolve := nos } ust)
-                                            res <- elab True
-                                            ust <- get UST
-                                            put UST ({ noSolve := nos' } ust)
-                                            pure res))) :: ) }
+                             ((pri, ci, localHints defs,
+                               mkClosedElab fc env
+                                  (deeper
+                                    (do ust <- get UST
+                                        let nos' = noSolve ust
+                                        put UST ({ noSolve := nos } ust)
+                                        (restm, resty) <- elab True
+                                        ust <- get UST
+                                        put UST ({ noSolve := nos' } ust)
+                                        checkExp rig elabinfo env fc restm resty (Just expected)
+                                        ))) :: ) }
                          pure (dtm, expected)
                     else throw err)
   where
@@ -106,12 +107,12 @@ delayElab : {vars : _} ->
             {auto m : Ref MD Metadata} ->
             {auto u : Ref UST UState} ->
             {auto e : Ref EST (EState vars)} ->
-            FC -> RigCount -> Env Term vars ->
+            FC -> RigCount -> ElabInfo -> Env Term vars ->
             (expected : Maybe (Glued vars)) ->
             (pri : DelayReason) ->
             Core (Term vars, Glued vars) ->
             Core (Term vars, Glued vars)
-delayElab {vars} fc rig env exp pri elab
+delayElab {vars} fc rig elabinfo env exp pri elab
     = do ust <- get UST
          let nos = noSolve ust -- remember the holes we shouldn't solve
          nm <- genName "delayed"
@@ -120,13 +121,14 @@ delayElab {vars} fc rig env exp pri elab
          defs <- get Ctxt
          update UST { delayedElab $=
                  ((pri, ci, localHints defs, mkClosedElab fc env
-                                              (do ust <- get UST
-                                                  let nos' = noSolve ust
-                                                  put UST ({ noSolve := nos } ust)
-                                                  res <- elab
-                                                  ust <- get UST
-                                                  put UST ({ noSolve := nos' } ust)
-                                                  pure res)) :: ) }
+                              (do ust <- get UST
+                                  let nos' = noSolve ust
+                                  put UST ({ noSolve := nos } ust)
+                                  (restm, resty) <- elab
+                                  ust <- get UST
+                                  put UST ({ noSolve := nos' } ust)
+                                  checkExp rig elabinfo env fc restm resty (Just expected)
+                                  )) :: ) }
          pure (dtm, expected)
   where
     mkExpected : Maybe (Glued vars) -> Core (Glued vars)

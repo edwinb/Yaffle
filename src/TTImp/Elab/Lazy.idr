@@ -51,7 +51,7 @@ checkDelay rig elabinfo nest env fc tm mexpected
          solveConstraints solvemode Normal
          -- Can only check if we know the expected type already because we
          -- need to infer the delay reason
-         delayOnFailure fc rig env (Just expected) delayError LazyDelay
+         delayOnFailure fc rig elabinfo env (Just expected) delayError LazyDelay
             (\delayed =>
                  case !(expand expected) of
                       VDelayed _ r expnf =>

@@ -358,7 +358,7 @@ checkAlternative rig elabinfo nest env fc (UniqueDefault def) alts mexpected
          let solvemode = case elabMode elabinfo of
                               InLHS c => inLHS
                               _ => inTerm
-         delayOnFailure fc rig env (Just expected) ambiguous Ambiguity $
+         delayOnFailure fc rig elabinfo env (Just expected) ambiguous Ambiguity $
              \delayed =>
                do solveConstraints solvemode Normal
                   -- We can't just use the old NF on the second attempt,
@@ -410,7 +410,7 @@ checkAlternative rig elabinfo nest env fc uniq alts mexpected
                 let solvemode = case elabMode elabinfo of
                                       InLHS c => inLHS
                                       _ => inTerm
-                delayOnFailure fc rig env (Just expected) ambiguous Ambiguity $
+                delayOnFailure fc rig elabinfo env (Just expected) ambiguous Ambiguity $
                      \delayed =>
                        do -- We can't just use the old NF on the second attempt,
                           -- because we might know more now, so recalculate it
