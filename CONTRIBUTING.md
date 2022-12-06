@@ -45,8 +45,6 @@ TODOs throughout for which I would welcome some help. Currently these are:
 edwinb's next steps:
 
 * More tests for Yaffle
-* Inlining of case blocks, to take advantage of Case in the core
-  - Check this isn't causing needless duplication
 * Save checked .yaff files as TTCs
   - Note on string table: Sometimes we shortcut TTC loading (when all we're
     interested in is which modules it imports), in which case we'd not actually

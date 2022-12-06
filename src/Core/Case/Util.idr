@@ -49,6 +49,7 @@ emptyRHS fc (Case cfc c sc scTy alts) = Case cfc c sc scTy (map emptyRHSalt alts
     emptyRHSalt (DelayCase fc c arg sc) = DelayCase fc c arg (emptyRHS fc sc)
     emptyRHSalt (ConstCase fc c sc) = ConstCase fc c (emptyRHS fc sc)
     emptyRHSalt (DefaultCase fc sc) = DefaultCase fc (emptyRHS fc sc)
+emptyRHS fc tm@(Unmatched _ _) = tm
 emptyRHS fc _ = Erased fc Placeholder
 
 export
