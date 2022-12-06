@@ -263,7 +263,25 @@ mapTermM f = goTerm where
     goTerm (Bind fc x bd sc) = f =<< Bind fc x <$> traverse goTerm bd <*> goTerm sc
     goTerm (App fc fn c arg) = f =<< App fc <$> goTerm fn <*> pure c <*> goTerm arg
     goTerm (As fc u as pat) = f =<< As fc u <$> pure as <*> goTerm pat
-    goTerm (Case{}) = ?todo
+    goTerm (Case fc c sc sct alts)
+        = f =<< Case fc c <$> goTerm sc <*> goTerm sct <*> traverse goAlt alts
+      where
+        goScope : {vars : _} -> CaseScope vars -> CoreE err (CaseScope vars)
+        goScope (RHS tm)
+            = pure $ RHS !(goTerm tm)
+        goScope (Arg c x sc)
+            = pure $ Arg c x !(goScope sc)
+
+        goAlt : {vars : _} -> CaseAlt vars -> CoreE err (CaseAlt vars)
+        goAlt (ConCase fc n t sc)
+            = pure $ ConCase fc n t !(goScope sc)
+        goAlt (DelayCase fc t a sc)
+            = pure $ DelayCase fc t a !(goTerm sc)
+        goAlt (ConstCase fc c tm)
+            = pure $ ConstCase fc c !(goTerm tm)
+        goAlt (DefaultCase fc tm)
+            = pure $ DefaultCase fc !(goTerm tm)
+
     goTerm (TDelayed fc la d) = f =<< TDelayed fc la <$> goTerm d
     goTerm (TDelay fc la ty arg) = f =<< TDelay fc la <$> goTerm ty <*> goTerm arg
     goTerm (TForce fc la t) = f =<< TForce fc la <$> goTerm t

@@ -37,9 +37,12 @@ import System.File
 showInfo : {auto c : Ref Ctxt Defs} ->
            (Name, Int, GlobalDef) -> Core ()
 showInfo (n, _, d)
-    = coreLift_ $ putStrLn (show n ++ " ==>\n" ++
+    = do ignore $ checkTotal replFC n
+         tot <- getTotality replFC n >>= toFullNames
+         coreLift_ $ putStrLn (show n ++ " ==>\n" ++
                    "\t" ++ show !(toFullNames (definition d)) ++ "\n" ++
-                   "\t" ++ show (sizeChange d) ++ "\n")
+                   "\t" ++ show (sizeChange d) ++ "\n" ++
+                   "\t" ++ show tot ++ "\n")
 
 -- Returns 'True' if the REPL should continue
 process : {auto c : Ref Ctxt Defs} ->

@@ -48,6 +48,7 @@ modules
     Core.TT.RigCount,
     Core.TT.TT, -- typechecked core language lives here
     Core.TT.Universes,
+    Core.TTCFile,
     Core.Unify,
     Core.Unify.SolveMeta,
     Core.Unify.State,

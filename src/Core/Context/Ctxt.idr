@@ -604,11 +604,16 @@ interface HasNames a where
 
 export
 HasNames a => HasNames (List a) where
-  full gam [] = pure []
-  full gam (x :: xs) = pure $ !(full gam x) :: !(full gam xs)
+  full c ns = full_aux c [] ns
+    where full_aux : Context -> List a -> List a -> Core (List a)
+          full_aux c res [] = pure (reverse res)
+          full_aux c res (n :: ns) = full_aux c (!(full c n):: res) ns
 
-  resolved gam [] = pure []
-  resolved gam (x :: xs) = pure $ !(resolved gam x) :: !(resolved gam xs)
+
+  resolved c ns = resolved_aux c [] ns
+    where resolved_aux : Context -> List a -> List a -> Core (List a)
+          resolved_aux c res [] = pure (reverse res)
+          resolved_aux c res (n :: ns) = resolved_aux c (!(resolved c n) :: res) ns
 
 export
 HasNames a => HasNames (Maybe a) where
