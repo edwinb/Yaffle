@@ -840,7 +840,8 @@ namespace SubstEnv
       = TDelay fc x (substEnv outer env t) (substEnv outer env y)
   substEnv outer env (TForce fc r x) = TForce fc r (substEnv outer env x)
   substEnv outer env (PrimVal fc c) = PrimVal fc c
-  substEnv outer env (PrimOp fc op args) = ?todoPrimOp
+  substEnv outer env (PrimOp fc op args)
+      = PrimOp fc op (map (substEnv outer env) args)
   substEnv outer env (Erased fc i) = Erased fc (substEnv outer env <$> i)
   substEnv outer env (Unmatched fc str) = Unmatched fc str
   substEnv outer env (TType fc u) = TType fc u
