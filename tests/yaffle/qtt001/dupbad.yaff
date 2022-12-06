@@ -1,0 +1,5 @@
+data Pair : Type -> Type -> Type where
+     MkPair : (1 xa : a) -> (1 ya : b) -> Pair a b
+
+dupbad : (1 x : a) -> Pair a a
+dupbad x = MkPair x x

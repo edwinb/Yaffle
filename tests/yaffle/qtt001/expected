@@ -1,0 +1,7 @@
+Yaffle> Main.foo : (%pi 0 Explicit (Just a) %type (%pi 1 Explicit (Just _) a a))
+Yaffle> Main.bar : (%pi 0 Explicit (Just a) %type (%pi 1 Explicit (Just _) a a))
+Yaffle> Main.baz1 : (%pi 0 Explicit (Just a) %type (%pi 0 Explicit (Just _) a a))
+Yaffle> Main.baz2 : (%pi 0 Explicit (Just a) %type (%pi 0 Explicit (Just _) a a))
+Yaffle> Bye for now!
+dupbad:5:1--6:1:When elaborating right hand side of Main.dupbad:
+dupbad:5:12--6:1:There are 2 uses of linear name x
