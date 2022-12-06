@@ -1,9 +1,11 @@
 Yaffle> Main.ctest ==>
 	Function \({arg:0} : [__]) => let {sc:0} : Main.Nat = (Main.plus {arg:0}[0] {arg:0}[0]) in case  {sc:0}[0] of [Main.Z => {arg:0}[1], _ => (Main.plus {sc:0}[0] {sc:0}[0])]
 	[Main.plus: [Just (0, Same), Just (0, Same)], Main.plus: [Nothing, Nothing]]
+	total
 
 Yaffle> Main.ctestS ==>
 	Function \({arg:0} : [__]) => let {sc:0} : Main.Nat = (Main.S (Main.plus {arg:0}[0] {arg:0}[0])) in case  {sc:0}[0] of [Main.S {e:0} => case  {e:0}[0] of [Main.Z => {arg:0}[2], _ => (Main.plus {e:0}[0] {e:0}[0])]]
 	[Main.plus: [Just (0, Same), Just (0, Same)], Main.plus: [Nothing, Nothing]]
+	total
 
 Yaffle> Bye for now!
