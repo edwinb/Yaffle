@@ -142,11 +142,12 @@ addEntry n entry ctxt_in
          else do (idx, ctxt) <- getPosition n ctxt_in
                  pure (idx, { staging $= insert idx entry } ctxt)
 
+export
 getContent : Context -> Ref Arr (IOArray ContextEntry)
 getContent = content
 
-
--- Needs HasNames instances, so defined at the end
+-- Needs HasNames and TTC instances, so defined in Core.TTC
+export
 decode : Context -> Int -> (update : Bool) -> ContextEntry ->
          Core GlobalDef
 
@@ -925,15 +926,3 @@ HasNames Transform where
   resolved gam (MkTransform n env lhs rhs)
       = pure $ MkTransform !(resolved gam n) !(resolved gam env)
                            !(resolved gam lhs) !(resolved gam rhs)
-
-decode gam idx update (Coded stbl _ bin)
-    = do b <- newRef Bin bin
-         st <- newRef STable stbl
-         def <- ttc $ fromBuf {a = GlobalDef}
-
-         let a = getContent gam
-         arr <- get Arr
-         def' <- resolved gam def
-         when update $ coreLift $ writeArray arr idx (Decoded def')
-         pure def'
-decode gam idx update (Decoded def) = pure def

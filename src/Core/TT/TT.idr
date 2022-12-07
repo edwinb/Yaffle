@@ -677,7 +677,8 @@ data Term : SnocList Name -> Type where
      TDelay : FC -> LazyReason -> (ty : Term vars) -> (arg : Term vars) -> Term vars
      TForce : FC -> LazyReason -> Term vars -> Term vars
      PrimVal : FC -> (c : Constant) -> Term vars
-     PrimOp : FC -> PrimFn arity -> Vect arity (Term vars) -> Term vars
+     PrimOp : {arity : _} ->
+              FC -> PrimFn arity -> Vect arity (Term vars) -> Term vars
      Erased : FC -> WhyErased (Term vars) -> Term vars
      Unmatched : FC -> String -> Term vars -- error from a partialmatch
      TType : FC -> Name -> -- universe variable

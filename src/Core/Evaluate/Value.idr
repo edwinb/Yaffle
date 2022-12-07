@@ -74,7 +74,8 @@ data Value : Form -> SnocList Name -> Type where
      VDelay   : FC -> LazyReason -> Glued vars -> Glued vars -> Value f vars
      VForce   : FC -> LazyReason -> Glued vars -> Spine vars -> Value f vars
      VPrimVal : FC -> Constant -> Value f vars
-     VPrimOp  : FC -> PrimFn ar -> Vect ar (Glued vars) -> Value f vars
+     VPrimOp  : {ar : _} ->
+                FC -> PrimFn ar -> Vect ar (Glued vars) -> Value f vars
      VErased  : FC -> WhyErased (Value f vars) -> Value f vars
      VUnmatched : FC -> String -> Value f vars
      VType    : FC -> Name -> Value f vars

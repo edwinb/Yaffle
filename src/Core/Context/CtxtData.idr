@@ -169,11 +169,6 @@ findSetTotal [] = Nothing
 findSetTotal (SetTotal t :: _) = Just t
 findSetTotal (_ :: xs) = findSetTotal xs
 
-export
-TTC GlobalDef where
-  toBuf d = ?todo1
-  fromBuf = ?todo2
-
 -- Label for array references
 export
 data Arr : Type where

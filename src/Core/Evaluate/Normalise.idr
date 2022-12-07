@@ -106,7 +106,7 @@ mkEnv {vars} ext = rewrite sym (appendLinLeftNeutral ns) in go ext [<]
         = rewrite appendAssociative rest [<x] xs in
                   go ext (locs :< val)
 
-runOp : {vars : _} ->
+runOp : {ar, vars : _} ->
         FC -> PrimFn ar -> Vect ar (Glued vars) -> Core (NF vars)
 runOp fc op args
     = do args' <- traverseVect expand args

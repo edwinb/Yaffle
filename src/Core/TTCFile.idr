@@ -3,6 +3,7 @@ module Core.TTCFile
 import Core.Binary
 import Core.Context
 import Core.Core
+import Core.TTC
 
 record TTCFile extra (mode : BinaryMode) where
   constructor MkTTCFile

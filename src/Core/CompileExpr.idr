@@ -12,15 +12,12 @@ import Data.Vect
 
 %default covering
 
--- Backends might be able to treat some 'shapes' of data type specially,
--- e.g. enumerations or lists.
--- They can use or ignore this information as they see fit.
 public export
 data ConInfo = DATACON -- normal data constructor
              | TYCON -- normal type constructor
              | NIL -- nil of a list or option shaped thing
              | CONS -- cons of a list shaped thing
-             | ENUM -- part of an enumeration
+             | ENUM Nat -- part of an enumeration with the given number of constructors
              | NOTHING -- nothing of an option shaped thing
              | JUST -- just of an option shaped thing
              | RECORD -- record constructor (no tag)
@@ -34,7 +31,7 @@ Show ConInfo where
   show TYCON   = "[tycon]"
   show NIL     = "[nil]"
   show CONS    = "[cons]"
-  show ENUM    = "[enum]"
+  show (ENUM n) = "[enum " ++ show n ++ "]"
   show NOTHING = "[nothing]"
   show JUST    = "[just]"
   show RECORD  = "[record]"
@@ -48,7 +45,7 @@ Eq ConInfo where
   TYCON == TYCON = True
   NIL == NIL = True
   CONS == CONS = True
-  ENUM == ENUM = True
+  ENUM x == ENUM y = x == y
   NOTHING == NOTHING = True
   JUST == JUST = True
   RECORD == RECORD = True
@@ -451,7 +448,7 @@ mutual
                       CConAlt (inner ++ (ns ++ outer))
   insertNamesConAlt {outer} {ns} p q (MkConAlt x ci tag args sc)
       = MkConAlt x ci tag args
-                 (rewrite sym $ appendAssociative inner (ns ++ outer) args in 
+                 (rewrite sym $ appendAssociative inner (ns ++ outer) args in
                   rewrite sym $ appendAssociative ns outer args in
                           insertNames {inner} (mkSizeOf args + p) q
                             (rewrite appendAssociative inner outer args in sc))
@@ -620,7 +617,7 @@ mutual
       = MkConAlt x ci tag args
                  (rewrite sym $ appendAssociative vars outer args in
                           substEnv (mkSizeOf args + p) env
-                            (rewrite appendAssociative dropped outer args in 
+                            (rewrite appendAssociative dropped outer args in
                              rewrite appendAssociative vars (dropped ++ outer) args in sc))
 
   substConstAlt : SizeOf outer ->
@@ -694,7 +691,7 @@ mutual
                    CConAlt (vars ++ (bound ++ outer))
   mkLocalsConAlt {bound} {outer} {vars} p bs (MkConAlt x ci tag args sc)
       = MkConAlt x ci tag args
-                 (rewrite sym $ appendAssociative vars (bound ++ outer) args in 
+                 (rewrite sym $ appendAssociative vars (bound ++ outer) args in
                   rewrite sym $ appendAssociative bound outer args in
                           mkLocals {vars} (mkSizeOf args + p) bs (rewrite appendAssociative vars outer args in sc))
 

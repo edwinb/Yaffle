@@ -9,7 +9,8 @@ import Core.TT
 import Data.Nat
 import Data.Vect
 
-mkFn : (i : Int) ->
+mkFn : {done : _} ->
+       (i : Int) ->
        (todo : Nat) -> PrimFn (todo + done) ->
        Vect done (Var vars) -> Term vars
 mkFn i Z op args

@@ -7,6 +7,7 @@ import Core.Error
 import Core.InitPrimitives
 import Core.Syntax.Parser
 import Core.Syntax.Raw
+import Core.TTCFile
 import Core.Unify.State
 
 import TTImp.ProcessFile
