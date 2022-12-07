@@ -253,6 +253,9 @@ iterate (Step r ctx tr) = iterate tr
 data Pair : (a, b : Type) -> Type where
   MkPair : a -> b -> Pair a b
 
+fst : Pair a b -> a
+fst (MkPair x y) = x
+
 snd : Pair a b -> b
 snd (MkPair x y) = y
 
@@ -314,8 +317,6 @@ closure {a = b} (App {a} f t) reds
 closure (Var v) reds = expand (lookup reds v)
 
 
-{-
-
 theorem : {a : Ty} -> (c : Closed a) -> Reducible a c
 
 theoremEnv : (env : Env g) -> ReducibleEnv env
@@ -324,7 +325,7 @@ theorem (Closure t env) = closure t (theoremEnv env)
 theorem (ClApp f t) = snd (theorem f) t (theorem t)
 
 theoremEnv Nil = Nil
-theoremEnv (t :: env) = theorem t :: theoremEnv env
+theoremEnv (Cons t env) = Cons (theorem t) (theoremEnv env)
 
 
 termination : {a : Ty} -> (c : Closed a) -> Trace (decompose c)
@@ -340,49 +341,49 @@ evaluate c = iterate (termination c)
 
 
 refocus : {a : Ty} -> (ctx : EvalContext a b) -> (c : Closed a) -> Decomposition (plug ctx c)
-refocus ctx (ClApp f t) = refocus (t :: ctx) f
+refocus ctx (ClApp f t) = refocus (Cons t ctx) f
 refocus ctx (Closure (App f t) env) = Red (RApp f t env) ctx
 refocus ctx (Closure (Var v) env) = Red (RVar v env) ctx
 refocus Nil (Closure (Lam b) env) = Val b env
-refocus (t :: ctx) (Closure (Lam b) env) = Red (Beta b env t) ctx
-
+refocus (Cons t ctx) (Closure (Lam b) env) = Red (Beta b env t) ctx
 
 refocusCorrect : {a : Ty} -> (ctx : EvalContext a b) -> (c : Closed a) ->
-                 refocus ctx c === decompose (plug ctx c)
-refocusCorrect ctx (ClApp f t) = refocusCorrect (t :: ctx) f
-refocusCorrect ctx (Closure (App f t) env) = sym $ decomposePlug ctx (Closure (App f t) env)
-refocusCorrect ctx (Closure (Var v) env) = sym $ decomposePlug ctx (Closure (Var v) env)
+                 Equal (refocus ctx c) (decompose (plug ctx c))
+refocusCorrect ctx (ClApp f t) = refocusCorrect (Cons t ctx) f
+refocusCorrect ctx (Closure (App f t) env) = sym (decomposePlug ctx (Closure (App f t) env))
+refocusCorrect ctx (Closure (Var v) env) = sym (decomposePlug ctx (Closure (Var v) env))
 refocusCorrect Nil (Closure (Lam b) env) = Refl
-refocusCorrect (t :: ctx) (Closure (Lam b) env) = sym $ decomposePlug (t :: ctx) (Closure (Lam b) env)
+refocusCorrect (Cons t ctx) (Closure (Lam b) env) = sym (decomposePlug (Cons t ctx) (Closure (Lam b) env))
 
 namespace Refocus
 
-
+  public export
   data Trace : {c : Closed a} -> Decomposition c -> Type where
     Done : (0 sc, env : _) -> Trace (Val sc env)
-    Step : (0 ctx : EvalContext a b) -> (0 r : Redex a) ->
+    Step : {0 a, b : Ty} -> (0 ctx : EvalContext a b) -> (0 r : Redex a) ->
            Refocus.Trace (refocus ctx (contract r)) -> Trace (Red r ctx)
 
-
-  trace : {0 c : Closed a} -> {0 d, e : Decomposition c} ->
-          Krivine.Trace d -> (0 _ : e === d) -> Refocus.Trace e
+  export
+  trace : {0 a : Ty} -> {0 c : Closed a} -> {0 d, e : Decomposition c} ->
+          Main.Trace d -> (0 x : Equal e d) -> Refocus.Trace e
   trace (Done sc env) Refl = Done sc env
   trace (Step ctx r tr) Refl
-    = Step ctx r $ trace tr (refocusCorrect ctx (contract r))
+    = Step ctx r (trace tr (refocusCorrect ctx (contract r)))
 
-
+  export
   termination : {a : Ty} -> (c : Closed a) -> Refocus.Trace (decompose c)
   termination c = trace (termination c) Refl
 
-
-  iterate : {d : Decomposition {a} c} -> (0 _ : Refocus.Trace d) -> Value a
+  export
+  iterate : {0 a, c : _} -> {d : Decomposition {a} c} -> (0 x : Refocus.Trace d) -> Value a
   iterate (Done sc env) = Val (Closure (Lam sc) env) Lam
   iterate (Step ctx r tr) = iterate tr
 
-
+  export
   evaluate : {a : Ty} -> Closed a -> Value a
   evaluate c = iterate (Refocus.termination c)
 
+{-
 ------------------------------------------------------------------------
 -- Section 6: The Krivine machine
 
