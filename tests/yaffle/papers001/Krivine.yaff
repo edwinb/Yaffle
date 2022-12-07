@@ -308,10 +308,9 @@ the a x = x
 
 closure : {a : Ty} -> (t : Term g a) -> {env : Env g} ->
           ReducibleEnv env -> Reducible a (Closure t env)
+closure (Lam b) reds = MkPair (Done b _) (\ arg, red => expand (closure b (Cons red reds)))
 closure {a = b} (App {a} f t) reds
   = expand ((snd (closure {a = Arr a b} f reds)) (Closure t env) (closure {a} t reds))
-
-closure (Lam b) reds = MkPair (Done b _) (\ arg, red => expand (closure b (Cons red reds)))
 closure (Var v) reds = expand (lookup reds v)
 
 
