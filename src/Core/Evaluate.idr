@@ -165,7 +165,19 @@ parameters {auto c : Ref Ctxt Defs}
                             | Nothing =>
                              do args' <- repArgAll args
                                 pure $ applyWithFC (Ref fc nt fn) (toList args')
-                       repSub nf
+                       {- unprincipled but works:
+                       case nf of
+                         VCase{} => do args' <- repArgAll args
+                                       pure $ applyWithFC (Ref fc nt fn) (toList args')
+                         _ => repSub nf -}
+
+                       {- principled but does not work: with001 gives us a puzzling error
+                          message arguing that
+                                  g (f t)
+                          and     case f t of { Z => Z; S n => S (g n) }
+                          are not convertible
+                       -}
+                       replace' expand tmpi env orig parg nf
                else do args' <- repArgAll args
                        pure $ applyWithFC (Ref fc nt fn) (toList args')
       repSub (VLocal fc idx p args)

@@ -1,0 +1,22 @@
+data Nat : Type where
+  Z : Nat
+  S : Nat -> Nat
+
+data Equal : {0 a : Type} -> a -> a -> Type where
+  Refl : Equal x x
+
+
+g : Nat -> Nat
+g Z = Z
+g (S n) = S (g n)
+
+f : Nat -> Nat
+f Z = Z
+f (S n) = S (f n)
+
+h : Nat -> Nat
+h t = g (f t)
+
+prf : (t : Nat) -> Equal (h t) (f t)
+prf t with (f t)
+  prf t | m = ?A
