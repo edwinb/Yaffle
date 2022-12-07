@@ -36,6 +36,18 @@ genVar fc n
 
 parameters {auto c : Ref Ctxt Defs}
 
+  -- Try reducing the application, but only if the name is one that's
+  -- reducible in any of the given namespaces
+  tryReduce : Strategy ->
+              FC -> Name -> Core (Maybe (Glued vars)) ->
+              Core (Maybe (Glued vars))
+  tryReduce BlockApp _ _ _ = pure Nothing
+  tryReduce (Reduce ns) fc n val
+      = do v <- getVisibility fc n
+           if reducibleInAny ns n v
+              then val
+              else pure Nothing
+
   convGen : {vars : _} ->
             Ref QVar Int =>
             Strategy -> Env Term vars ->
@@ -85,29 +97,19 @@ parameters {auto c : Ref Ctxt Defs}
       = if n == n'
            then convSpine BlockApp env args args'
            else pure False
-  convGen (Reduce ns) env x@(VApp fc _ n args val) y@(VApp fc' _ n' args' val')
+  convGen s@(Reduce ns) env x@(VApp fc _ n args val) y@(VApp fc' _ n' args' val')
       = do -- Check without reducing first since it might save a lot of work
            -- on success
            False <- convGen BlockApp env x y | True => pure True
-           Just x' <- tryReduce fc n val  | Nothing => pure False
-           Just y' <- tryReduce fc' n' val' | Nothing => pure False
+           Just x' <- tryReduce s fc n val  | Nothing => pure False
+           Just y' <- tryReduce s fc' n' val' | Nothing => pure False
            convGen (Reduce ns) env x' y'
-    where
-      -- Try reducing the application, but only if the name is one that's
-      -- reducible in any of the given namespaces
-      tryReduce : FC -> Name -> Core (Maybe (Glued vars)) ->
-                  Core (Maybe (Glued vars))
-      tryReduce fc n val
-          = do v <- getVisibility fc n
-               if reducibleInAny ns n v
-                  then val
-                  else pure Nothing
   -- If one is an App and the other isn't, try to reduce the App first
-  convGen s env (VApp _ _ _ _ val) y
-      = do Just x <- val | Nothing => pure False
+  convGen s env (VApp fc _ n _ val) y
+      = do Just x <- tryReduce s fc n val | Nothing => pure False
            convGen s env x y
-  convGen s env x (VApp _ _ _ _ val)
-      = do Just y <- val | Nothing => pure False
+  convGen s env x (VApp fc _ n _ val)
+      = do Just y <- tryReduce s fc n val | Nothing => pure False
            convGen s env x y
   convGen s env (VLocal _ i _ sp) (VLocal _ i' _ sp')
       = if i == i'
