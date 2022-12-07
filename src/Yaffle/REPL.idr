@@ -1,6 +1,7 @@
 module Yaffle.REPL
 
 import Core.AutoSearch
+import Core.Binary
 import Core.Context
 import Core.Context.Log
 import Core.Core
@@ -14,6 +15,7 @@ import Core.Evaluate
 import Core.Syntax.Parser
 import Core.Termination
 import Core.TT
+import Core.TTCFile
 import Core.Unify
 
 import TTImp.Elab
@@ -172,9 +174,11 @@ repl
 
 export
 processTTImpFile : {auto c : Ref Ctxt Defs} ->
-                   String -> Core Bool
-processTTImpFile fname
-    = do modIdent <- ctxtPathToNS fname
+                   {auto m : Ref MD Metadata} ->
+                   {auto u : Ref UST UState} ->
+                   String -> ModuleIdent -> Core Bool
+processTTImpFile fname modIdent
+    = do
          Right (ws, decor, tti) <-
               coreLift $ parseFile fname (PhysicalIdrSrc modIdent)
                             (do decls <- prog (PhysicalIdrSrc modIdent)
@@ -183,16 +187,17 @@ processTTImpFile fname
                | Left err => do coreLift (putStrLn (show err))
                                 pure False
          traverse_ recordWarning ws
-         m <- newRef MD (initMetadata (PhysicalIdrSrc modIdent))
-         u <- newRef UST initUState
 
          catch (do ignore $ processTTImpDecls (MkNested []) [<] tti
                    Nothing <- checkDelayedHoles
                        | Just err => throw err
-                   repl
                    pure True)
                (\err => do coreLift_ (printLn err)
                            pure False)
+
+HasNames () where
+  full _ _ = pure ()
+  resolved _ _ = pure ()
 
 export
 ttImpMain : String -> Core ()
@@ -200,6 +205,13 @@ ttImpMain fname
     = do defs <- initDefs
          c <- newRef Ctxt defs
          addPrimitives
-         ok <- processTTImpFile fname
-         -- TODO: when ok, write out TTC
-         pure ()
+         modIdent <- ctxtPathToNS fname
+         m <- newRef MD (initMetadata (PhysicalIdrSrc modIdent))
+         u <- newRef UST initUState
+
+         ok <- processTTImpFile fname modIdent
+         when ok $ do
+              ttcFileName <- getTTCFileName fname "ttc"
+              writeToTTC () fname ttcFileName
+              coreLift_ $ putStrLn $ "Written " ++ show ttcFileName
+              repl

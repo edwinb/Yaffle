@@ -15,15 +15,6 @@ import Libraries.Data.StringMap
 import Libraries.System.File
 import Libraries.System.File.Buffer
 
-||| TTC files can only be compatible if the version number is the same
-||| (Update this when changing anything in the data format)
-export
-ttcVersion : Int
-ttcVersion
-  = 20220808 -- the date of the update
-    * 1000   -- so as to be bigger than Idris 2!
-    + 0      -- update number on given date
-
 -- Label for binary states
 export
 data Bin : Type where
