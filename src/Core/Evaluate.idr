@@ -13,6 +13,18 @@ import Core.TT
 import Data.SnocList
 
 parameters {auto c : Ref Ctxt Defs}
+
+  recompute : {vars : _} -> Env Term vars -> NF vars -> Core (NF vars)
+  recompute {vars} env val = do
+    tm <- quote env val
+    expand !(nf env tm)
+
+  export
+  touch : {vars : _} -> Env Term vars -> NF vars -> Core (NF vars)
+  touch {vars} env val@(VMeta{}) = recompute env val
+  touch {vars} env val@(VApp{}) = recompute env val
+  touch env val = pure val
+
   export
   normalise
       : {vars : _} ->

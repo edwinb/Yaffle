@@ -1,0 +1,665 @@
+
+data Ty : Type where
+  Base : Ty
+  Arr : (a, b : Ty) -> Ty
+
+namespace List
+
+  public export
+  data List : Type -> Type where
+    Nil : {0 a : Type} -> List a
+    Cons : {0 a : Type} -> a -> List a -> List a
+
+Context : Type
+Context = List Ty
+
+data Elem : a -> List a -> Type where
+  Here : Elem x (Cons x xs)
+  There : Elem x xs -> Elem x (Cons y xs)
+
+data Term : Context -> Ty -> Type where
+  Lam : Term (Cons a g) b -> Term g (Arr a b)
+  App : {a : Ty} -> Term g (Arr a b) -> Term g a -> Term g b
+  Var : Elem a g -> Term g a
+
+data Closed : Ty -> Type where
+data Env : Context -> Type where
+
+data Closed : Ty -> Type where
+  Closure : Term g a -> Env g -> Closed a
+  ClApp : {a : Ty} -> Closed (Arr a b) -> Closed a -> Closed b
+
+data Env : Context -> Type where
+  Nil : Env Nil
+  Cons : {a : Ty} -> Closed a -> Env g -> Env (Cons a g)
+
+namespace Value
+
+  public export
+  data IsValue : Closed g -> Type where
+    Lam : {0 b, env : _} -> IsValue (Closure (Lam b) env)
+
+  public export
+  data Value : Ty -> Type where
+    Val : {0 a : Ty} -> (c : Closed a) -> IsValue c -> Value a
+
+data Redex : Ty -> Type where
+  RVar : {0 a, g : _} -> Elem a g -> Env g -> Redex a
+  RApp : {0 b, g : _} -> {a : Ty} -> Term g (Arr a b) -> Term g a -> Env g -> Redex b
+  Beta : {0 b, g : _} -> {a : Ty} -> Term (Cons a g) b -> Env g -> Closed a -> Redex b
+
+
+redex : Redex a -> Closed a
+redex (RVar v env) = Closure (Var v) env
+redex (RApp f t env) = Closure (App f t) env
+redex (Beta b env arg) = ClApp (Closure (Lam b) env) arg
+
+lookup : Env g -> Elem a g -> Closed a
+lookup (Cons v _) Here = v
+lookup (Cons _ vs) (There p) = lookup vs p
+
+contract : Redex a -> Closed a
+contract (RVar v env) = lookup env v
+contract (RApp f t env) = ClApp (Closure f env) (Closure t env)
+contract (Beta b env arg) = Closure b (Cons arg env)
+
+namespace EvalContext
+
+  public export
+  data EvalContext : (inner, outer : Ty) -> Type where
+    Nil : {0 inner : _} -> EvalContext inner inner
+    Cons : {0 a, inner, outer : _} -> Closed a -> EvalContext inner outer -> EvalContext (Arr a inner) outer
+
+
+  public export
+  snoc : {0 inner, dom, outer : _} -> EvalContext inner (Arr dom outer) -> Closed dom -> EvalContext inner outer
+  snoc Nil t = Cons t Nil
+  snoc (Cons hd ctx) t = Cons hd (snoc ctx t)
+
+  public export
+  data SnocView : EvalContext inner outer -> Type where
+    Lin : SnocView Nil
+    Snoc : {0 inner, dom, outer : _} ->
+           (ctx : EvalContext inner (Arr dom outer)) ->
+           (t : Closed dom) ->
+           SnocView (snoc ctx t)
+
+  public export
+  snocView : {0 inner, outer : _} -> (ctx : EvalContext inner outer) -> SnocView ctx
+  snocView Nil = Lin
+  snocView (Cons hd ctx) with (snocView ctx)
+    snocView (Cons hd _) | Lin = Snoc Nil hd
+    snocView (Cons hd _) | Snoc ctx' t = Snoc (Cons hd ctx') t
+
+
+plug : {a : Ty} -> EvalContext a b -> Closed a -> Closed b
+plug Nil f = f
+plug (Cons t ts) f = plug ts (ClApp f t)
+
+
+data Equal : {0 a : Type} -> a -> a -> Type where
+  Refl : Equal x x
+
+0 plugSnoc : (ctx : EvalContext a (Arr dom b)) ->
+           (t : Closed dom) ->
+           (f : Closed a) ->
+           Equal (plug (snoc ctx t) f) (ClApp (plug ctx f) t)
+plugSnoc Nil _ _ = Refl
+plugSnoc (Cons t ctx) _ _ = plugSnoc ctx _ _
+
+
+
+data Decomposition : Closed a -> Type where
+  Val : (sc : Term (Cons a g) b) -> (env : Env g) ->
+        Decomposition {a = Arr a b} (Closure (Lam sc) env)
+  Red : {s : Ty} -> (r : Redex s) -> (ctx : EvalContext s t) ->
+        Decomposition {a = t} (plug ctx (redex r))
+
+load : {a : Ty} -> (ctx : EvalContext a b) -> (c : Closed a) -> Decomposition (plug ctx c)
+
+unload : {a, b : Ty} -> (ctx : EvalContext (Arr a b) outer) ->
+         (sc : Term (Cons a g) b) ->
+         (env : Env g) ->
+         Decomposition (plug ctx (Closure (Lam sc) env))
+
+load ctx (ClApp f t) = load (Cons t ctx) f
+load ctx (Closure (Var v) env) = Red (RVar v env) ctx
+load ctx (Closure (App f t) env) = Red (RApp f t env) ctx
+load ctx (Closure (Lam sc) env) = unload ctx sc env
+
+unload Nil sc env = Val sc env
+unload (Cons arg ctx) sc env = Red (Beta sc env arg) ctx
+
+decompose : {a : Ty} -> (c : Closed a) -> Decomposition c
+decompose = load Nil
+
+decomposePlug : {a : Ty} -> (ctx : EvalContext a b) -> (c : Closed a) ->
+                Equal (decompose (plug ctx c)) (load ctx c)
+decomposePlug Nil c = Refl
+decomposePlug (Cons t ctx) c = decomposePlug ctx (ClApp c t)
+
+recompose : Decomposition {a} c -> Closed a
+recompose (Red r ctx) = plug ctx (contract r)
+recompose (Val sc env) = Closure (Lam sc) env
+
+headReduce : {a : Ty} -> Closed a -> Closed a
+headReduce c = recompose (decompose c)
+
+loadRedex :
+  (ctx : EvalContext a b) -> (r : Redex a) ->
+  Equal (load ctx (redex r)) (Red r ctx)
+loadRedex ctx (RVar _ _) = Refl
+loadRedex ctx (RApp _ _ _) = Refl
+loadRedex ctx (Beta _ _ _) = Refl
+
+replace : {0 x, y : a} -> (0 p : _) ->
+          (0 rule : Equal x y) -> (1 val : p x) -> p y
+replace p Refl prf = prf
+
+sym : Equal x y -> Equal y x
+sym Refl = Refl
+
+headReducePlug :
+  (ctx : EvalContext a b) -> (r : Redex a) ->
+  Equal (headReduce (plug ctx (redex r))) (plug ctx (contract r))
+headReducePlug ctx r
+  = replace (\ x => Equal (recompose x) (plug ctx (contract r))) (sym (decomposePlug ctx (redex r)))
+  (replace (\ x => Equal (recompose x) (plug ctx (contract r))) (sym (loadRedex ctx r))
+  Refl)
+
+data Void : Type where {}
+
+Not : Type -> Type
+Not x = x -> Void
+
+absurd : (0 x : Void) -> a
+absurd x impossible
+
+{-
+
+TODO: add old definition of headReduceNeutral
+
+-}
+
+headReduceNeutral :
+  (ctx : EvalContext s b) -> (r : Redex s) ->
+  (f : Closed (Arr a b)) -> Not (IsValue f) ->
+  Equal (ClApp f t) (plug ctx (redex r)) ->
+  Equal (plug ctx (contract r)) (ClApp (headReduce f) t)
+headReduceNeutral ctx r f nv = case snocView ctx of
+  Lin => case r of
+    RVar _ _ => \ x => case x of Refl impossible
+    RApp _ _ _ => \ x => case x of Refl impossible
+    Beta _ _ _ => \ x => case x of Refl => absurd (nv Lam)
+  Snoc ctx' arg =>
+    replace (\ x => Equal (ClApp f t) (plug (snoc ctx' arg) (redex r)) -> Equal x (ClApp (headReduce f) t))
+      (sym (plugSnoc ctx' arg (contract r)))
+    (replace (\ x => Equal (ClApp f t) x -> Equal (ClApp (plug ctx' (contract r)) arg) (ClApp (headReduce f) t))
+      (sym (plugSnoc ctx' arg (redex r)))
+    (\ x => case x of
+       Refl => replace (\ x => Equal (ClApp (plug ctx' (contract r)) arg) (ClApp x arg))
+                   (sym (headReducePlug ctx' r)) Refl))
+
+trans : (0 p : Equal x y) -> (0 q : Equal y z) -> Equal x z
+trans Refl Refl = Refl
+
+headReduceClApp : {a, b : Ty} ->
+                  (f : Closed (Arr a b)) -> Not (IsValue f) -> (t : Closed a) ->
+                  Equal (headReduce (ClApp f t)) (ClApp (headReduce f) t)
+headReduceClApp f nv t =
+
+  let
+    go : forall a, b.
+       (f : Closed (Arr a b)) -> Not (IsValue f) -> (t : Closed a) ->
+       (ft : Closed b) -> Equal (ClApp f t) ft -> Decomposition ft ->
+       Equal (headReduce ft) (ClApp (headReduce f) t)
+    go f nv t (Closure (Lam sc) env) eq (Val sc env) = case eq of Refl impossible
+    go f nv t (plug ctx (redex r)) eq (Red r ctx)
+      = trans (headReducePlug ctx r) (headReduceNeutral ctx r f nv eq)
+
+  in  go f nv t (ClApp f t) Refl (decompose (ClApp f t))
+
+------------------------------------------------------------------------
+-- Section 4: Iterated head reduction
+
+namespace Naïve
+
+  covering
+  evaluate : {a : Ty} -> Closed a -> Value a
+  evaluate c =
+
+    let
+      iterate : {a : Ty} -> {0 c : Closed a} -> Decomposition c -> Value a
+      iterate (Val b env)
+         -- there's a typo in the paper for this case
+        = Val (Closure (Lam b) env) Lam
+      iterate (Red r ctx) = iterate (decompose (plug ctx (contract r)))
+
+    in iterate (decompose c)
+
+-- Using the Bove-Capretta technique
+
+
+data Trace : Decomposition c -> Type where
+  Done : (sc, env : _) -> Trace (Val sc env)
+  Step : (ctx : EvalContext a b) -> (r : Redex a) ->
+         Trace (decompose (plug ctx (contract r))) -> Trace (Red r ctx)
+
+iterate : {a : Ty} -> {0 c : Closed a} -> {d : Decomposition {a} c} ->
+          (0 x : Trace d) -> Value a
+iterate (Done sc env) = Val (Closure (Lam sc) env) Lam
+iterate (Step r ctx tr) = iterate tr
+
+data Pair : (a, b : Type) -> Type where
+  MkPair : a -> b -> Pair a b
+
+fst : Pair a b -> a
+fst (MkPair x y) = x
+
+snd : Pair a b -> b
+snd (MkPair x y) = y
+
+Reducible : (a : Ty) -> Closed a -> Type
+Reducible Base t = Trace (decompose t)
+Reducible (Arr a b) t
+  = Pair (Trace (decompose t))
+         ((y : Closed a) -> Reducible a y -> Reducible b (ClApp t y))
+
+namespace ReducibleEnv
+
+  public export
+  data ReducibleEnv : Env g -> Type where
+    Nil : ReducibleEnv Nil
+    Cons : {0 a, t, env : _} -> Reducible a t -> ReducibleEnv env -> ReducibleEnv (Cons t env)
+
+  public export
+  lookup : {0 a, g, env : _} -> ReducibleEnv env -> (v : Elem a g) -> Reducible a (lookup env v)
+  lookup (Cons red _) Here = red
+  lookup (Cons _ reds) (There v) = lookup reds v
+
+step : {a : Ty} -> {c : Closed a} -> Trace (decompose (headReduce c)) -> Trace (decompose c)
+{- Used to work:
+step {c = c@_} tr with (decompose c)
+  _ | Val sc env = tr
+  _ | Red r ctx = Step ctx r tr
+-}
+step {c} = let
+
+    go : {a : Ty} -> {c : Closed a} -> (t : Decomposition c) ->
+         Trace (decompose (recompose t)) -> Trace t
+    go (Val sc env) tr = tr
+    go (Red r ctx) tr = Step ctx r tr
+
+  in go (decompose c)
+
+expand : {a : Ty} -> {c : Closed a} -> Reducible a (headReduce c) -> Reducible a c
+expand {a = Base} tr = step tr
+expand {a = Arr a b} {c = Closure (Lam x) env} (MkPair tr hored) = MkPair (step tr) hored
+expand {a = Arr a b} {c = Closure (App x t) env} (MkPair tr hored)
+  = MkPair (step tr) (\ arg, red => expand (hored arg red))
+expand {a = Arr a b} {c = Closure (Var x) env} (MkPair tr hored)
+  = MkPair (step tr) (\ arg, red => expand (hored arg red))
+expand {a = Arr a b} {c = ClApp f t} (MkPair tr hored)
+  = MkPair (step tr)
+  (\ arg, red =>
+    let 0 eq = headReduceClApp (ClApp f t) (\ x => case x of Lam impossible) arg in
+    let red = replace (Reducible b) (sym eq) (hored arg red) in
+    expand {c = ClApp (ClApp f t) arg} red)
+
+the : (0 a : Type) -> a -> a
+the a x = x
+
+closure : {a : Ty} -> (t : Term g a) -> {env : Env g} ->
+          ReducibleEnv env -> Reducible a (Closure t env)
+closure (Lam b) reds = MkPair (Done b _) (\ arg, red => expand (closure b (Cons red reds)))
+closure {a = b} (App {a} f t) reds
+  = expand ((snd (closure {a = Arr a b} f reds)) (Closure t env) (closure {a} t reds))
+closure (Var v) reds = expand (lookup reds v)
+
+
+theorem : {a : Ty} -> (c : Closed a) -> Reducible a c
+
+theoremEnv : (env : Env g) -> ReducibleEnv env
+
+theorem (Closure t env) = closure t (theoremEnv env)
+theorem (ClApp f t) = snd (theorem f) t (theorem t)
+
+theoremEnv Nil = Nil
+theoremEnv (Cons t env) = Cons (theorem t) (theoremEnv env)
+
+
+termination : {a : Ty} -> (c : Closed a) -> Trace (decompose c)
+termination {a = Base} c = theorem c
+termination {a = Arr a b} c = fst (theorem c)
+
+
+evaluate : {a : Ty} -> Closed a -> Value a
+evaluate c = iterate (termination c)
+
+------------------------------------------------------------------------
+-- Section 5: Refocusing
+
+
+refocus : {a : Ty} -> (ctx : EvalContext a b) -> (c : Closed a) -> Decomposition (plug ctx c)
+refocus ctx (ClApp f t) = refocus (Cons t ctx) f
+refocus ctx (Closure (App f t) env) = Red (RApp f t env) ctx
+refocus ctx (Closure (Var v) env) = Red (RVar v env) ctx
+refocus Nil (Closure (Lam b) env) = Val b env
+refocus (Cons t ctx) (Closure (Lam b) env) = Red (Beta b env t) ctx
+
+refocusCorrect : {a : Ty} -> (ctx : EvalContext a b) -> (c : Closed a) ->
+                 Equal (refocus ctx c) (decompose (plug ctx c))
+refocusCorrect ctx (ClApp f t) = refocusCorrect (Cons t ctx) f
+refocusCorrect ctx (Closure (App f t) env) = sym (decomposePlug ctx (Closure (App f t) env))
+refocusCorrect ctx (Closure (Var v) env) = sym (decomposePlug ctx (Closure (Var v) env))
+refocusCorrect Nil (Closure (Lam b) env) = Refl
+refocusCorrect (Cons t ctx) (Closure (Lam b) env) = sym (decomposePlug (Cons t ctx) (Closure (Lam b) env))
+
+namespace Refocus
+
+  public export
+  data Trace : {c : Closed a} -> Decomposition c -> Type where
+    Done : (0 sc, env : _) -> Trace (Val sc env)
+    Step : {0 a, b : Ty} -> (0 ctx : EvalContext a b) -> (0 r : Redex a) ->
+           Refocus.Trace (refocus ctx (contract r)) -> Trace (Red r ctx)
+
+  export
+  trace : {0 a : Ty} -> {0 c : Closed a} -> {0 d, e : Decomposition c} ->
+          Main.Trace d -> (0 x : Equal e d) -> Refocus.Trace e
+  trace (Done sc env) Refl = Done sc env
+  trace (Step ctx r tr) Refl
+    = Step ctx r (trace tr (refocusCorrect ctx (contract r)))
+
+  export
+  termination : {a : Ty} -> (c : Closed a) -> Refocus.Trace (decompose c)
+  termination c = trace (termination c) Refl
+
+  export
+  iterate : {0 a, c : _} -> {d : Decomposition {a} c} -> (0 x : Refocus.Trace d) -> Value a
+  iterate (Done sc env) = Val (Closure (Lam sc) env) Lam
+  iterate (Step ctx r tr) = iterate tr
+
+  export
+  evaluate : {a : Ty} -> Closed a -> Value a
+  evaluate c = iterate (Refocus.termination c)
+
+{-
+------------------------------------------------------------------------
+-- Section 6: The Krivine machine
+
+
+IsValidEnv : Env g -> Type
+
+
+IsValidClosed : Closed a -> Type
+
+IsValidClosed (Closure t env) = IsValidEnv env
+IsValidClosed _ = Void
+
+IsValidEnv Nil = ()
+IsValidEnv (t :: env) = (IsValidClosed t, IsValidEnv env)
+
+
+ValidEnv : Context -> Type
+ValidEnv g = Subset (Env g) IsValidEnv
+
+
+ValidClosed : Ty -> Type
+ValidClosed a = Subset (Closed a) IsValidClosed
+
+namespace ValidClosed
+
+
+  Closure : Term g a -> ValidEnv g -> ValidClosed a
+  Closure t (Element env pr) = Element (Closure t env) pr
+
+
+  fstClosure : (t : Term g a) -> (env : ValidEnv g) ->
+               fst (Closure t env) === Closure t (fst env)
+  fstClosure t (Element env p) = Refl
+
+
+  0 getContext : ValidClosed a -> Context
+  getContext (Element (Closure {g} t env) _) = g
+
+
+  getEnv : (c : ValidClosed a) -> ValidEnv (getContext c)
+  getEnv (Element (Closure {g} _ env) pr) = Element env pr
+
+
+  getTerm : (c : ValidClosed a) -> Term (getContext c) a
+  getTerm (Element (Closure t _) _) = t
+
+
+  etaValidClosed : (c : ValidClosed a) -> c === Closure (getTerm c) (getEnv c)
+  etaValidClosed (Element (Closure t env) _) = Refl
+
+namespace ValidEnv
+
+
+  lookup : (env : ValidEnv g) -> Elem a g -> ValidClosed a
+  lookup (Element (t :: env) p) Here = Element t (fst p)
+  lookup (Element (t :: env) p) (There v) = lookup (Element env (snd p)) v
+
+
+  fstLookup : (env : ValidEnv g) -> (v : Elem a g) ->
+              fst (lookup env v) === lookup (fst env) v
+  fstLookup (Element (t :: env) p) Here = Refl
+  fstLookup (Element (t :: env) p) (There v) = fstLookup (Element env (snd p)) v
+
+
+  Nil : ValidEnv Nil
+  Nil = Element Nil ()
+
+
+  (::) : {a : Ty} -> ValidClosed a -> ValidEnv g -> ValidEnv (a :: g)
+  Element t p :: Element env q = Element (t :: env) (p, q)
+
+
+IsValidEvalContext : EvalContext a b -> Type
+IsValidEvalContext Nil = ()
+IsValidEvalContext (t :: ctx) =  (IsValidClosed t, IsValidEvalContext ctx)
+
+
+ValidEvalContext : (a, b : Ty) -> Type
+ValidEvalContext a b = Subset (EvalContext a b) IsValidEvalContext
+
+namespace ValidEvalContext
+
+
+  Nil : ValidEvalContext a a
+  Nil = Element Nil ()
+
+
+  (::) : ValidClosed a -> ValidEvalContext b c -> ValidEvalContext (Arr a b) c
+  Element t p :: Element ctx q = Element (t :: ctx) (p, q)
+
+
+  fstCons : (t : ValidClosed a) -> (ctx : ValidEvalContext b c) ->
+            fst (t :: ctx) === fst t :: fst ctx
+  fstCons (Element t p) (Element ctx q) = Refl
+
+
+  [CONS] Biinjective ValidEvalContext.(::) where
+    biinjective
+      {x = Element t p} {y = Element t p}
+      {v = Element ts ps} {w = Element ts ps}
+      Refl = (Refl, Refl)
+
+namespace ValidEvalContextView
+
+
+  data View : ValidEvalContext a b -> Type where
+    Nil : View Nil
+    (::) : (t : ValidClosed a) -> (ctx : ValidEvalContext b c) ->
+           View (t :: ctx)
+
+
+  irrelevantUnit : (t : ()) -> t === ()
+  irrelevantUnit () = Refl
+
+
+  etaPair : (p : (a, b)) -> p === (fst p, snd p)
+  etaPair (x, y) = Refl
+
+
+  view : (ctx : ValidEvalContext a b) -> View ctx
+  view (Element Nil p) = rewrite irrelevantUnit p in Nil
+  view (Element (t :: ctx) p)
+    = rewrite etaPair p in
+      Element t (fst p) :: Element ctx (snd p)
+
+namespace Machine
+
+
+  data Trace : Term g a -> ValidEnv g -> ValidEvalContext a b -> Type where
+
+    Var : {env : ValidEnv g} -> {v : Elem a g} ->
+          Trace (getTerm (lookup env v)) (getEnv (lookup env v)) ctx ->
+          Trace (Var v) env ctx
+
+    App : {f : Term g (Arr a b)} -> {t : Term g a} ->
+          Trace f env (Closure t env :: ctx) ->
+          Trace (App f t) env ctx
+
+    Beta : {sc : Term (a :: g) b} ->
+           {arg : ValidClosed a} ->
+           {ctx : ValidEvalContext b c} ->
+           Trace sc (arg :: env) ctx ->
+           Trace (Lam sc) env (arg :: ctx)
+
+    Done : Trace (Lam sc) env Nil
+
+  data View : Trace t env ctx -> Type where
+    VVar : {0 env : ValidEnv g} -> {0 v : Elem a g} ->
+           (0 tr : Trace (getTerm (lookup env v)) (getEnv (lookup env v)) ctx) ->
+           View {t = Var v, env, ctx} (Var tr)
+    VApp : {0 f : Term g (Arr a b)} -> {0 t : Term g a} ->
+           {0 ctx : ValidEvalContext b c} ->
+           (0 tr : Trace f env (Closure t env :: ctx)) ->
+           View (App {f, t, env, ctx} tr)
+    VBeta : {0 sc : Term (a :: g) b} ->
+            {arg : ValidClosed a} ->
+            {ctx : ValidEvalContext b c} ->
+            (0 tr : Trace sc (arg :: env) ctx) ->
+            View (Beta {sc, arg, env, ctx} tr)
+    VDone : (sc : Term (a :: g) b) ->
+            View (Done {sc})
+
+
+  vvar : (tr : Trace (Var v) env ctx) ->
+         (tr' : Trace ? ? ctx ** tr = Var tr')
+  vvar (Var tr) = (tr ** Refl)
+
+
+  vapp : (tr : Trace (App f t) env ctx) ->
+         (tr' : Trace f env (Closure t env :: ctx) ** tr = App tr')
+  vapp (App tr) = (tr ** Refl)
+
+
+  vlam0 : (eq : ctx = Nil) -> (tr : Trace (Lam sc) env ctx) -> tr ~=~ Machine.Done {sc, env}
+  vlam0 eq Done = Refl
+
+
+  vlamS : {0 env : ValidEnv g} -> {0 arg : ValidClosed a} ->
+          {0 sc : Term (a :: g) b} -> {0 ctx' : ValidEvalContext b c} ->
+          (eq : ctx = ValidEvalContext.(::) arg ctx') ->
+          (tr : Trace (Lam sc) env ctx) ->
+          (tr' : Trace sc (arg :: env) ctx' ** tr ~=~ Machine.Beta {sc, arg, env} tr')
+  vlamS eq (Beta tr) with 0 (fst (biinjective @{CONS} eq))
+    _ | Refl with 0 (snd (biinjective @{CONS} eq))
+      _ | Refl = (tr ** Refl)
+
+
+  view : (t : Term g a) -> (env : ValidEnv g) -> (ctx : ValidEvalContext a b) ->
+         (0 tr : Trace t env ctx) -> View tr
+  view (Var v) env ctx tr = rewrite snd (vvar tr) in VVar _
+  view (App f t) env ctx tr = rewrite snd (vapp tr) in VApp _
+  view (Lam sc) env ctx@_ tr with (view ctx)
+    _ | Nil = rewrite vlam0 Refl tr in VDone sc
+    _ | (arg :: ctx') = rewrite snd (vlamS {env, arg, sc, ctx'} Refl tr) in VBeta _
+
+
+  refocus : {a : Ty} ->
+    {t : Term g a} -> {env : ValidEnv g} ->
+    {ctx : ValidEvalContext a b} ->
+    (0 _ : Trace t env ctx) -> Value b
+  refocus tr@_ with (view _ _ _ tr)
+    _ | VVar tr' = refocus tr'
+    _ | VApp tr' = refocus tr'
+    _ | VBeta tr' = refocus tr'
+    _ | VDone sc = Val (Closure (Lam sc) (fst env)) Lam
+
+  -- This is way TOO nasty because we don't have eta for records :((
+
+  correctness :
+    {a : Ty} ->
+    (ctx : ValidEvalContext a b) ->
+    (t : Term g a) ->
+    (env : ValidEnv g) ->
+    (trold : Refocus.Trace (refocus (fst ctx) (Closure t (fst env)))) ->
+    (trnew : Machine.Trace t env ctx) ->
+    refocus trnew === Refocus.iterate trold
+  correctness ctx (Var v) env (Step (fst ctx) (RVar v (fst env)) trold) (Var trnew)
+    with (lookup env v) proof eq
+    _ | Element (Closure t' env') penv'
+    = correctness ctx t' (Element env' penv')
+        (rewrite sym (cong fst eq) in rewrite fstLookup env v in trold)
+        trnew
+  correctness ctx (App f t) env (Step (fst ctx) (RApp f t (fst env)) trold) (App trnew)
+    = correctness (Closure t env :: ctx) f env
+        (rewrite fstCons (Closure t env) ctx in rewrite fstClosure t env in trold)
+        trnew
+  correctness .(Element arg parg :: Element ctx pctx) (Lam sc) (Element env penv)
+    (Step ctx (Beta sc env arg) trold)
+    (Beta {arg = Element arg parg, ctx = Element ctx pctx} trnew)
+    = correctness (Element ctx pctx) sc (Element arg parg :: Element env penv)
+        trold
+        trnew
+  correctness (Element Nil _) (Lam sc) env (Done _ _) tr
+    -- DISGUSTING
+    = case tr of
+        Beta {arg = Element _ _, ctx = Element _ _} _ impossible
+        Done => Refl
+
+  -- Another disgusgint proof because of a mix of:
+  --   * lack of eta and the coverage
+  --   * invalid "Dot pattern not valid here (Not LHS)" on the LHS
+  --   * coverage checker being confused
+
+  trace : {a : Ty} -> (ctx : ValidEvalContext a b) ->
+          (t : Term g a) -> (env : ValidEnv g) ->
+          Refocus.Trace (refocus (fst ctx) (Closure t (fst env))) ->
+          Trace t env ctx
+  trace ctx (Var v) env (Step (fst ctx) (RVar v (fst env)) tr)
+    with (fstLookup env v) | (lookup env v) proof eq
+    _ | lemma | Element (Closure t' env') p
+      with (lookup (fst env) v)
+      trace ctx (Var v) env (Step (fst ctx) (RVar v (fst env)) tr)
+        | Refl | Element (Closure t' env') penv' | .(Closure t' env')
+        = Var (rewrite eq in trace ctx t' (Element env' penv') tr)
+  trace (Element ctx pctx) (App f t) (Element env penv) (Step .(ctx) (RApp f t env) tr)
+    = App (trace (Closure t (Element env penv) :: Element ctx pctx) f (Element env penv) tr)
+  trace (Element (arg :: ctx) pctx) (Lam sc) (Element env penv) tr
+    = case tr of
+        Done _ _ impossible
+        (Step ctx (Beta sc env arg) tr) =>
+          rewrite etaPair pctx in
+          Beta {arg = Element arg (fst pctx), ctx = Element ctx (snd pctx)}
+          (trace (Element ctx (snd pctx)) sc (Element (arg :: env) (fst pctx, penv)) tr)
+  trace (Element Nil pctx) (Lam sc) env tr
+    = case tr of
+        Beta {arg = Element _ _, ctx = Element _ _} _ impossible
+        Done sc .(fst env) => rewrite irrelevantUnit pctx in Done
+
+
+  termination : {a : Ty} -> (t : Term Nil a) -> Trace t Nil Nil
+  termination t
+    = trace Nil t Nil
+    $ rewrite refocusCorrect Nil (Closure t Nil) in
+      Refocus.termination (Closure t Nil)
+
+
+  evaluate : {a : Ty} -> Term Nil a -> Value a
+  evaluate t = Machine.refocus (termination t)
+-}

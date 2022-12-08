@@ -203,7 +203,8 @@ checkAppWith : {vars : _} ->
                Core (Term vars, Glued vars)
 checkAppWith rig info nest env fc tm ty
   argdata expargs autoargs namedargs knownret expected
-  = do res <- checkAppWith' rig info nest env fc tm ty
+  = do ty <- touch env ty
+       res <- checkAppWith' rig info nest env fc tm ty
                  argdata expargs autoargs namedargs knownret expected
        let Just _ = isLHS (elabMode info)
              | Nothing => pure res
