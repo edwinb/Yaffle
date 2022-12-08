@@ -1,2 +1,3 @@
+Written "build/ttc/Vect.ttc"
 Yaffle> ((Main.Cons 1) ((Main.Cons 2) ((Main.Cons 2) ((Main.Cons 4) Main.Nil))))
 Yaffle> Bye for now!

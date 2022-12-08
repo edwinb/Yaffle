@@ -503,7 +503,7 @@ parameters {auto c : Ref Ctxt Defs}
   addContextEntry n def
       = do defs <- get Ctxt
            smap <- get STable
-           (idx, gam') <- addEntry n (Coded smap n def) (gamma defs)
+           (idx, gam') <- addEntry n (Coded smap def) (gamma defs)
            put Ctxt ({ gamma := gam' } defs)
            pure idx
 

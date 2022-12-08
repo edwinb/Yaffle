@@ -208,9 +208,10 @@ ttImpMain fname
          modIdent <- ctxtPathToNS fname
          m <- newRef MD (initMetadata (PhysicalIdrSrc modIdent))
          u <- newRef UST initUState
-
-         ok <- processTTImpFile fname modIdent
+         -- TODO: add a command line flag for timing
+         ok <- logTimeWhen False 0 "Processing" $ processTTImpFile fname modIdent
          when ok $ do
+              file $ makeBuildDirectory modIdent
               ttcFileName <- getTTCFileName fname "ttc"
               writeToTTC () fname ttcFileName
               coreLift_ $ putStrLn $ "Written " ++ show ttcFileName

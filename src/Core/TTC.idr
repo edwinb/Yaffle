@@ -1157,7 +1157,7 @@ TTC GlobalDef where
                                      mul [<] Public unchecked [] refs refsR
                                      False def cdef Nothing [] Nothing)
 
-Core.Context.Ctxt.decode gam idx update (Coded stbl _ bin)
+Core.Context.Ctxt.decode gam idx update (Coded stbl bin)
     = do b <- newRef Bin bin
          st <- newRef STable stbl
          def <- ttc $ fromBuf {a = GlobalDef}

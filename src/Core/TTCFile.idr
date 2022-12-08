@@ -1,13 +1,15 @@
 module Core.TTCFile
 
 import Core.Binary
+import Core.CompileExpr
 import Core.Context
 import Core.Core
 import Core.TTC
 import Core.Unify.State
 
+import Libraries.Data.IntMap
 import Libraries.Data.NameMap
-
+import Libraries.Data.IOArray
 import System.File
 
 record TTCFile extra (mode : BinaryMode) where

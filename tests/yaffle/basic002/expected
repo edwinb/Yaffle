@@ -1,3 +1,4 @@
+Written "build/ttc/Interp.ttc"
 Yaffle> (Main.Lam (Main.Lam (((Main.Op Main.plus) (Main.Var Main.Stop)) (Main.Var (Main.Pop Main.Stop)))))
 Yaffle> ((Main.App ((Main.App (Main.Lam (Main.Lam (((Main.Op Main.plus) (Main.Var Main.Stop)) (Main.Var (Main.Pop Main.Stop)))))) (Main.Val (Main.S (Main.S Main.Z))))) (Main.Val (Main.S (Main.S (Main.S Main.Z)))))
 Yaffle> (Main.S (Main.S (Main.S (Main.S Main.Z))))
