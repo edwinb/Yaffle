@@ -3,13 +3,15 @@ module Core.TTCFile
 import Core.Binary
 import Core.CompileExpr
 import Core.Context
+import Core.Context.Log
 import Core.Core
 import Core.TTC
 import Core.Unify.State
 
 import Libraries.Data.IntMap
-import Libraries.Data.NameMap
 import Libraries.Data.IOArray
+import Libraries.Data.NameMap
+import Libraries.Data.StringMap
 import System.File
 
 record TTCFile extra (mode : BinaryMode) where
@@ -205,7 +207,7 @@ readTTCFile readall file as b
     replaceNS ns (n, d) = (NS ns n, d)
 
 -- Pull out the list of GlobalDefs that we want to save
-getSaveDefs : StringTable -> List Name -> List (Name, Binary Write) -> Defs ->
+getSaveDefs : Ref STable StringTable -> List Name -> List (Name, Binary Write) -> Defs ->
               Core (List (Name, Binary Write))
 getSaveDefs st [] acc _ = pure acc
 getSaveDefs st (n :: ns) acc defs
@@ -226,7 +228,7 @@ writeToTTC : (HasNames extra, TTC extra) =>
              (ttcFileName : String) -> Core ()
 writeToTTC extradata sourceFileName ttcFileName
     = do defs <- get Ctxt
-         let st = stringTable (gamma defs)
+         st <- newRef STable (stringTable (gamma defs))
          bin <- ttc $ initBinary st
          ust <- get UST
          gdefs <- getSaveDefs st (keys (toSave defs)) [] defs
@@ -256,6 +258,113 @@ writeToTTC extradata sourceFileName ttcFileName
                | Left err => throw (InternalError (ttcFileName ++ ": " ++ show err))
          pure ()
 
+addGlobalDef : {auto s : Ref STable (IntMap String)} ->
+               {auto c : Ref Ctxt Defs} ->
+               (modns : ModuleIdent) -> Namespace ->
+               (importAs : Maybe Namespace) ->
+               (Name, Binary Read) -> Core ()
+addGlobalDef modns filens asm (n, def)
+    = do defs <- get Ctxt
+         codedentry <- lookupContextEntry n (gamma defs)
+         -- Don't update the coded entry because some names might not be
+         -- resolved yet
+         entry <- maybe (pure Nothing)
+                        (\ p => do x <- decode (gamma defs) (fst p) False (snd p)
+                                   pure (Just x))
+                        codedentry
+         unless (completeDef entry) $
+           ignore $ addContextEntry n def
+
+         whenJust asm $ \ as => addContextAlias (asName modns as n) n
+
+  where
+    -- If the definition already exists, don't overwrite it with an empty
+    -- definition or hole. This might happen if a function is declared in one
+    -- module and defined in another.
+    completeDef : Maybe GlobalDef -> Bool
+    completeDef Nothing = False
+    completeDef (Just def)
+        = case definition def of
+               None => False
+               Hole _ _ => False
+               _ => True
+
+addTypeHint : {auto c : Ref Ctxt Defs} ->
+              FC -> (Name, Name, Bool) -> Core ()
+addTypeHint fc (tyn, hintn, d)
+   = do logC "ttc.read" 10 (pure (show !(getFullName hintn) ++ " for " ++
+                            show !(getFullName tyn)))
+        addHintFor fc tyn hintn d True
+
+addAutoHint : {auto c : Ref Ctxt Defs} -> (Name, Bool) -> Core ()
+addAutoHint (hintn_in, d)
+    = do hintn <- toResolvedNames hintn_in
+         update Ctxt { autoHints $= insert hintn d }
+
+export
+updatePair : {auto c : Ref Ctxt Defs} -> Maybe PairNames -> Core ()
+updatePair p = update Ctxt { options->pairnames $= (p <+>) }
+
+export
+updateRewrite : {auto c : Ref Ctxt Defs} -> Maybe RewriteNames -> Core ()
+updateRewrite r = update Ctxt { options->rewritenames $= (r <+>) }
+
+export
+updatePrimNames : PrimNames -> PrimNames -> PrimNames
+updatePrimNames p
+    = { fromIntegerName $= (p.fromIntegerName <+>),
+        fromStringName  $= (p.fromStringName  <+>),
+        fromCharName    $= (p.fromCharName    <+>),
+        fromDoubleName  $= (p.fromDoubleName  <+>)
+      }
+
+export
+updatePrims : {auto c : Ref Ctxt Defs} -> PrimNames -> Core ()
+updatePrims p = update Ctxt { options->primnames $= updatePrimNames p }
+
+export
+updateNameDirectives : {auto c : Ref Ctxt Defs} ->
+                       List (Name, List String) -> Core ()
+updateNameDirectives [] = pure ()
+updateNameDirectives ((t, ns) :: nds)
+    = do update Ctxt { namedirectives $= insert t ns }
+         updateNameDirectives nds
+
+export
+updateCGDirectives : {auto c : Ref Ctxt Defs} ->
+                     List (CG, String) -> Core ()
+updateCGDirectives cgs = update Ctxt { cgdirectives $= nub . (cgs ++) }
+
+export
+updateTransforms : {auto c : Ref Ctxt Defs} ->
+                   List (Name, Transform) -> Core ()
+updateTransforms [] = pure ()
+updateTransforms ((n, t) :: ts)
+    = do addT !(toResolvedNames n) !(toResolvedNames t)
+         updateTransforms ts
+  where
+    addT : Name -> Transform -> Core ()
+    addT n t
+        = do defs <- get Ctxt
+             case lookup n (transforms defs) of
+                  Nothing =>
+                     put Ctxt ({ transforms $= insert n [t] } defs)
+                  Just ts =>
+                     put Ctxt ({ transforms $= insert n (t :: ts) } defs)
+
+export
+updateFExports : {auto c : Ref Ctxt Defs} ->
+                 List (Name, (List (String, String))) -> Core ()
+updateFExports [] = pure ()
+updateFExports ((n, conv) :: ns)
+    = do defs <- get Ctxt
+         put Ctxt ({ foreignExports $= insert n conv } defs)
+         updateFExports ns
+
+getNSas : (String, (ModuleIdent, Bool, Namespace)) ->
+          (ModuleIdent, Namespace)
+getNSas (a, (b, c, d)) = (b, d)
+
 -- Add definitions from a binary file to the current context
 -- Returns the "extra" section of the file (user defined data), the interface
 -- hash and the list of additional TTCs that need importing
@@ -271,9 +380,8 @@ readFromTTC : TTC extra =>
               (fname : String) -> -- file containing the module
               (modNS : ModuleIdent) -> -- module namespace
               (importAs : Namespace) -> -- namespace to import as
-              Core (Maybe (extra, Int,
+              Core (Maybe (Maybe extra, Int,
                            List (ModuleIdent, Bool, Namespace)))
-    {-
 readFromTTC nestedns loc reexp fname modNS importAs
     = do defs <- get Ctxt
          -- If it's already in the context, with the same visibility flag,
@@ -283,7 +391,7 @@ readFromTTC nestedns loc reexp fname modNS importAs
               | True => pure Nothing
          put Ctxt ({ allImported $= ((fname, (modNS, reexp, importAs)) :: ) } defs)
 
-         Right buffer <- coreLift $ readFromFile fname
+         Right (buffer, ifaceHash) <- ttc $ readFromFile "TT2" fname
                | Left err => throw (InternalError (fname ++ ": " ++ show err))
          bin <- newRef Bin buffer -- for reading the file into
          let as = if importAs == miAsNamespace modNS
@@ -296,10 +404,12 @@ readFromTTC nestedns loc reexp fname modNS importAs
          if alreadyDone modNS importAs (allImported defs)
             then do ttc <- readTTCFile False fname as bin
                     let ex = extraData ttc
-                    pure (Just (ex, ifaceHash ttc, imported ttc))
+                    pure (Just (ex, ifaceHash, imported ttc))
             else do
                ttc <- readTTCFile True fname as bin
                let ex = extraData ttc
+               let st = table !(get Bin)
+               s <- newRef STable st
                traverse_ (addGlobalDef modNS (currentNS ttc) as) (context ttc)
                traverse_ (addUserHole True) (userHoles ttc)
                setNS (currentNS ttc)
@@ -326,7 +436,7 @@ readFromTTC nestedns loc reexp fname modNS importAs
                -- Finally, update the unification state with the holes from the
                -- ttc
                update UST { nextName := nextVar ttc }
-               pure (Just (ex, ifaceHash ttc, imported ttc))
+               pure (Just (ex, ifaceHash, imported ttc))
   where
     alreadyDone : ModuleIdent -> Namespace ->
                   List (String, (ModuleIdent, Bool, Namespace)) ->
@@ -339,4 +449,3 @@ readFromTTC nestedns loc reexp fname modNS importAs
         = (modns == m && importAs == a)
           || (modns == m && miAsNamespace modns == importAs)
           || alreadyDone modns importAs rest
-          -}

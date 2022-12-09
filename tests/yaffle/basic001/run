@@ -1,2 +1,3 @@
 rm -rf build
 $1 Vect.yaff < input
+$1 build/ttc/Vect.ttc < input

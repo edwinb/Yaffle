@@ -1,3 +1,4 @@
+Processing as TTImp
 Written "build/ttc/cinline.ttc"
 Yaffle> Main.ctest ==>
 	Function \({arg:0} : [__]) => let {sc:0} : Main.Nat = (Main.plus {arg:0}[0] {arg:0}[0]) in case  {sc:0}[0] of [Main.Z => {arg:0}[1], _ => (Main.plus {sc:0}[0] {sc:0}[0])]

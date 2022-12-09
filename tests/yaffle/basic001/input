@@ -1,3 +1,5 @@
+:t Cons
+:t append
 append (Cons 1 (Cons 2 Nil)) (Cons 2 (Cons 4 Nil))
 :q
 

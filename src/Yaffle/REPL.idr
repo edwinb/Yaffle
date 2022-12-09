@@ -31,6 +31,7 @@ import TTMain.ProcessTT
 
 import Parser.Source
 
+import Libraries.Utils.Path
 import System
 import System.File
 
@@ -208,11 +209,19 @@ ttImpMain fname
          modIdent <- ctxtPathToNS fname
          m <- newRef MD (initMetadata (PhysicalIdrSrc modIdent))
          u <- newRef UST initUState
-         -- TODO: add a command line flag for timing
-         ok <- logTimeWhen False 0 "Processing" $ processTTImpFile fname modIdent
-         when ok $ do
-              file $ makeBuildDirectory modIdent
-              ttcFileName <- getTTCFileName fname "ttc"
-              writeToTTC () fname ttcFileName
-              coreLift_ $ putStrLn $ "Written " ++ show ttcFileName
-              repl
+         case extension fname of
+              Just "ttc" => do coreLift_ $ putStrLn "Processing as TTC"
+                               ignore $
+                                  readFromTTC {extra = ()} True emptyFC
+                                      True fname (nsAsModuleIdent emptyNS) emptyNS
+                               coreLift_ $ putStrLn "Read TTC"
+              _ => do coreLift_ $ putStrLn "Processing as TTImp"
+                      -- TODO: add a command line flag for timing
+                      ok <- logTimeWhen False 1 "Processing" $
+                               processTTImpFile fname modIdent
+                      when ok $
+                         do file $ makeBuildDirectory modIdent
+                            ttcFileName <- getTTCFileName fname "ttc"
+                            writeToTTC () fname ttcFileName
+                            coreLift_ $ putStrLn $ "Written " ++ show ttcFileName
+         repl

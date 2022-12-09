@@ -401,8 +401,8 @@ mutual
   export
   {vars : _} -> TTC (Term vars) where
     toBuf (Local {name} fc idx y)
-        = if idx < 243
-             then do tag (13 + cast idx)
+        = if idx < 241
+             then do tag (15 + cast idx)
              else do tag 0
                      toBuf idx
     toBuf (Ref fc nt name)
@@ -422,7 +422,7 @@ mutual
              toBuf arg
     toBuf (As fc s as tm)
         = do tag 5;
-             toBuf as; toBuf s; toBuf tm
+             toBuf s; toBuf as; toBuf tm
     toBuf (Case fc c sc scty alts)
         = do tag 6
              toBuf c; toBuf sc; toBuf scty
@@ -470,7 +470,7 @@ mutual
                        c <- fromBuf
                        arg <- fromBuf
                        pure (App emptyFC fn c arg)
-               5 => do as <- fromBuf; s <- fromBuf; tm <- fromBuf
+               5 => do s <- fromBuf; as <- fromBuf; tm <- fromBuf
                        pure (As emptyFC s as tm)
                6 => do c <- fromBuf; sc <- fromBuf; scty <- fromBuf
                        alts <- fromBuf
@@ -492,7 +492,7 @@ mutual
                13 => do str <- fromBuf
                         pure (Unmatched emptyFC str)
                14 => do u <- fromBuf; pure (TType emptyFC u)
-               idxp => do let idx : Nat = fromInteger (cast (idxp - 13))
+               idxp => do let idx : Nat = fromInteger (cast (idxp - 15))
                           let Just name = getName idx vars
                               | Nothing => corrupt "Term"
                           pure (Local {name} emptyFC idx (mkPrf idx))
@@ -500,7 +500,7 @@ mutual
   export
   {vars : _} -> TTC (CaseScope vars) where
     toBuf (RHS tm) = do tag 0; toBuf tm
-    toBuf (Arg c x sc) = do tag 1; toBuf x; toBuf x; toBuf sc
+    toBuf (Arg c x sc) = do tag 1; toBuf c; toBuf x; toBuf sc
 
     fromBuf
         = case !getTag of
@@ -1142,11 +1142,13 @@ TTC GlobalDef where
            def <- fromBuf
            if isUserName name
               then do ty <- fromBuf
-                      eargs <- fromBuf;
-                      seargs <- fromBuf; specargs <- fromBuf
-                      iargs <- fromBuf;
+                      eargs <- fromBuf
+                      seargs <- fromBuf
+                      specargs <- fromBuf
+                      iargs <- fromBuf
                       vars <- fromBuf
-                      vis <- fromBuf; tot <- fromBuf
+                      vis <- fromBuf
+                      tot <- fromBuf
                       fl <- fromBuf
                       inv <- fromBuf
                       sc <- fromBuf

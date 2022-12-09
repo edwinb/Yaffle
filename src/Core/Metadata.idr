@@ -377,7 +377,8 @@ writeToTTM : {auto c : Ref Ctxt Defs} ->
 writeToTTM fname
     = do meta <- get MD
          defs <- get Ctxt
-         buf <- ttc (initBinary (stringTable (gamma defs)))
+         st <- newRef STable (stringTable (gamma defs))
+         buf <- ttc (initBinary st)
          ttc $ toBuf (MkTTMFile ttcVersion !(full (gamma defs) meta))
          Right ok <- ttc $ writeToFile "TTM" 0 fname !(get Bin)
              | Left err => throw (InternalError (fname ++ ": " ++ show err))

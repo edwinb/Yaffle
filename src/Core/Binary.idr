@@ -39,7 +39,9 @@ modTime fname
 
 makeSTable : Int -> List (String, Int) -> CoreTTC (Binary Write)
 makeSTable size xs
-    = do newbuf <- initBinaryS stInit size
+    = do st <- newRef STable stInit
+         newbuf <- initBinaryS st size
+         len <- toBuf {a = Int} (cast (length xs))
          traverse_ addEntry xs
          get Bin
   where
@@ -91,11 +93,13 @@ writeToFile hdr hash fname bdata
     -- * The string table from 'bdata'
     -- * The actual data in 'bdata'
     -- Then that's the thing we write to disk
-    = do newbuf <- initBinaryS stInit (used bdata * 2)
+    = do let st = table bdata
+         tbl <- get STable
+         newbuf <- initBinaryS st (used bdata * 2)
          toBuf @{RawString} hdr -- same as Idris 2, so the version error message works
          toBuf @{Wasteful} ttcVersion
          toBuf hash
-         writeSTableData (used bdata) (toList (stringIndex (table bdata)))
+         writeSTableData (used bdata) (toList (stringIndex tbl))
          toBuf bdata
 
          outputData <- get Bin
@@ -118,7 +122,8 @@ readFromFile hdr fname
     = do Right b <- coreLift $ createBufferFromFile fname
                | Left err => pure (Left err)
          bsize <- coreLift $ rawSize b
-         let filebuf = MkBin b empty 0 bsize bsize
+         stRef <- newRef STable empty
+         let filebuf = MkBin b stRef 0 bsize bsize
          bin <- newRef Bin filebuf
          -- Check header is okay
          hdrR <- fromBuf @{RawString}
@@ -132,7 +137,8 @@ readFromFile hdr fname
 
          stData <- readSTableData
          bdata <- fromBuf {a = Binary Read}
-         pure (Right (MkBin (buf bdata) (fromList stData)
+         stRef <- newRef STable (fromList stData)
+         pure (Right (MkBin (buf bdata) stRef
                             0 (used bdata) (used bdata), hash))
 
 -- Read a file, but don't process the String Table because we don't intend
@@ -152,7 +158,8 @@ readNoStringTable hdr fname
     = do Right b <- coreLift $ createBufferFromFile fname
                | Left err => pure (Left err)
          bsize <- coreLift $ rawSize b
-         let filebuf = MkBin b empty 0 bsize bsize
+         stRef <- newRef STable empty
+         let filebuf = MkBin b stRef 0 bsize bsize
          bin <- newRef Bin filebuf
          -- Check header is okay
          hdrR <- fromBuf @{RawString}
@@ -166,7 +173,7 @@ readNoStringTable hdr fname
 
          skipSTableData
          bdata <- fromBuf {a = Binary Read}
-         pure (Right (MkBin (buf bdata) empty
+         pure (Right (MkBin (buf bdata) stRef
                             0 (used bdata) (used bdata)))
 
 -- Process just enough to get the hash (usually, the interface hash to see
@@ -179,7 +186,8 @@ readHash hdr fname
     = do Right b <- coreLift $ createBufferFromFile fname
                | Left err => pure (Left err)
          bsize <- coreLift $ rawSize b
-         let filebuf = MkBin b empty 0 bsize bsize
+         stRef <- newRef STable empty
+         let filebuf = MkBin b stRef 0 bsize bsize
          bin <- newRef Bin filebuf
          -- Check header is okay
          hdrR <- fromBuf @{RawString}

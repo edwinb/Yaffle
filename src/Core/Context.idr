@@ -942,6 +942,72 @@ parameters {auto c : Ref Ctxt Defs}
                      toIR $= insert n ()
                    } defs)
 
+  -- Update the list of imported incremental compile data, if we're in
+  -- incremental mode for the current CG
+  export
+  addImportedInc : ModuleIdent -> List (CG, String, List String) -> Core ()
+  addImportedInc modNS inc
+      = do s <- getSession
+           let cg = s.codegen
+           defs <- get Ctxt
+           when (cg `elem` s.incrementalCGs) $
+             case lookup cg inc of
+                  Nothing =>
+                    -- No incremental compile data for current CG, so we can't
+                    -- compile incrementally
+                    do recordWarning (GenericWarn ("No incremental compile data for " ++ show modNS))
+                       defs <- get Ctxt
+                       put Ctxt ({ allIncData $= drop cg } defs)
+                       -- Tell session that the codegen is no longer incremental
+                       when (show modNS /= "") $
+                          updateSession { incrementalCGs $= (delete cg) }
+                  Just (mods, extra) =>
+                       put Ctxt ({ allIncData $= addMod cg (mods, extra) }
+                                        defs)
+    where
+      addMod : CG -> (String, List String) ->
+               List (CG, (List String, List String)) ->
+               List (CG, (List String, List String))
+      addMod cg (mod, all) [] = [(cg, ([mod], all))]
+      addMod cg (mod, all) ((cg', (mods, libs)) :: xs)
+          = if cg == cg'
+               then ((cg, (mod :: mods, libs ++ all)) :: xs)
+               else ((cg', (mods, libs)) :: addMod cg (mod, all) xs)
+
+      drop : CG -> List (CG, a) -> List (CG, a)
+      drop cg [] = []
+      drop cg ((x, v) :: xs)
+          = if cg == x
+               then xs
+               else ((x, v) :: drop cg xs)
+
+  export
+  setIncData : CG -> (String, List String) -> Core ()
+  setIncData cg res = update Ctxt { incData $= ((cg, res) :: )}
+
+  -- Set a name as Private that was previously visible (and, if 'everywhere' is
+  -- set, hide in any modules imported by this one)
+  export
+  hide : FC -> Name -> Core ()
+  hide fc n
+      = do defs <- get Ctxt
+           [(nsn, _)] <- lookupCtxtName n (gamma defs)
+                | res => ambiguousName fc n (map fst res)
+           put Ctxt ({ gamma $= hideName nsn } defs)
+
+  -- Set a name as Public that was previously hidden
+  -- Note: this is here at the bottom only becuase `recordWarning` is defined just above.
+  export
+  unhide : FC -> Name -> Core ()
+  unhide fc n
+      = do defs <- get Ctxt
+           [(nsn, _)] <- lookupHiddenCtxtName n (gamma defs)
+                | res => ambiguousName fc n (map fst res)
+           put Ctxt ({ gamma $= unhideName nsn } defs)
+           unless (isHidden nsn (gamma defs)) $ do
+             recordWarning $ GenericWarn $
+               "Trying to %unhide `" ++ show nsn ++ "`, which was not hidden in the first place"
+
 -- private names are only visible in this namespace if their namespace
 -- is the current namespace (or an outer one)
 -- that is: the namespace of 'n' is a parent of nspace

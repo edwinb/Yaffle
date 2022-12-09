@@ -1,2 +1,2 @@
 rm -rf build
-$1 ohno.yaff
+$1 ohno.yaff < input

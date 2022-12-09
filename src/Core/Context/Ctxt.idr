@@ -276,9 +276,11 @@ export
 lookupHiddenCtxtName : Name -> Context -> Core (List (Name, Int, GlobalDef))
 lookupHiddenCtxtName = lookupCtxtName' True
 
+export
 hideName : Name -> Context -> Context
 hideName n ctxt = { hidden $= insert n () } ctxt
 
+export
 unhideName : Name -> Context -> Context
 unhideName n ctxt = { hidden $= delete n } ctxt
 

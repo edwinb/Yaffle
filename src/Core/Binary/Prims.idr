@@ -101,13 +101,13 @@ public export
 record Binary (m : BinaryMode) where
   constructor MkBin
   buf : Buffer
-  table : Table m
+  table : Ref STable (Table m)
   loc : Int
   size : Int -- Capacity
   used : Int -- Amount used
 
 export
-newBinary : Buffer -> StringTable -> Int -> Binary Write
+newBinary : Buffer -> Ref STable StringTable -> Int -> Binary Write
 newBinary b st s = MkBin b st 0 s 0
 
 export
@@ -155,14 +155,14 @@ interface TTC a where -- TTC = TT intermediate code/interface file
 
 -- Create a new list of chunks, initialised with one 64k chunk
 export
-initBinary : StringTable -> CoreTTC (Ref Bin (Binary Write))
+initBinary : Ref STable StringTable -> CoreTTC (Ref Bin (Binary Write))
 initBinary st
     = do Just buf <- coreLift $ newBuffer blockSize
              | Nothing => throw CantCreateBuffer
          newRef Bin (newBinary buf st blockSize)
 
 export
-initBinaryS : StringTable -> Int -> CoreTTC (Ref Bin (Binary Write))
+initBinaryS : Ref STable StringTable -> Int -> CoreTTC (Ref Bin (Binary Write))
 initBinaryS st s
     = do Just buf <- coreLift $ newBuffer s
              | Nothing => throw CantCreateBuffer
@@ -278,7 +278,7 @@ export
   fromBuf
       = do len <- fromBuf {a = Int}
            chunk <- get Bin
-           when (len < 0) $ corrupt "String"
+           when (len < 0) $ corrupt "RawString"
            if toRead chunk >= len
               then
                 do val <- coreLift $ getString (buf chunk) (loc chunk) len
@@ -291,23 +291,26 @@ export
 TTC String where
   toBuf str
       = do b <- get Bin
-           let tbl = table b
+           let tblRef = table b
+           tbl <- get STable
            case lookup str (stringIndex tbl) of
                 Nothing => do let idx' = nextIndex tbl
                               let si' = insert str idx' (stringIndex tbl)
                               let tbl' : Table Write
                                        = { nextIndex := idx' + 1,
                                            stringIndex := si' } tbl
-                              put Bin ({ table := tbl' } b)
+                              put STable tbl'
                               toBuf idx'
                 Just val => toBuf val
 
   fromBuf
       = do b <- get Bin
-           let tbl = table b
+           let tblRef = table b
+           tbl <- get STable
            idx <- fromBuf
            case lookup idx tbl of
-                Nothing => corrupt "StringTable"
+                Nothing => do coreLift $ printLn (IntMap.toList tbl)
+                              corrupt ("StringTable entry " ++ show idx)
                 Just str => pure str
 
 -- When reading/writing binary, we assume that the inner Binary inherits the
