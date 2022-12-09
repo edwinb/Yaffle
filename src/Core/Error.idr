@@ -419,7 +419,7 @@ Show Error where
   show (CaseCompile fc n (NotFullyApplied c))
       = show fc ++ ":Constructor " ++ show c ++ " is not fully applied"
   show (MatchTooSpecific fc env tm)
-      = show fc ++ ":Can't match on " ++ show tm ++ " as it is has a polymorphic type"
+      = show fc ++ ":Can't match on " ++ show tm ++ " as it has a polymorphic type"
   show (NotCovering fc n cov)
        = show fc ++ ":" ++ show n ++ " is not covering:\n\t" ++
             case cov of
