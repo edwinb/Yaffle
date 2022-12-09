@@ -106,130 +106,161 @@ parameters {auto c : Ref Ctxt Defs}
   getArity : {vars : _} -> Env Term vars -> Term vars -> Core Nat
   getArity env tm = getArityVal !(expand !(nf env tm))
 
+  -- Return a new term, and whether any updates were made. If no updates were
+  -- made, we should stick with the original term (so no unnecessary expansion)
+  -- of App
   replace'
       : {vars : _} ->
         (expandGlued : Bool) -> Int -> Env Term vars ->
         (orig : Value f vars) -> (parg : Term vars) -> (tm : Value f' vars) ->
-        Core (Term vars)
+        Core (Term vars, Bool)
   replace' {vars} expand tmpi env orig parg tm
       = if !(convert env orig tm)
-           then pure parg
+           then pure (parg, True)
            else repSub tm
     where
-      repArg : Value f vars -> Core (Term vars)
+      repArg : Value f vars -> Core (Term vars, Bool)
       repArg = replace' expand tmpi env orig parg
 
-      repArgAll : Spine vars -> Core (SnocList (FC, RigCount, Term vars))
-      repArgAll [<] = pure [<]
+      repArgAll : Spine vars -> Core (SnocList (FC, RigCount, Term vars), Bool)
+      repArgAll [<] = pure ([<], False)
       repArgAll (xs :< (f, r, tm))
-          = do xs' <- repArgAll xs
-               tm' <- repArg tm
-               pure (xs' :< (f, r, tm'))
+          = do (xs', upd) <- repArgAll xs
+               (tm', upd') <- repArg tm
+               pure (xs' :< (f, r, tm'), upd || upd')
 
       repScope : FC -> Int -> (args : SnocList (RigCount, Name)) ->
-                 VCaseScope args vars -> Core (CaseScope vars)
+                 VCaseScope args vars -> Core (CaseScope vars, Bool)
       repScope fc tmpi [<] rhs
           = do -- Stop expanding or recursive functions will go forever
-               rhs' <- replace' False tmpi env orig parg !rhs
-               pure (RHS rhs')
+               (rhs', u) <- replace' False tmpi env orig parg !rhs
+               pure (RHS rhs', u)
       repScope fc tmpi (xs :< (r, x)) scope
           = do let xn = MN "tmp" tmpi
                let xv = VApp fc Bound xn [<] (pure Nothing)
-               scope' <- repScope fc (tmpi + 1) xs (scope xv)
-               pure (Arg r x (refsToLocalsCaseScope (Add x xn None) scope'))
+               (scope', u) <- repScope fc (tmpi + 1) xs (scope xv)
+               pure (Arg r x (refsToLocalsCaseScope (Add x xn None) scope'), u)
 
-      repAlt : VCaseAlt vars -> Core (CaseAlt vars)
+      repAlt : VCaseAlt vars -> Core (CaseAlt vars, Bool)
       repAlt (VConCase fc n t args scope)
-          = do scope' <- repScope fc tmpi args scope
-               pure (ConCase fc n t scope')
+          = do (scope', u) <- repScope fc tmpi args scope
+               pure (ConCase fc n t scope', u)
       repAlt (VDelayCase fc ty arg scope)
           = do let tyn = MN "tmp" tmpi
                let argn = MN "tmp" (tmpi + 1)
                let tyv = VApp fc Bound tyn [<] (pure Nothing)
                let argv = VApp fc Bound argn [<] (pure Nothing)
                -- Stop expanding or recursive functions will go forever
-               scope' <- replace' False (tmpi + 2) env orig parg !(scope tyv argv)
+               (scope', u) <- replace' False (tmpi + 2) env orig parg !(scope tyv argv)
                let rhs = refsToLocals (Add ty tyn (Add arg argn None)) scope'
-               pure (DelayCase fc ty arg rhs)
+               pure (DelayCase fc ty arg rhs, u)
       repAlt (VConstCase fc c rhs)
-          = do rhs' <- repArg rhs
-               pure (ConstCase fc c rhs')
+          = do (rhs', u) <- repArg rhs
+               pure (ConstCase fc c rhs', u)
       repAlt (VDefaultCase fc rhs)
-          = do rhs' <- repArg rhs
-               pure (DefaultCase fc rhs')
+          = do (rhs', u) <- repArg rhs
+               pure (DefaultCase fc rhs', u)
 
-      repSub : Value f vars -> Core (Term vars)
+      repSub : Value f vars -> Core (Term vars, Bool)
+
+      repPiInfo : PiInfo (Value f vars) -> Core (PiInfo (Term vars), Bool)
+      repPiInfo Explicit = pure (Explicit, False)
+      repPiInfo Implicit = pure (Implicit, False)
+      repPiInfo AutoImplicit = pure (AutoImplicit, False)
+      repPiInfo (DefImplicit t)
+         = do (t', u) <- repSub t
+              pure (DefImplicit t', u)
+
+      repBinder : Binder (Value f vars) -> Core (Binder (Term vars), Bool)
+      repBinder (Lam fc c p ty)
+          = do (p', u) <- repPiInfo p
+               (ty', u') <- repSub ty
+               pure (Lam fc c p' ty', u || u')
+      repBinder (Let fc c val ty)
+          = do (val', u) <- repSub val
+               (ty', u') <- repSub ty
+               pure (Let fc c val' ty', u || u')
+      repBinder (Pi fc c p ty)
+          = do (p', u) <- repPiInfo p
+               (ty', u') <- repSub ty
+               pure (Pi fc c p' ty', u || u')
+      repBinder (PVar fc c p ty)
+          = do (p', u) <- repPiInfo p
+               (ty', u') <- repSub ty
+               pure (PVar fc c p' ty', u || u')
+      repBinder (PLet fc c val ty)
+          = do (val', u) <- repSub val
+               (ty', u') <- repSub ty
+               pure (PLet fc c val' ty', u || u')
+      repBinder (PVTy fc c ty)
+          = do (ty', u) <- repSub ty
+               pure (PVTy fc c ty', u)
+
       repSub (VLam fc x c p ty scfn)
-          = do b' <- traverse repSub (Lam fc c p ty)
+          = do (b', u) <- repBinder (Lam fc c p ty)
                let x' = MN "tmp" tmpi
                let var = VApp fc Bound x' [<] (pure Nothing)
-               sc' <- replace' expand (tmpi + 1) env orig parg !(scfn var)
-               pure (Bind fc x b' (refsToLocals (Add x x' None) sc'))
+               (sc', u') <- replace' expand (tmpi + 1) env orig parg !(scfn var)
+               pure (Bind fc x b' (refsToLocals (Add x x' None) sc'), u || u')
       repSub (VBind fc x b scfn)
-          = do b' <- traverse repSub b
+          = do (b', u) <- repBinder b
                let x' = MN "tmp" tmpi
                let var = VApp fc Bound x' [<] (pure Nothing)
-               sc' <- replace' expand (tmpi + 1) env orig parg !(scfn var)
-               pure (Bind fc x b' (refsToLocals (Add x x' None) sc'))
+               (sc', u') <- replace' expand (tmpi + 1) env orig parg !(scfn var)
+               pure (Bind fc x b' (refsToLocals (Add x x' None) sc'), u || u')
       repSub (VApp fc nt fn args val')
           = if expand
                then do Just nf <- val'
                             | Nothing =>
-                             do args' <- repArgAll args
-                                pure $ applyWithFC (Ref fc nt fn) (toList args')
-                       {- unprincipled but works:
-                       case nf of
-                         VCase{} => do args' <- repArgAll args
-                                       pure $ applyWithFC (Ref fc nt fn) (toList args')
-                         _ => repSub nf -}
-
-                       {- principled but does not work: with001 gives us a puzzling error
-                          message arguing that
-                                  g (f t)
-                          and     case f t of { Z => Z; S n => S (g n) }
-                          are not convertible
-                       -}
-                       replace' expand tmpi env orig parg nf
-               else do args' <- repArgAll args
-                       pure $ applyWithFC (Ref fc nt fn) (toList args')
+                             do (args', u) <- repArgAll args
+                                pure (applyWithFC (Ref fc nt fn) (toList args'), u)
+                       do (tm', u) <- replace' expand tmpi env orig parg nf
+                          if u
+                             then pure (tm', u)
+                             else do (args', u) <- repArgAll args
+                                     pure (applyWithFC (Ref fc nt fn) (toList args'), u)
+               else do (args', u) <- repArgAll args
+                       pure (applyWithFC (Ref fc nt fn) (toList args'), u)
       repSub (VLocal fc idx p args)
-          = do args' <- repArgAll args
-               pure $ applyWithFC (Local fc idx p) (toList args')
+          = do (args', u) <- repArgAll args
+               pure (applyWithFC (Local fc idx p) (toList args'), u)
       -- Look in value of the metavar if it's solved, otherwise leave it
       repSub (VMeta fc n i scope args val)
           = do Nothing <- val
                    | Just val' => repSub val'
-               sc' <- traverse (\ (q, tm) => do tm' <- repArg tm
-                                                pure (q, tm')) scope
-               args' <- repArgAll args
-               pure $ applyWithFC (Meta fc n i sc') (toList args')
+               sc' <- traverse (\ (q, tm) => do (tm', u) <- repArg tm
+                                                pure ((q, tm'), u)) scope
+               (args', u) <- repArgAll args
+               let u' = or (map (\x => Delay x) (map snd sc'))
+               pure (applyWithFC (Meta fc n i (map fst sc')) (toList args'), u || u')
       repSub (VDCon fc n t a args)
-        = do args' <- repArgAll args
-             pure $ applyWithFC (Ref fc (DataCon t a) n) (toList args')
+        = do (args', u) <- repArgAll args
+             pure (applyWithFC (Ref fc (DataCon t a) n) (toList args'), u)
       repSub (VTCon fc n a args)
-        = do args' <- repArgAll args
-             pure $ applyWithFC (Ref fc (TyCon a) n) (toList args')
+        = do (args', u) <- repArgAll args
+             pure (applyWithFC (Ref fc (TyCon a) n) (toList args'), u)
       repSub (VAs fc s a pat)
-          = do a' <- repSub a
-               pat' <- repSub pat
-               pure (As fc s a' pat')
+          = do (a', u) <- repSub a
+               (pat', u') <- repSub pat
+               pure (As fc s a' pat',  u || u')
       repSub (VCase fc r sc scty alts)
-          = do sc' <- repArg sc
-               scty' <- repArg scty
-               alts' <- traverse repAlt alts
-               pure (Case fc r sc' scty' alts')
+          = do (sc', u) <- repArg sc
+               (scty', u') <- repArg scty
+               alts'  <- traverse repAlt alts
+               let u'' = or (map (\x => Delay x) (map snd alts'))
+               pure (Case fc r sc' scty' (map fst alts'), u || u' || u'')
       repSub (VDelayed fc r tm)
-          = do tm' <- repSub tm
-               pure (TDelayed fc r tm')
+          = do (tm', u) <- repSub tm
+               pure (TDelayed fc r tm', u)
       repSub (VDelay fc r ty tm)
-          = do ty' <- repArg ty
-               tm' <- repArg tm
-               pure (TDelay fc r ty' tm')
+          = do (ty', u) <- repArg ty
+               (tm', u') <- repArg tm
+               pure (TDelay fc r ty' tm', u || u')
       repSub (VForce fc r tm args)
-          = do args' <- repArgAll args
-               tm' <- repSub tm
-               pure $ applyWithFC (TForce fc r tm') (toList args')
-      repSub tm = quote env tm
+          = do (args', u) <- repArgAll args
+               (tm', u') <- repSub tm
+               pure $ (applyWithFC (TForce fc r tm') (toList args'), u || u')
+      repSub tm = pure (!(quote env tm), False)
 
   export
   replace
@@ -237,7 +268,9 @@ parameters {auto c : Ref Ctxt Defs}
         Env Term vars ->
         (orig : Value f vars) -> (new : Term vars) -> (tm : Value f' vars) ->
         Core (Term vars)
-  replace = replace' True 0
+  replace env orig new tm
+      = do (tm', _) <- replace' True 0 env orig new tm
+           pure tm'
 
   export
   replaceSyn
@@ -245,7 +278,9 @@ parameters {auto c : Ref Ctxt Defs}
         Env Term vars ->
         (orig : Value f vars) -> (new : Term vars) -> (tm : Value f' vars) ->
         Core (Term vars)
-  replaceSyn = replace' False 0
+  replaceSyn env orig new tm
+      = do (tm', _) <- replace' False 0 env orig new tm
+           pure tm'
 
   -- If the term is an application of a primitive conversion (fromInteger etc)
   -- and it's applied to a constant, fully normalise the term.

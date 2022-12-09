@@ -123,6 +123,19 @@ expand v@(VMeta fc n i args sp val)
          expand val'
 expand val = pure (believe_me val)
 
+-- As above, but expand cases too
+export
+expandFull : Value f vars -> Core (NF vars)
+expandFull v@(VApp fc nt n sp val)
+    = do Just val' <- val
+              | Nothing => pure (believe_me v)
+         expandFull val'
+expandFull v@(VMeta fc n i args sp val)
+    = do Just val' <- val
+              | Nothing => pure (believe_me v)
+         expandFull val'
+expandFull val = pure (believe_me val)
+
 -- It's safe to pretend an NF is Glued, if we need it
 export
 asGlued : Value f vars -> Glued vars
