@@ -1,0 +1,8 @@
+data T : Type where {
+    C : T
+}
+
+f : pi 1 x : Integer. Integer;
+f = lam x.
+  case C of
+       C => x;
