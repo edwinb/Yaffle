@@ -175,24 +175,17 @@ Not x = x -> Void
 absurd : (0 x : Void) -> a
 absurd x impossible
 
-{-
-
-TODO: add old definition of headReduceNeutral
-
--}
-
 headReduceNeutral :
   (ctx : EvalContext s b) -> (r : Redex s) ->
   (f : Closed (Arr a b)) -> Not (IsValue f) ->
   Equal (ClApp f t) (plug ctx (redex r)) ->
   Equal (plug ctx (contract r)) (ClApp (headReduce f) t)
-headReduceNeutral ctx r f nv = case snocView ctx of
-  Lin => case r of
-    RVar _ _ => \ x => case x of Refl impossible
-    RApp _ _ _ => \ x => case x of Refl impossible
-    Beta _ _ _ => \ x => case x of Refl => absurd (nv Lam)
-  Snoc ctx' arg =>
-    replace (\ x => Equal (ClApp f t) (plug (snoc ctx' arg) (redex r)) -> Equal x (ClApp (headReduce f) t))
+headReduceNeutral ctx@_ r f nv with (snocView ctx)
+  headReduceNeutral ctx@_ (RVar _ _) f nv | Lin = \ x => case x of Refl impossible
+  headReduceNeutral ctx@_ (RApp _ _ _) f nv | Lin = \ x => case x of Refl impossible
+  headReduceNeutral ctx@_ (Beta _ _ _) f nv | Lin = \ x => case x of Refl => absurd (nv Lam)
+  headReduceNeutral ctx@_  r f nv | Snoc ctx' arg
+    = replace (\ x => Equal (ClApp f t) (plug (snoc ctx' arg) (redex r)) -> Equal x (ClApp (headReduce f) t))
       (sym (plugSnoc ctx' arg (contract r)))
     (replace (\ x => Equal (ClApp f t) x -> Equal (ClApp (plug ctx' (contract r)) arg) (ClApp (headReduce f) t))
       (sym (plugSnoc ctx' arg (redex r)))
@@ -278,19 +271,9 @@ namespace ReducibleEnv
   lookup (Cons _ reds) (There v) = lookup reds v
 
 step : {a : Ty} -> {c : Closed a} -> Trace (decompose (headReduce c)) -> Trace (decompose c)
-{- Used to work:
-step {c = c@_} tr with (decompose c)
-  _ | Val sc env = tr
-  _ | Red r ctx = Step ctx r tr
--}
-step {c} = let
-
-    go : {a : Ty} -> {c : Closed a} -> (t : Decomposition c) ->
-         Trace (decompose (recompose t)) -> Trace t
-    go (Val sc env) tr = tr
-    go (Red r ctx) tr = Step ctx r tr
-
-  in go (decompose c)
+step {c} tr with (decompose c)
+  step {c = _} tr | Val sc env = tr
+  step {c = _} tr | Red r ctx = Step ctx r tr
 
 expand : {a : Ty} -> {c : Closed a} -> Reducible a (headReduce c) -> Reducible a c
 expand {a = Base} tr = step tr
@@ -383,26 +366,33 @@ namespace Refocus
   evaluate : {a : Ty} -> Closed a -> Value a
   evaluate c = iterate (Refocus.termination c)
 
-{-
 ------------------------------------------------------------------------
 -- Section 6: The Krivine machine
 
+data Unit : Type where
+  MkUnit : Unit
+
 
 IsValidEnv : Env g -> Type
-
 
 IsValidClosed : Closed a -> Type
 
 IsValidClosed (Closure t env) = IsValidEnv env
 IsValidClosed _ = Void
 
-IsValidEnv Nil = ()
-IsValidEnv (t :: env) = (IsValidClosed t, IsValidEnv env)
+IsValidEnv Nil = Unit
+IsValidEnv (Cons t env) = Pair (IsValidClosed t) (IsValidEnv env)
 
+namespace Subset
+
+  public export
+  record Subset (a : Type) (p : a -> Type) where
+    constructor Element
+    fst : a
+    snd : p fst
 
 ValidEnv : Context -> Type
 ValidEnv g = Subset (Env g) IsValidEnv
-
 
 ValidClosed : Ty -> Type
 ValidClosed a = Subset (Closed a) IsValidClosed
@@ -410,55 +400,54 @@ ValidClosed a = Subset (Closed a) IsValidClosed
 namespace ValidClosed
 
 
-  Closure : Term g a -> ValidEnv g -> ValidClosed a
+  Closure : {0 g, a : _} -> Term g a -> ValidEnv g -> ValidClosed a
   Closure t (Element env pr) = Element (Closure t env) pr
 
 
-  fstClosure : (t : Term g a) -> (env : ValidEnv g) ->
-               fst (Closure t env) === Closure t (fst env)
+  fstClosure : {0 g, a : _} -> (t : Term g a) -> (env : ValidEnv g) ->
+               Equal (fst (Closure t env)) (Closure t (fst env))
   fstClosure t (Element env p) = Refl
 
 
-  0 getContext : ValidClosed a -> Context
+  0 getContext : {0 a : _} -> ValidClosed a -> Context
   getContext (Element (Closure {g} t env) _) = g
 
 
-  getEnv : (c : ValidClosed a) -> ValidEnv (getContext c)
+  getEnv : {0 a : _} -> (c : ValidClosed a) -> ValidEnv (getContext c)
   getEnv (Element (Closure {g} _ env) pr) = Element env pr
 
 
-  getTerm : (c : ValidClosed a) -> Term (getContext c) a
+  getTerm : {0 a : _} -> (c : ValidClosed a) -> Term (getContext c) a
   getTerm (Element (Closure t _) _) = t
 
 
-  etaValidClosed : (c : ValidClosed a) -> c === Closure (getTerm c) (getEnv c)
+  etaValidClosed : {0 a : _} -> (c : ValidClosed a) -> Equal c (Closure (getTerm c) (getEnv c))
   etaValidClosed (Element (Closure t env) _) = Refl
 
 namespace ValidEnv
 
 
-  lookup : (env : ValidEnv g) -> Elem a g -> ValidClosed a
-  lookup (Element (t :: env) p) Here = Element t (fst p)
-  lookup (Element (t :: env) p) (There v) = lookup (Element env (snd p)) v
+  lookup : {0 g, a : _} -> (env : ValidEnv g) -> Elem a g -> ValidClosed a
+  lookup (Element (Cons t env) p) Here = Element t (fst p)
+  lookup (Element (Cons t env) p) (There v) = lookup (Element env (snd p)) v
 
 
-  fstLookup : (env : ValidEnv g) -> (v : Elem a g) ->
-              fst (lookup env v) === lookup (fst env) v
-  fstLookup (Element (t :: env) p) Here = Refl
-  fstLookup (Element (t :: env) p) (There v) = fstLookup (Element env (snd p)) v
-
+  fstLookup : {0 g, a : _} -> (env : ValidEnv g) -> (v : Elem a g) ->
+              Equal (fst (lookup env v)) (lookup (fst env) v)
+  fstLookup (Element (Cons t env) p) Here = Refl
+  fstLookup (Element (Cons t env) p) (There v) = fstLookup (Element env (snd p)) v
 
   Nil : ValidEnv Nil
-  Nil = Element Nil ()
+  Nil = Element Nil MkUnit
 
-
-  (::) : {a : Ty} -> ValidClosed a -> ValidEnv g -> ValidEnv (a :: g)
-  Element t p :: Element env q = Element (t :: env) (p, q)
+{-
+  Cons : {0 g : _} -> {a : Ty} -> ValidClosed a -> ValidEnv g -> ValidEnv (Cons a g)
+  Cons (Element t p) (Element env q) = Element (Cons t env) (MkPair p q)
 
 
 IsValidEvalContext : EvalContext a b -> Type
 IsValidEvalContext Nil = ()
-IsValidEvalContext (t :: ctx) =  (IsValidClosed t, IsValidEvalContext ctx)
+IsValidEvalContext (Cons t ctx) =  (IsValidClosed t, IsValidEvalContext ctx)
 
 
 ValidEvalContext : (a, b : Ty) -> Type
@@ -472,11 +461,11 @@ namespace ValidEvalContext
 
 
   (::) : ValidClosed a -> ValidEvalContext b c -> ValidEvalContext (Arr a b) c
-  Element t p :: Element ctx q = Element (t :: ctx) (p, q)
+  Element t p :: Element ctx q = Element (Cons t ctx) (p, q)
 
 
   fstCons : (t : ValidClosed a) -> (ctx : ValidEvalContext b c) ->
-            fst (t :: ctx) === fst t :: fst ctx
+            fst (Cons t ctx) === fst Cons t fst ctx
   fstCons (Element t p) (Element ctx q) = Refl
 
 
@@ -492,7 +481,7 @@ namespace ValidEvalContextView
   data View : ValidEvalContext a b -> Type where
     Nil : View Nil
     (::) : (t : ValidClosed a) -> (ctx : ValidEvalContext b c) ->
-           View (t :: ctx)
+           View (Cons t ctx)
 
 
   irrelevantUnit : (t : ()) -> t === ()
@@ -505,7 +494,7 @@ namespace ValidEvalContextView
 
   view : (ctx : ValidEvalContext a b) -> View ctx
   view (Element Nil p) = rewrite irrelevantUnit p in Nil
-  view (Element (t :: ctx) p)
+  view (Element (Cons t ctx) p)
     = rewrite etaPair p in
       Element t (fst p) :: Element ctx (snd p)
 
