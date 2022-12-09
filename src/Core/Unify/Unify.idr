@@ -527,14 +527,15 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   unifyNoEta mode fc env x_in y_in
       = do x <- expand x_in
            y <- expand y_in
-           unifyIfEq (isDelay x || isDelay y) fc mode env (asGlued x) (asGlued y)
+           unifyIfEq (isPostponable x || isPostponable y) fc mode env (asGlued x) (asGlued y)
     where
       -- If one of them is a delay, and they're not equal, we'd better
       -- postpone and come back to it so we can insert the implicit
       -- Force/Delay later
-      isDelay : NF vars -> Bool
-      isDelay (VDelayed{}) = True
-      isDelay _ = False
+      isPostponable : NF vars -> Bool
+      isPostponable (VDelayed{}) = True
+      isPostponable (VCase{}) = True
+      isPostponable _ = False
 
   mkArg : FC -> Name -> Glued vars
   mkArg fc var = VApp fc Bound var [<] (pure Nothing)

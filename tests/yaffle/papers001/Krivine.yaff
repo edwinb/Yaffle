@@ -440,10 +440,10 @@ namespace ValidEnv
   Nil : ValidEnv Nil
   Nil = Element Nil MkUnit
 
-{-
   Cons : {0 g : _} -> {a : Ty} -> ValidClosed a -> ValidEnv g -> ValidEnv (Cons a g)
   Cons (Element t p) (Element env q) = Element (Cons t env) (MkPair p q)
 
+{-
 
 IsValidEvalContext : EvalContext a b -> Type
 IsValidEvalContext Nil = ()
