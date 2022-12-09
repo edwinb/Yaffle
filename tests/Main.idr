@@ -26,8 +26,10 @@ yaffleTests = MkTestPool "Yaffle" [] Nothing
       "case001",
       "qtt001", "qtt002",
       "record001", "record002",
+      "with001",
       -- Below are things that don't test anything specific, but are useful exercises
-      "example001" ]
+      "example001",
+      "papers001" ]
 
 failingTests : TestPool
 failingTests = MkTestPool "Failing tests (PRs welcome)" [] Nothing

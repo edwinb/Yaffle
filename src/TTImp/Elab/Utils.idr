@@ -1,6 +1,7 @@
 module TTImp.Elab.Utils
 
 import Core.Context
+import Core.Context.Log
 import Core.Core
 import Core.Env
 import Core.Evaluate
@@ -18,7 +19,7 @@ detagSafe : {auto c : Ref Ctxt Defs} ->
 detagSafe defs (VTCon _ n _ args)
     = do Just (TCon (MkTyConInfo _ _ _ _ (Just detags) _ _) _) <- lookupDefExact n (gamma defs)
               | _ => pure False
-         args' <- traverseSnocList spineVal args
+         args' <- traverseSnocList spineVal (reverse args)
          pure $ notErased 0 detags args'
   where
     -- if any argument positions are in the detaggable set, and unerased, then

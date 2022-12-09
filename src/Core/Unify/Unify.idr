@@ -491,9 +491,14 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            then unifySpine mode fc env spx spy
            else postpone fc mode "Postponing application (match)" env x y
   unifyNoEta mode fc env x@(VApp{}) y
-      = postpone fc mode "Postponing application (left)" env x y
+      -- conversion check first, in case app is a blocked case
+      = if !(convert env x y)
+           then pure success
+           else postpone fc mode "Postponing application (left)" env x y
   unifyNoEta mode fc env x y@(VApp{})
-      = postpone fc mode "Postponing application (right)" env x y
+      = if !(convert env x y)
+           then pure success
+           else postpone fc mode "Postponing application (right)" env x y
   -- Now the cases where we're decomposing into smaller problems
   unifyNoEta mode@(MkUnifyInfo p InTerm) fc env x@(VLocal fcx idx _ spx)
                                                 y@(VLocal fcy idy _ spy)
