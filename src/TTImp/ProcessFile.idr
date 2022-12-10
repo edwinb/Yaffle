@@ -16,6 +16,7 @@ import TTImp.ProcessDef
 import TTImp.ProcessDirective
 import TTImp.ProcessFailing
 import TTImp.ProcessRecord
+import TTImp.ProcessRunElab
 import TTImp.ProcessTransform
 import TTImp.ProcessType
 import TTImp.TTImp

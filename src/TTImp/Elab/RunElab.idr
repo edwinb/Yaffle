@@ -5,16 +5,11 @@ import Core.Context.Log
 import Core.Core
 import Core.Env
 import Core.Metadata
-import Core.Normalise
+import Core.Evaluate
 import Core.Options
 import Core.Reflect
 import Core.Unify
 import Core.TT
-import Core.Value
-
-import Idris.Resugar
-import Idris.REPL.Opts
-import Idris.Syntax
 
 import TTImp.Elab.Check
 import TTImp.Elab.Delayed
@@ -25,6 +20,7 @@ import TTImp.Unelab
 
 %default covering
 
+{-
 record NameInfo where
   constructor MkNameInfo
   nametype : NameType

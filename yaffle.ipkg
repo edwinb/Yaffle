@@ -35,6 +35,7 @@ modules
     Core.InitPrimitives,
     Core.Options,
     Core.Primitives,
+    Core.Reflect,
     Core.Syntax.Decls, -- adding raw declarations to the context
     Core.Syntax.Lexer,
     Core.Syntax.Parser,
@@ -67,8 +68,10 @@ modules
     TTImp.ProcessFailing,
     TTImp.ProcessFile,
     TTImp.ProcessRecord,
+    TTImp.ProcessRunElab,
     TTImp.ProcessTransform,
     TTImp.ProcessType,
+    TTImp.Reflect,
     TTImp.TTImp,
     TTImp.TTImp.Functor,
     TTImp.TTImp.Traversals,
@@ -91,8 +94,9 @@ modules
     TTImp.Elab.Local,
     TTImp.Elab.Prim,
     TTImp.Elab.Record,
-    TTImp.Elab.Rewrite,
     TTImp.Elab.Term,
+    TTImp.Elab.Rewrite,
+    TTImp.Elab.RunElab,
     TTImp.Elab.Utils,
 
     -- Parsing support
