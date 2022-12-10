@@ -44,6 +44,9 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
+* 'expand' needs to know whether the name it's expanding is usable in the
+  current namespace. At the moment, it will expand everything.
+  - So we'll also need an alternate 'expandAll' for elaborator reflection
 * More tests for Yaffle
 * Finish porting TTImp elaborator (just reflection now)
 * Termination checker

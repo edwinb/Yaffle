@@ -23,7 +23,6 @@ processRunElab : {vars : _} ->
                  {auto u : Ref UST UState} ->
                  List ElabOpt -> NestedNames vars -> Env Term vars -> FC ->
                  RawImp -> Core ()
-                 {-
 processRunElab eopts nest env fc tm
     = do defs <- get Ctxt
          unless (isExtension ElabReflection defs) $
@@ -31,7 +30,7 @@ processRunElab eopts nest env fc tm
          tidx <- resolveName (UN $ Basic "[elaborator script]")
          let n = NS reflectionNS (UN $ Basic "Elab")
          unit <- getCon fc defs (builtin "Unit")
-         exp <- appCon fc defs n [unit]
+         exp <- appConTop fc defs n [unit]
 
-         stm <- checkTerm tidx InExpr eopts nest env tm (gnf env exp)
-         ignore $ elabScript top fc nest env !(nfOpts withAll defs env stm) Nothing
+         stm <- checkTerm tidx InExpr eopts nest env tm !(nf env exp)
+         ignore $ elabScript top fc nest env !(expand !(nf env stm)) Nothing

@@ -94,10 +94,11 @@ modules
     TTImp.Elab.Lazy,
     TTImp.Elab.Local,
     TTImp.Elab.Prim,
+    TTImp.Elab.Quote,
     TTImp.Elab.Record,
-    TTImp.Elab.Term,
     TTImp.Elab.Rewrite,
     TTImp.Elab.RunElab,
+    TTImp.Elab.Term,
     TTImp.Elab.Utils,
 
     -- Parsing support

@@ -90,6 +90,15 @@ isPrimName prims given = let (ns, nm) = splitNS given in go ns nm prims where
       || go ns nm ps
 
 parameters {auto c : Ref Ctxt Defs}
+
+  export
+  withCtxt : Core a -> Core a
+  withCtxt = wrapRef Ctxt resetCtxt
+    where
+      resetCtxt : Defs -> Core ()
+      resetCtxt defs = do let dir = defs.options.dirs.working_dir
+                          coreLift_ $ changeDir dir
+
   maybeMisspelling : Error -> Name -> Core a
   maybeMisspelling err nm = do
     ns <- currentNS <$> get Ctxt
@@ -263,6 +272,14 @@ parameters {auto c : Ref Ctxt Defs}
   getFullName n = pure n
 
 -- Dealing with various options
+
+  export
+  setPrefix : String -> Core ()
+  setPrefix dir = update Ctxt { options->dirs->prefix_dir := dir }
+
+  export
+  setExtension : LangExt -> Core ()
+  setExtension e = update Ctxt { options $= setExtension e }
 
   export
   checkUnambig : FC -> Name -> Core Name
@@ -665,6 +682,10 @@ parameters {auto c : Ref Ctxt Defs}
            Just def <- lookupCtxtExact n (gamma defs)
                 | Nothing => undefinedName fc n
            ignore $ addDef n ({ visibility := vis } def)
+
+export
+isExtension : LangExt -> Defs -> Bool
+isExtension e defs = isExtension e (options defs)
 
 public export
 record SearchData where
