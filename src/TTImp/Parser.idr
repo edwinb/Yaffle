@@ -695,7 +695,6 @@ directive fname indents
          (t, n) <- pure b.val
          pure $ IBuiltin (boundToFC fname b) t n
 
-         {- Can't do IPragma due to lack of Ref Ctxt. Should we worry about this?
   <|> do pragma "pair"
          commit
          start <- location
@@ -704,7 +703,7 @@ directive fname indents
          s <- name
          end <- location
          pure (let fc = MkFC fname start end in
-                   IPragma (\nest, env => setPair {c} fc p f s))
+                   IDirective fc (PairNames p f s))
   <|> do pragma "rewrite"
          commit
          start <- location
@@ -712,8 +711,7 @@ directive fname indents
          rw <- name
          end <- location
          pure (let fc = MkFC fname start end in
-                   IPragma (\nest, env => setRewrite {c} fc eq rw))
-    -}
+                   IDirective fc (RewriteName eq rw))
 -- Declared at the top
 -- topDecl : OriginDesc -> IndentInfo -> Rule ImpDecl
 topDecl fname indents

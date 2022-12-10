@@ -1,0 +1,35 @@
+data Equal : a -> b -> Type where
+     Refl : Equal x x
+
+rewrite__impl : {0 x, y : a} -> (0 p : _) ->
+                (0 rule : Equal x y) -> (1 val : p y) -> p x
+rewrite__impl p Refl prf = prf
+
+sym : Equal x y -> Equal y x
+sym Refl = Refl
+
+%rewrite Equal rewrite__impl
+
+data Nat : Type where
+     Z : Nat
+     S : Nat -> Nat
+
+plus : Nat -> Nat -> Nat
+plus Z y = y
+plus (S k) y = S (plus k y)
+
+plusZ : (n : Nat) -> Equal (plus n Z) n
+plusZ Z = Refl
+plusZ (S k) = rewrite plusZ k in Refl
+
+plusZ' : (n : Nat) -> Equal n (plus n Z)
+plusZ' Z = Refl
+plusZ' (S k) = rewrite plusZ' k in ?oops -- expands to a case
+
+plus_kSn : (k : Nat) -> (n : Nat) -> Equal (plus k (S n)) (S (plus k n))
+plus_kSn Z n = Refl
+plus_kSn (S k) n = rewrite plus_kSn k n in Refl
+
+plus_commutes : (m : Nat) -> (n : Nat) -> Equal (plus m n) (plus n m)
+plus_commutes Z n = sym (plusZ n)
+plus_commutes (S k) n = rewrite plus_commutes k n in sym (plus_kSn n k)

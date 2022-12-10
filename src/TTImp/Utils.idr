@@ -39,6 +39,7 @@ rawImpFromDecl decl = case decl of
     INamespace fc1 ys zs => rawImpFromDecl !zs
     ITransform fc1 y z w => [z, w]
     IRunElabDecl fc1 y => [] -- Not sure about this either
+    IDirective _ _ => []
     IPragma _ _ f => []
     ILog k => []
     IBuiltin _ _ _ => []

@@ -330,8 +330,10 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            log "unify.meta" 5 $ "Adding new meta " ++ show (n, fc, rig)
            logTerm "unify.meta" 10 ("New meta type " ++ show n) hty
            idx <- addDef n hole
+           let app = Meta fc n idx envArgs
+           logTerm "unify.meta" 10 ("New meta app " ++ show n) app
            addHoleName fc n idx
-           pure (idx, Meta fc n idx envArgs)
+           pure (idx, app)
     where
       envArgs : List (RigCount, Term vars)
       envArgs = let args = reverse (mkConstantAppArgs {done = [<]} lets fc env [<]) in

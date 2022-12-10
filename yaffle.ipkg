@@ -63,6 +63,7 @@ modules
     TTImp.ProcessData,
     TTImp.ProcessDecls.Totality,
     TTImp.ProcessDef,
+    TTImp.ProcessDirective,
     TTImp.ProcessFailing,
     TTImp.ProcessFile,
     TTImp.ProcessRecord,

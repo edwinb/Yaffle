@@ -269,6 +269,11 @@ data DataOpt : Type where
      NoNewtype : DataOpt -- don't apply newtype optimisation
 
 public export
+data Directive : Type where
+     PairNames : Name -> Name -> Name -> Directive
+     RewriteName : Name -> Name -> Directive
+
+public export
 data ImpData' : Type -> Type where
      MkImpData : FC -> (n : Name) -> (tycon : RawImp' nm) ->
                  (opts : List DataOpt) ->
@@ -292,6 +297,9 @@ data ImpDecl' : Type -> Type where
      INamespace : FC -> Namespace -> List (ImpDecl' nm) -> ImpDecl' nm
      ITransform : FC -> Name -> RawImp' nm -> RawImp' nm -> ImpDecl' nm
      IRunElabDecl : FC -> RawImp' nm -> ImpDecl' nm
+     -- Setting options (e.g. pair names, rewrite names, etc)
+     IDirective : FC -> Directive -> ImpDecl' nm
+     -- A way to elaborate constructs we didn't think of!
      IPragma : FC -> List Name -> -- pragmas might define names that wouldn't
                      -- otherwise be spotted in 'definedInBlock' so they
                      -- can be flagged here.
@@ -474,6 +482,11 @@ mutual
        = show lhs ++ " impossible"
 
   export
+  Show Directive where
+    show (PairNames p f s) = "(%pair " ++ show p ++ " " ++ show f ++ " " ++ show s ++ ")"
+    show (RewriteName eq rw) = "(%rewrite " ++ show eq ++ " " ++ show rw ++ ")"
+
+  export
   covering
   Show nm => Show (ImpDecl' nm) where
     show (IClaim _ c _ opts ty) = show opts ++ " " ++ show c ++ " " ++ show ty
@@ -493,6 +506,7 @@ mutual
         = "%transform " ++ show n ++ " " ++ show lhs ++ " ==> " ++ show rhs
     show (IRunElabDecl _ tm)
         = "%runElab " ++ show tm
+    show (IDirective fc d) = show d
     show (IPragma _ _ _) = "[externally defined pragma]"
     show (ILog Nothing) = "%logging off"
     show (ILog (Just (topic, lvl))) = "%logging " ++ case topic of
@@ -896,6 +910,7 @@ namespace ImpDecl
   getFC (INamespace fc _ _) = fc
   getFC (ITransform fc _ _ _) = fc
   getFC (IRunElabDecl fc _) = fc
+  getFC (IDirective fc _) = fc
   getFC (IPragma fc _ _) = fc
   getFC (ILog _) = EmptyFC
   getFC (IBuiltin fc _ _) = fc
@@ -1359,6 +1374,7 @@ mutual
         = do tag 6; toBuf b fc; toBuf b n; toBuf b lhs; toBuf b rhs
     toBuf b (IRunElabDecl fc tm)
         = do tag 7; toBuf b fc; toBuf b tm
+    toBuf b (IDirective _) = throw (InternalError "Can't write directive")
     toBuf b (IPragma _ _ f) = throw (InternalError "Can't write Pragma")
     toBuf b (ILog n)
         = do tag 8; toBuf b n

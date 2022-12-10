@@ -71,6 +71,7 @@ parameters (f : RawImp' nm -> RawImp' nm)
   mapImpDecl (INamespace fc mi xs) = INamespace fc mi (assert_total $ map mapImpDecl xs)
   mapImpDecl (ITransform fc n t u) = ITransform fc n (mapTTImp t) (mapTTImp u)
   mapImpDecl (IRunElabDecl fc t) = IRunElabDecl fc (mapTTImp t)
+  mapImpDecl (IDirective fc d) = IDirective fc d
   mapImpDecl (IPragma fc ns g) = IPragma fc ns g
   mapImpDecl (ILog x) = ILog x
   mapImpDecl (IBuiltin fc x n) = IBuiltin fc x n

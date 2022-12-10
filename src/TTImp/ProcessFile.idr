@@ -13,6 +13,7 @@ import TTImp.Parser
 import TTImp.ProcessBuiltin
 import TTImp.ProcessData
 import TTImp.ProcessDef
+import TTImp.ProcessDirective
 import TTImp.ProcessFailing
 import TTImp.ProcessRecord
 import TTImp.ProcessTransform
@@ -52,6 +53,8 @@ parameters {auto c : Ref Ctxt Defs}
       = processTransform eopts nest env fc n lhs rhs
 --   process eopts nest env (IRunElabDecl fc tm)
 --       = processRunElab eopts nest env fc tm
+  process eopts nest env (IDirective fc d)
+      = processDirective fc d
   process eopts nest env (IPragma _ _ act)
       = act nest env
   process eopts nest env (ILog lvl)
