@@ -75,6 +75,7 @@ modules
     TTImp.TTImp,
     TTImp.TTImp.Functor,
     TTImp.TTImp.Traversals,
+    TTImp.TTImp.TTC,
     TTImp.Unelab,
     TTImp.Utils,
     TTImp.WithClause,

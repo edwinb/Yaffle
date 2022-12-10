@@ -25,6 +25,7 @@ import TTImp.Elab.Check
 import TTImp.Parser
 import TTImp.ProcessFile
 import TTImp.TTImp
+import TTImp.TTImp.TTC
 import TTImp.Unelab
 
 import TTMain.ProcessTT
