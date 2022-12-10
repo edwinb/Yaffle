@@ -1,9 +1,21 @@
 Processing as TTImp
 Written "build/ttc/dup.ttc"
-Yaffle> Main.foo : (%pi 0 Explicit (Just a) %type (%pi 1 Explicit (Just _) a a))
-Yaffle> Main.bar : (%pi 0 Explicit (Just a) %type (%pi 1 Explicit (Just _) a a))
-Yaffle> Main.baz1 : (%pi 0 Explicit (Just a) %type (%pi 0 Explicit (Just _) a a))
-Yaffle> Main.baz2 : (%pi 0 Explicit (Just a) %type (%pi 0 Explicit (Just _) a a))
+Yaffle>  0 a : %type
+ 1 x : a
+-------------------------------------
+Main.foo : a
+Yaffle>  0 a : %type
+ 1 x : a
+-------------------------------------
+Main.bar : a
+Yaffle>  0 a : %type
+ 0 x : a
+-------------------------------------
+Main.baz1 : a
+Yaffle>  0 a : %type
+ 0 x : a
+-------------------------------------
+Main.baz2 : a
 Yaffle> Bye for now!
 Processing as TTImp
 dupbad:5:1--6:1:When elaborating right hand side of Main.dupbad:

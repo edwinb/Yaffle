@@ -1,4 +1,8 @@
 Processing as TTImp
 Written "build/ttc/rewrite.ttc"
-Yaffle> Main.oops : (%pi  Explicit (Just k) Main.Nat (%pi 0 Explicit (Just _) (%pi  Explicit Nothing Main.Nat %type) (%pi 0 Explicit (Just _) ((Main.Equal k) ((Main.plus k) Main.Z)) ((Main.Equal (Main.S ((Main.plus k) Main.Z))) (Main.S (%case (((Main.plus k) Main.Z) : Main.Nat) [Main.Z = Main.Z, (Main.S {e:0}) = (Main.S ((Main.plus {e:0}) Main.Z))]))))))
+Yaffle>    k : Main.Nat
+ 0 {_:132} : (%pi  Explicit Nothing Main.Nat %type)
+ 0 {_:131} : ((Main.Equal k) ((Main.plus k) Main.Z))
+-------------------------------------
+Main.oops : ((Main.Equal (Main.S ((Main.plus k) Main.Z))) (Main.S (%case (((Main.plus k) Main.Z) : Main.Nat) [Main.Z = Main.Z, (Main.S {e:0}) = (Main.S ((Main.plus {e:0}) Main.Z))])))
 Yaffle> Bye for now!

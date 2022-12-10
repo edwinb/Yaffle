@@ -60,16 +60,42 @@ process (Eval ttimp)
          pure True
 process (Check (IVar _ n))
     = do defs <- get Ctxt
-         ns <- lookupTyName n (gamma defs)
+         ns <- lookupCtxtName n (gamma defs)
          traverse_ printName ns
          pure True
   where
-    printName : (Name, Int, ClosedTerm) -> Core ()
-    printName (n, _, tyh)
-        = do defs <- get Ctxt
-             ty <- toFullNames !(normaliseHoles [<] tyh)
-             coreLift_ $ putStrLn $ show n ++ " : " ++
-                                    show !(unelabNoImp [<] ty)
+    isHole : Def -> Maybe Nat
+    isHole (Hole locs _) = Just locs
+    isHole _ = Nothing
+
+    showCount : RigCount -> String
+    showCount Rig0 = " 0 "
+    showCount Rig1 = " 1 "
+    showCount RigW = "   "
+
+    printHole : {vars : _} ->
+                Name -> Nat -> Env Term vars -> Term vars -> Core ()
+    printHole n Z env tm
+        = do coreLift $ putStrLn "-------------------------------------"
+             coreLift $ putStrLn $ show n ++ " : " ++ show !(unelabNoImp env tm)
+    printHole n (S k) env (Bind _ x b@(Pi _ c _ ty) sc)
+        = do coreLift $ putStr $ showCount c ++ show x ++ " : " ++
+                        show !(unelabNoImp env ty) ++ "\n"
+             printHole n k (env :< b) sc
+    printHole n (S k) env tm
+        = do coreLift $ putStrLn "-------------------------------------"
+             coreLift $ putStrLn $ show n ++ " : " ++ show !(unelabNoImp env tm)
+
+    printName : (Name, Int, GlobalDef) -> Core ()
+    printName (n, i, gdef)
+        = do let tyh = type gdef
+             maybe (do ty <- toFullNames !(normaliseHoles [<] tyh)
+                       coreLift_ $ putStrLn $ show n ++ " : " ++
+                                    show !(unelabNoImp [<] ty))
+                   (\locs => do tyb <- normaliseBinders [<] tyh
+                                ty <- toFullNames !(normaliseHoles [<] tyb)
+                                printHole n locs [<] ty)
+                   (isHole (definition gdef))
 process (Check ttimp)
     = do (tm, gty) <- elabTerm 0 InExpr [] (MkNested []) [<] ttimp Nothing
          defs <- get Ctxt

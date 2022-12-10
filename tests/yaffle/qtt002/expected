@@ -1,6 +1,22 @@
 Processing as TTImp
 Written "build/ttc/caselin.ttc"
-Yaffle> Main.help : (%pi 0 Explicit (Just b) %type (%pi 0 Explicit (Just a) %type (%pi 1 Explicit (Just _) a (%pi 0 Explicit (Just _) b a))))
-Yaffle> Main.halp : (%pi 0 Explicit (Just b) %type (%pi 0 Explicit (Just a) %type (%pi 1 Explicit (Just _) a (%pi 1 Explicit (Just _) b ((Main.Pair b) a)))))
-Yaffle> Main.hulp : (%pi 0 Explicit (Just b) %type (%pi 0 Explicit (Just a) %type (%pi 1 Explicit (Just _) a (%pi 0 Explicit (Just _) b (%pi 0 Explicit (Just _) ((Main.Pair a) b) a)))))
+Yaffle>  0 b : %type
+ 0 a : %type
+ 1 x : a
+ 0 y : b
+-------------------------------------
+Main.help : a
+Yaffle>  0 b : %type
+ 0 a : %type
+ 1 x : a
+ 1 y : b
+-------------------------------------
+Main.halp : ((Main.Pair b) a)
+Yaffle>  0 b : %type
+ 0 a : %type
+ 1 s : a
+ 0 t : b
+ 0 x : ((Main.Pair a) b)
+-------------------------------------
+Main.hulp : a
 Yaffle> Bye for now!
