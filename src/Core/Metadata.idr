@@ -8,6 +8,7 @@ import Core.Env
 import Core.FC
 import Core.Evaluate
 import Core.TT
+import Core.TTC
 
 import Data.List
 import System.File
@@ -41,30 +42,27 @@ SemanticDecorations : Type
 SemanticDecorations = List ASemanticDecoration
 
 TTC Decoration where
-  toBuf = ?todotoDec
-  fromBuf = ?todofromDec
-
---   toBuf b Typ       = tag 0
---   toBuf b Function  = tag 1
---   toBuf b Data      = tag 2
---   toBuf b Keyword   = tag 3
---   toBuf b Bound     = tag 4
---   toBuf b Namespace = tag 5
---   toBuf b Postulate = tag 6
---   toBuf b Module    = tag 7
---   toBuf b Comment   = tag 8
---   fromBuf b
---     = case !getTag of
---         0 => pure Typ
---         1 => pure Function
---         2 => pure Data
---         3 => pure Keyword
---         4 => pure Bound
---         5 => pure Namespace
---         6 => pure Postulate
---         7 => pure Module
---         8 => pure Comment
---         _ => corrupt "Decoration"
+  toBuf Typ       = tag 0
+  toBuf Function  = tag 1
+  toBuf Data      = tag 2
+  toBuf Keyword   = tag 3
+  toBuf Bound     = tag 4
+  toBuf Namespace = tag 5
+  toBuf Postulate = tag 6
+  toBuf Module    = tag 7
+  toBuf Comment   = tag 8
+  fromBuf
+    = case !getTag of
+        0 => pure Typ
+        1 => pure Function
+        2 => pure Data
+        3 => pure Keyword
+        4 => pure Bound
+        5 => pure Namespace
+        6 => pure Postulate
+        7 => pure Module
+        8 => pure Comment
+        _ => corrupt "Decoration"
 
 public export
 record Metadata where
@@ -137,30 +135,28 @@ export
 data MD : Type where
 
 TTC Metadata where
-  toBuf = ?todotometa
-  fromBuf = ?todofrommeta
---   toBuf b m
---       = do toBuf b (lhsApps m)
---            toBuf b (names m)
---            toBuf b (tydecls m)
---            toBuf b (holeLHS m)
---            toBuf b (nameLocMap m)
---            toBuf b (sourceIdent m)
---            toBuf b (semanticHighlighting m)
---            toBuf b (semanticAliases m)
---            toBuf b (semanticDefaults m)
---
---   fromBuf b
---       = do apps <- fromBuf b
---            ns <- fromBuf b
---            tys <- fromBuf b
---            hlhs <- fromBuf b
---            dlocs <- fromBuf b
---            fname <- fromBuf b
---            semhl <- fromBuf b
---            semal <- fromBuf b
---            semdef <- fromBuf b
---            pure (MkMetadata apps ns tys Nothing hlhs dlocs fname semhl semal semdef)
+  toBuf m
+      = do toBuf (lhsApps m)
+           toBuf (names m)
+           toBuf (tydecls m)
+           toBuf (holeLHS m)
+           toBuf (nameLocMap m)
+           toBuf (sourceIdent m)
+           toBuf (semanticHighlighting m)
+           toBuf (semanticAliases m)
+           toBuf (semanticDefaults m)
+
+  fromBuf
+      = do apps <- fromBuf
+           ns <- fromBuf
+           tys <- fromBuf
+           hlhs <- fromBuf
+           dlocs <- fromBuf
+           fname <- fromBuf
+           semhl <- fromBuf
+           semal <- fromBuf
+           semdef <- fromBuf
+           pure (MkMetadata apps ns tys Nothing hlhs dlocs fname semhl semal semdef)
 
 
 -- For giving local variable names types, just substitute the name
@@ -303,25 +299,16 @@ parameters {auto m : Ref MD Metadata}
 
 record TTMFile where
   constructor MkTTMFile
-  version : Int
   metadata : Metadata
 
+-- Most of this now handled by readFromFile/writeToFile in Core.Binary
 TTC TTMFile where
-  toBuf = ?todotoTTM
-  fromBuf = ?todofromTTM
+  toBuf file
+      = toBuf (metadata file)
 
---   toBuf b file
---       = do toBuf b "TTM"
---            toBuf b (version file)
---            toBuf b (metadata file)
---
---   fromBuf b
---       = do hdr <- fromBuf b
---            when (hdr /= "TTM") $ corrupt "TTM header"
---            ver <- fromBuf b
---            checkTTCVersion "" ver ttcVersion -- maybe change the interface to get the filename
---            md <- fromBuf b
---            pure (MkTTMFile ver md)
+  fromBuf
+      = do md <- fromBuf
+           pure (MkTTMFile md)
 
 HasNames Metadata where
   full gam md
@@ -379,7 +366,7 @@ writeToTTM fname
          defs <- get Ctxt
          st <- newRef STable (stringTable (gamma defs))
          buf <- ttc (initBinary st)
-         ttc $ toBuf (MkTTMFile ttcVersion !(full (gamma defs) meta))
+         ttc $ toBuf (MkTTMFile !(full (gamma defs) meta))
          Right ok <- ttc $ writeToFile "TTM" 0 fname !(get Bin)
              | Left err => throw (InternalError (fname ++ ": " ++ show err))
          pure ()
@@ -402,7 +389,7 @@ readMetadata fname
   = do Right (buf, _) <- ttc $ readFromFile "TTM" fname
              | Left err => throw (InternalError (fname ++ ": " ++ show err))
        bin <- newRef Bin buf
-       MkTTMFile _ md <- ttc fromBuf
+       MkTTMFile md <- ttc fromBuf
        pure md
 
 ||| Dump content of a .ttm file in human-readable format
