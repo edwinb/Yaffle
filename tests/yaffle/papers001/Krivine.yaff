@@ -437,67 +437,82 @@ namespace ValidEnv
   fstLookup (Element (Cons t env) p) Here = Refl
   fstLookup (Element (Cons t env) p) (There v) = fstLookup (Element env (snd p)) v
 
+  public export
   Nil : ValidEnv Nil
   Nil = Element Nil MkUnit
 
+  public export
   Cons : {0 g : _} -> {a : Ty} -> ValidClosed a -> ValidEnv g -> ValidEnv (Cons a g)
   Cons (Element t p) (Element env q) = Element (Cons t env) (MkPair p q)
 
-{-
 
 IsValidEvalContext : EvalContext a b -> Type
-IsValidEvalContext Nil = ()
-IsValidEvalContext (Cons t ctx) =  (IsValidClosed t, IsValidEvalContext ctx)
-
+IsValidEvalContext Nil = Unit
+IsValidEvalContext (Cons t ctx) =  Pair (IsValidClosed t) (IsValidEvalContext ctx)
 
 ValidEvalContext : (a, b : Ty) -> Type
 ValidEvalContext a b = Subset (EvalContext a b) IsValidEvalContext
 
+record Biinjective {0 a, b, c : Type} (0 f : a -> b -> c) where
+  constructor MkBiinjective
+  biinjective : (x, y : a) -> (v, w : b) -> Equal (f x v) (f y w) -> Pair (Equal x y) (Equal v w)
+
 namespace ValidEvalContext
 
 
-  Nil : ValidEvalContext a a
-  Nil = Element Nil ()
+  public export
+  Nil : {0 a : Ty} -> ValidEvalContext a a
+  Nil = Element Nil MkUnit
 
+  public export
+  Cons : {0 a, b, c : Ty} -> ValidClosed a -> ValidEvalContext b c -> ValidEvalContext (Arr a b) c
+  Cons (Element t p) (Element ctx q) = Element (Cons t ctx) (MkPair p q)
 
-  (::) : ValidClosed a -> ValidEvalContext b c -> ValidEvalContext (Arr a b) c
-  Element t p :: Element ctx q = Element (Cons t ctx) (p, q)
-
-
-  fstCons : (t : ValidClosed a) -> (ctx : ValidEvalContext b c) ->
-            fst (Cons t ctx) === fst Cons t fst ctx
+  fstCons : {0 a, b, c : Ty} ->
+            (t : ValidClosed a) -> (ctx : ValidEvalContext b c) ->
+            Equal (fst (Cons t ctx)) (Cons (fst t) (fst ctx))
   fstCons (Element t p) (Element ctx q) = Refl
 
+  CONS : Biinjective ValidEvalContext.Cons
+  CONS =
+    let biinjective : {0 a, b, c : Ty} ->
+         (x, y : ValidClosed a) -> (v, w : ValidEvalContext b c) ->
+         Equal (ValidEvalContext.Cons x v) (ValidEvalContext.Cons y w) ->
+         Pair (Equal x y) (Equal v w)
+        biinjective
+         (Element t p) (Element t p)
+         (Element ts ps) (Element ts ps)
+         Refl = MkPair Refl Refl
 
-  [CONS] Biinjective ValidEvalContext.(::) where
-    biinjective
-      {x = Element t p} {y = Element t p}
-      {v = Element ts ps} {w = Element ts ps}
-      Refl = (Refl, Refl)
+    in MkBiinjective biinjective
+
 
 namespace ValidEvalContextView
 
-
+  public export
   data View : ValidEvalContext a b -> Type where
     Nil : View Nil
-    (::) : (t : ValidClosed a) -> (ctx : ValidEvalContext b c) ->
+    Cons : {0 a, b, c : Ty} -> (t : ValidClosed a) -> (ctx : ValidEvalContext b c) ->
            View (Cons t ctx)
 
+  export
+  irrelevantUnit : (t : Unit) -> Equal t MkUnit
+  irrelevantUnit MkUnit = Refl
 
-  irrelevantUnit : (t : ()) -> t === ()
-  irrelevantUnit () = Refl
+  export
+  etaPair : {0 a, b : Type} -> (p : Pair a b) -> Equal p (MkPair (fst p) (snd p))
+  etaPair (MkPair x y) = Refl
 
-
-  etaPair : (p : (a, b)) -> p === (fst p, snd p)
-  etaPair (x, y) = Refl
-
-
-  view : (ctx : ValidEvalContext a b) -> View ctx
-  view (Element Nil p) = rewrite irrelevantUnit p in Nil
+  export
+  view : {0 a, b : Ty} -> (ctx : ValidEvalContext a b) -> View ctx
+  view (Element Nil p)
+    = let eq = replace (\ prf => View (Element Nil prf)) (sym (irrelevantUnit p)) Nil
+      in ?A -- eq
   view (Element (Cons t ctx) p)
-    = rewrite etaPair p in
-      Element t (fst p) :: Element ctx (snd p)
+    = -- replace (\ prf => View (Element (Cons t ctx) prf)) (etaPair p)
+      ?b -- (Cons (Element t (fst p)) (Element ctx (snd p)))
 
+{-
 namespace Machine
 
 
