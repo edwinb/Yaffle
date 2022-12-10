@@ -25,6 +25,23 @@ TTC Namespace where
                pure (unsafeFoldNamespace n)
 
 export
+TTC RawNamespace where
+  toBuf (MkRawNS ns)
+      = do let ns = unsafeUnfoldNamespace ns
+           toBuf {a=Int} (cast (length ns))
+           traverse_ (toBuf @{RawString}) ns
+  fromBuf
+      = do len <- fromBuf {a = Int}
+           ns <- readElems [] (integerToNat (cast len))
+           pure (MkRawNS (unsafeFoldNamespace ns))
+    where
+      readElems : List String -> Nat -> CoreTTC (List String)
+      readElems xs Z = pure (reverse xs)
+      readElems xs (S k)
+          = do val <- fromBuf @{RawString}
+               readElems (val :: xs) k
+
+export
 TTC ModuleIdent where
   toBuf = toBuf . unsafeUnfoldModuleIdent
   fromBuf = do n <- fromBuf

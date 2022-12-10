@@ -2,6 +2,7 @@ module Core.Binary
 
 import public Core.Binary.Prims
 import Core.Core
+import Core.TT.Namespace
 
 import Data.Buffer
 import Data.List
@@ -152,8 +153,9 @@ readNoStringTable : (headerID : String) -> -- TTM or TT2
 readNoStringTable hdr fname
     -- Inverse of above. We read:
     -- * a header 'TTC [version]'
-    -- * The string table from 'bdata'
-    -- * The actual data in 'bdata'
+    -- * Skip the string table from 'bdata'
+    -- * Read the actual data in 'bdata' (but only the bits that use
+    --   raw strings or no strings will be processable)
     -- Then create a new Binary Read with all of this data
     = do Right b <- coreLift $ createBufferFromFile fname
                | Left err => pure (Left err)

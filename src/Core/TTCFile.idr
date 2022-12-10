@@ -16,8 +16,8 @@ import System.File
 
 record TTCFile extra (mode : BinaryMode) where
   constructor MkTTCFile
+  importHashes : List (RawNamespace, Int)
   totalReq : TotalReq
-  importHashes : List (Namespace, Int)
   incData : List (CG, String, List String)
   context : List (Name, Binary mode)
   userHoles : List Name
@@ -57,14 +57,14 @@ HasNames (Name, Name, Bool) where
   resolved c (n1, n2, b) = pure (!(resolved c n1), !(resolved c n2), b)
 
 HasNames e => HasNames (TTCFile e b) where
-  full gam (MkTTCFile totalReq iHashes incData
+  full gam (MkTTCFile iHashes totalReq incData
                       context userHoles
                       autoHints typeHints
                       imported nextVar currentNS nestedNS
                       pairnames rewritenames primnames
                       namedirectives cgdirectives trans
                       fexp extra)
-      = pure $ MkTTCFile totalReq iHashes incData
+      = pure $ MkTTCFile iHashes totalReq incData
                          context userHoles
                          !(traverse (full gam) autoHints)
                          !(traverse (full gam) typeHints)
@@ -96,14 +96,14 @@ HasNames e => HasNames (TTCFile e b) where
   -- I don't think we ever actually want to call this, because after we read
   -- from the file we're going to add them to learn what the resolved names
   -- are supposed to be! But for completeness, let's do it right.
-  resolved gam (MkTTCFile totalReq iHashes incData
+  resolved gam (MkTTCFile iHashes totalReq incData
                       context userHoles
                       autoHints typeHints
                       imported nextVar currentNS nestedNS
                       pairnames rewritenames primnames
                       namedirectives cgdirectives trans
                       fexp extra)
-      = pure $ MkTTCFile totalReq iHashes incData
+      = pure $ MkTTCFile iHashes totalReq incData
                          context userHoles
                          !(traverse (resolved gam) autoHints)
                          !(traverse (resolved gam) typeHints)
@@ -142,8 +142,8 @@ writeTTCFile : (HasNames extra, TTC extra) =>
 writeTTCFile b file_in
       = do file <- toFullNames file_in
            ttc $ do
-             toBuf (totalReq file)
              toBuf (importHashes file)
+             toBuf (totalReq file)
              toBuf (incData file)
              toBuf (imported file)
              toBuf (context file)
@@ -168,12 +168,12 @@ readTTCFile : TTC extra =>
               Ref Bin (Binary Read) -> Core (TTCFile extra Read)
 readTTCFile readall file as b
       = ttc $ do
-           totalReq <- fromBuf
            importHashes <- fromBuf
+           totalReq <- fromBuf
            incData <- fromBuf
            imp <- fromBuf
            if not readall
-              then pure (MkTTCFile totalReq importHashes incData
+              then pure (MkTTCFile importHashes totalReq incData
                                    [] [] [] [] []
                                    0 (mkNamespace "") [] Nothing
                                    Nothing
@@ -195,7 +195,7 @@ readTTCFile readall file as b
                  trans <- fromBuf
                  fexp <- fromBuf
                  ex <- fromBuf
-                 pure (MkTTCFile totalReq importHashes incData
+                 pure (MkTTCFile importHashes totalReq incData
                                  (map (replaceNS cns) defs) uholes
                                  autohs typehs imp nextv cns nns
                                  pns rws prims nds cgds trans fexp ex)
@@ -234,8 +234,9 @@ writeToTTC extradata sourceFileName ttcFileName
          gdefs <- getSaveDefs st (keys (toSave defs)) [] defs
          totalReq <- getDefaultTotalityOption
          writeTTCFile bin
-                   (MkTTCFile totalReq
-                              (importHashes defs)
+                   (MkTTCFile (map (\ (n, i) => (MkRawNS n, i))
+                                   (importHashes defs))
+                              totalReq
                               (incData defs)
                               gdefs
                               (keys (userHoles defs))
@@ -449,3 +450,19 @@ readFromTTC nestedns loc reexp fname modNS importAs
         = (modns == m && importAs == a)
           || (modns == m && miAsNamespace modns == importAs)
           || alreadyDone modns importAs rest
+
+-- Process just enough to get the hashes of the imported modules
+export
+readImportHashes
+         : (headerID : String) -> -- TTM or TT2
+           (fname : String) ->
+           CoreTTC (List (Namespace, Int))
+readImportHashes hdr fname
+    = do Right buffer <- readNoStringTable hdr fname
+             | _ => pure []
+         bin <- newRef Bin buffer -- for reading the file into
+         importHashes <- fromBuf
+         pure (map toNS importHashes)
+   where
+     toNS : (RawNamespace, Int) -> (Namespace, Int)
+     toNS (MkRawNS ns, i) = (ns, i)

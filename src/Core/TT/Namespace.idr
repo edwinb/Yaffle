@@ -23,6 +23,12 @@ export
 data Namespace : Type where
   MkNS : List String -> Namespace
 
+-- For writing to TTC files using RawString implementation, because we need
+-- to be able to read them without a string table
+public export
+data RawNamespace : Type where
+  MkRawNS : Namespace -> RawNamespace
+
 ||| A Module Identifier is, similarly to a namespace, stored inside out.
 export
 data ModuleIdent : Type where

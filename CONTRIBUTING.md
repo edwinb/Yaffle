@@ -45,17 +45,11 @@ TODOs throughout for which I would welcome some help. Currently these are:
 edwinb's next steps:
 
 * More tests for Yaffle
-* Save checked .yaff files as TTCs
-  - Note on string table: Sometimes we shortcut TTC loading (when all we're
-    interested in is which modules it imports), in which case we'd not actually
-    want to process the string table pointlessly. So it may be that we want to
-    process it lazily, and use the RawString instance for any Strings before
-    the actual program data
+* Finish porting TTImp elaborator (just reflection now)
 * Termination checker
   - Tests for basic operation of termination and coverage checking
 * Unification details (which will come up during elaboration...):
   - Inlining things with linear quantities in the context
-* Implement/port the missing interfaces for TTC/HasNames
 * Coverage checking of case blocks
   - We used to do this by knowing that functions referred to a case function.
     Now we'll need to do something slightly different, so make sure it's
@@ -67,4 +61,4 @@ edwinb's next steps:
 * ???
 * PROFIT
 
-(Last updated 5th December 2022)
+(Last updated 10th December 2022)
