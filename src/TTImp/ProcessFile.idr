@@ -15,6 +15,7 @@ import TTImp.ProcessData
 import TTImp.ProcessDef
 import TTImp.ProcessDirective
 import TTImp.ProcessFailing
+import TTImp.ProcessParams
 import TTImp.ProcessRecord
 import TTImp.ProcessRunElab
 import TTImp.ProcessTransform
@@ -41,8 +42,8 @@ parameters {auto c : Ref Ctxt Defs}
       = processData eopts nest env fc vis mbtot ddef
   process eopts nest env (IDef fc fname def)
       = processDef eopts nest env fc fname def
---   process eopts nest env (IParameters fc ps decls)
---       = processParams nest env fc ps decls
+  process eopts nest env (IParameters fc ps decls)
+      = processParams nest env fc ps decls
   process eopts nest env (IRecord fc ns vis mbtot rec)
       = processRecord eopts nest env ns vis mbtot rec
   process eopts nest env (IFail fc msg decls)
@@ -52,8 +53,8 @@ parameters {auto c : Ref Ctxt Defs}
            traverse_ (processDecl eopts nest env) decls
   process eopts nest env (ITransform fc n lhs rhs)
       = processTransform eopts nest env fc n lhs rhs
---   process eopts nest env (IRunElabDecl fc tm)
---       = processRunElab eopts nest env fc tm
+  process eopts nest env (IRunElabDecl fc tm)
+      = processRunElab eopts nest env fc tm
   process eopts nest env (IDirective fc d)
       = processDirective fc d
   process eopts nest env (IPragma _ _ act)
@@ -62,7 +63,6 @@ parameters {auto c : Ref Ctxt Defs}
       = addLogLevel (uncurry unsafeMkLogLevel <$> lvl)
   process eopts nest env (IBuiltin fc type name)
       = processBuiltin nest env fc type name
-  process eopts nest env y = ?remove_when_done
 
   export
   processDecls : {vars : _} ->
