@@ -44,6 +44,13 @@ appCon fc defs n args
          resolved (gamma defs) (apply fc fn args)
 
 export
+appConTop : {vars : _} ->
+         FC -> Defs -> Name -> List (Term vars) -> Core (Term vars)
+appConTop fc defs n args
+    = do fn <- getCon fc defs n
+         resolved (gamma defs) (apply fc fn (map (top,) args))
+
+export
 blank : FC -> (RigCount, Term vars)
 blank fc = (erased, Erased fc Placeholder)
 
