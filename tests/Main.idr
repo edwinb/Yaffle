@@ -25,6 +25,7 @@ yaffleTests = MkTestPool "Yaffle" [] Nothing
     [ "basic001", "basic002", "basic003",
       "case001",
       "compile001", "compile002",
+      "coverage001",
       "qtt001", "qtt002",
       "record001", "record002",
       "rewrite001",

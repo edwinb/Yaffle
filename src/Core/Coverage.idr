@@ -286,7 +286,7 @@ buildArgs : {auto c : Ref Ctxt Defs} ->
 -- be able to construct the application, so we'll only see these at the
 -- top level
 buildArgs defs known not ps (Bind fc x (Lam lfc c p ty) sc)
-    = buildArgs defs (weaken known) (weaken not) ps sc
+    = buildArgs defs (weaken known) (weaken not) (ps :< (c, Ref fc Bound x)) sc
 buildArgs defs known not ps cs@(Case fc c (Local lfc idx el) ty altsIn)
   -- If we've already matched on 'el' in this branch, restrict the alternatives
   -- to the tag we already know. Otherwise, add missing cases and filter out
@@ -424,7 +424,7 @@ eraseApps {vs} tm
                    mgdef <- lookupCtxtExact n (gamma defs)
                    let eargs = maybe [] eraseArgs mgdef
                    args' <- traverseSnocList (\ (c, arg) => pure (c, !(eraseApps arg)))
-                                  (dropPos fc 0 eargs args)
+                                  (dropPos fc (length args) eargs args)
                    pure (applySpine fc (Ref fc nt n) args')
            (tm, args) =>
                 do args' <- traverseSnocList (\ (c, arg) => pure (c, !(eraseApps arg))) args
@@ -432,11 +432,12 @@ eraseApps {vs} tm
   where
     dropPos : FC -> Nat -> List Nat -> SnocList (RigCount, Term vs) ->
               SnocList (RigCount, Term vs)
-    dropPos fc i ns [<] = [<]
-    dropPos fc i ns (xs :< (c, x))
+    dropPos fc _ ns [<] = [<]
+    dropPos fc (S i) ns (xs :< (c, x))
         = if i `elem` ns
-             then dropPos fc (S i) ns xs :< (c, Erased fc Placeholder)
-             else dropPos fc (S i) ns xs :< (c, x)
+             then dropPos fc i ns xs :< (c, Erased fc Placeholder)
+             else dropPos fc i ns xs :< (c, x)
+    dropPos fc _ ns xs = xs
 
 -- if tm would be matched by trylhs, then it's not an impossible case
 -- because we've already got it. Ignore anything in erased position.

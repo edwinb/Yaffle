@@ -153,7 +153,7 @@ process (Missing n_in)
                              case isCovering tot of
                                   MissingCases cs =>
                                      coreLift_ (putStrLn (show fn ++ ":\n" ++
-                                                 showSep "\n" (map show cs)))
+                                                 showSep "\n" (map show !(toFullNames cs))))
                                   NonCoveringCall ns =>
                                      coreLift_ (putStrLn
                                          (show fn ++ ": Calls non covering function"

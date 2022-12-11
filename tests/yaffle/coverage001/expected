@@ -1,0 +1,8 @@
+Processing as TTImp
+Written "build/ttc/Vect.ttc"
+Yaffle> Main.append: All cases covered
+Yaffle> Main.append':
+(Main.append' [__] [__] [__] (Main.Nil [__]) {_:103})
+Yaffle> Main.append'':
+(Main.append'' [__] [__] [__] (Main.Cons [__] [__] {_:132} {_:133}) {_:135})
+Yaffle> Bye for now!

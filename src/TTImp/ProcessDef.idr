@@ -1080,7 +1080,15 @@ processDef opts nest env fc n_in cs_in
              missImp <- traverse (checkImpossible n mult) missCase
              -- Filter out the ones which are actually matched (perhaps having
              -- come up due to some overlapping patterns)
+             logC "declare.def" 5 $
+                 do mc <- traverse toFullNames missImp
+                    pure ("Missing after checkImpossible:\n" ++
+                              showSep "\n" (map show mc))
              missMatch <- traverse (checkMatched covcs) (mapMaybe id missImp)
+             logC "declare.def" 5 $
+                 do mc <- traverse toFullNames missMatch
+                    pure ("Missing after checkMatched:\n" ++
+                              showSep "\n" (map show mc))
              let miss = catMaybes missMatch
              if isNil miss
                 then do [] <- getNonCoveringRefs fc (Resolved n)
