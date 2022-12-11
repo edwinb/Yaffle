@@ -652,9 +652,10 @@ checkClause {vars} mult vis totreq hashit n opts nest env
     bindWithArgs {xs} rig wvalTy (Just (name, wval)) wvalEnv = do
       defs <- get Ctxt
 
-      let eqName = NS builtinNS (UN $ Basic "Equal")
+      Just eqName <- getEqualTy
+        | _ => throw (GenericMsg (getLoc wval) "No builtin equality defined")
       Just (TCon _ ar) <- lookupDefExact eqName (gamma defs)
-        | _ => throw (InternalError "Cannot find builtin Equal")
+        | _ => throw (InternalError "Cannot find builtin equality: \{show eqName}")
       let eqTyCon = Ref vfc (TyCon ar) !(toResolvedNames eqName)
 
       let wargn : Name
