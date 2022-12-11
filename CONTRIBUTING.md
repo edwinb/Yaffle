@@ -48,7 +48,6 @@ edwinb's next steps:
   current namespace. At the moment, it will expand everything.
   - So we'll also need an alternate 'expandAll' for elaborator reflection
 * More tests for Yaffle
-* Finish porting TTImp elaborator (just reflection now)
 * Termination checker
   - Tests for basic operation of termination and coverage checking
 * Unification details (which will come up during elaboration...):

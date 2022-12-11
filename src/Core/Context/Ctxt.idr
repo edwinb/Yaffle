@@ -420,9 +420,11 @@ initDefs
            , allIncData = []
            , toIR = empty
            , userHoles = empty
+           , timer = Nothing
            , warnings = []
            , schemeEvalLoaded = False
            , foreignExports = empty
+           , holeNames = []
            }
 
 parameters {auto c : Ref Ctxt Defs}

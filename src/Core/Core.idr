@@ -9,6 +9,8 @@ import public Data.IORef
 
 import System.File
 
+import Libraries.Data.Tap
+
 -- CoreE is a wrapper around IO that is specialised for efficiency.
 export
 record CoreE err t where

@@ -525,6 +525,23 @@ uniqueBasicName defs used n
     next : String -> String
     next = unNameNum . nextNameNum . nameNum
 
+export
+uniqueHoleName : {auto c : Ref Ctxt Defs} ->
+                 List String -> String -> Core String
+uniqueHoleName used n
+    = do defs <- get Ctxt
+         uniqueBasicName defs (used ++ holeNames defs) n
+
+export
+uniqueHoleNames : {auto c : Ref Ctxt Defs} ->
+                  Nat -> String -> Core (List String)
+uniqueHoleNames = go [] where
+  go : List String -> Nat -> String -> Core (List String)
+  go acc Z _ = pure (reverse acc)
+  go acc (S n) hole = do
+    hole' <- uniqueHoleName acc hole
+    go (hole' :: acc) n hole'
+
 unique : List String -> List String -> Int -> List Name -> String
 unique [] supply suff usedns = unique supply supply (suff + 1) usedns
 unique (str :: next) supply suff usedns

@@ -36,6 +36,7 @@ modules
     Core.Options,
     Core.Primitives,
     Core.Reflect,
+    Core.Search,
     Core.Syntax.Decls, -- adding raw declarations to the context
     Core.Syntax.Lexer,
     Core.Syntax.Parser,
@@ -100,6 +101,14 @@ modules
     TTImp.Elab.RunElab,
     TTImp.Elab.Term,
     TTImp.Elab.Utils,
+
+    -- Interactive editing machinery
+    TTImp.Interactive.CaseSplit,
+    TTImp.Interactive.Completion,
+    TTImp.Interactive.ExprSearch,
+    TTImp.Interactive.GenerateDef,
+    TTImp.Interactive.Intro,
+    TTImp.Interactive.MakeLemma,
 
     -- Parsing support
     Parser.Lexer.Common,

@@ -18,6 +18,7 @@ import Libraries.Data.NameMap
 import Libraries.Data.UserNameMap
 import Libraries.Text.Distance.Levenshtein
 
+import System.Clock
 import System.Directory
 
 export
@@ -1050,3 +1051,45 @@ reducibleIn nspace n _ = True
 export
 reducibleInAny : List Namespace -> Name -> Visibility -> Bool
 reducibleInAny nss n vis = any (\ns => reducibleIn ns n vis) nss
+
+export
+getTime : Core Integer
+getTime
+    = do clock <- coreLift (clockTime Monotonic)
+         pure (seconds clock * nano + nanoseconds clock)
+  where
+    nano : Integer
+    nano = 1000000000
+
+-- A simple timeout mechanism. We can start a timer, clear it, or check
+-- whether too much time has passed and throw an exception if so
+
+||| Initialise the timer, setting the time in milliseconds after which a
+||| timeout should be thrown.
+||| Note: It's important to clear the timer when the operation that might
+||| timeout is complete, otherwise something else might throw a timeout
+||| error!
+export
+startTimer : {auto c : Ref Ctxt Defs} ->
+             Integer -> String -> Core ()
+startTimer tmax action
+    = do t <- getTime
+         update Ctxt { timer := Just (t + tmax * 1000000, action) }
+
+||| Clear the timer
+export
+clearTimer : {auto c : Ref Ctxt Defs} -> Core ()
+clearTimer = update Ctxt { timer := Nothing }
+
+||| If the timer was started more than t milliseconds ago, throw an exception
+export
+checkTimer : {auto c : Ref Ctxt Defs} ->
+             Core ()
+checkTimer
+    = do defs <- get Ctxt
+         let Just (max, action) = timer defs
+                | Nothing => pure ()
+         t <- getTime
+         if (t > max)
+            then throw (Timeout action)
+            else pure ()

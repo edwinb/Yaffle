@@ -309,12 +309,17 @@ record Defs where
      -- ^ Metavariables the user still has to fill in. In practice, that's
      -- everything with a user accessible name and a definition of Hole.
      -- The Bool says whether it was introduced in another module.
+  timer : Maybe (Integer, String)
+     -- ^ for timing and checking timeouts; the maximum time after which a
+     -- timeout should be thrown
   warnings : List Warning
        -- ^ as yet unreported warnings
   schemeEvalLoaded : Bool
   foreignExports : NameMap (List (String, String))
        -- ^ For functions which are callable from a foreign language. This
        -- maps names to a pair of the back end and the exported function name
+  holeNames : List String
+       -- ^ Hole names in current input
 
 -- Label for context references
 export
