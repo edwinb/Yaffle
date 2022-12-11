@@ -12,8 +12,8 @@ import TTImp.TTImp.Functor
 import TTImp.Utils
 
 import Data.List
+import Data.SnocList
 
-{-
 %default covering
 
 used : RigCount -> Bool
@@ -27,12 +27,12 @@ hiddenName _ = False
 bindable : Nat -> Term vars -> Bool
 bindable p tm
     = case getFnArgs tm of
-           (Ref _ (TyCon _ _) n, args) => any (bindable p) args
+           (Ref _ (TyCon _) n, args) => any (bindable p) args
            (Ref _ (DataCon _ _) _, args) => any (bindable p) args
            (TDelayed _ _ t, args) => any (bindable p) (t :: args)
            (TDelay _ _ _ t, args) => any (bindable p) (t :: args)
            (TForce _ _ t, args) => any (bindable p) (t :: args)
-           (Local _ _ p' _, []) => p == p'
+           (Local _ p' _, []) => p == p'
            _ => False
 
 bindableArg : Nat -> Term vars -> Bool
@@ -42,14 +42,14 @@ bindableArg p _ = False
 
 getArgs : {vars : _} ->
           {auto c : Ref Ctxt Defs} ->
-          {auto s : Ref Syn SyntaxInfo} ->
           Env Term vars -> Nat -> Term vars ->
           Core (List (Name, Maybe Name, PiInfo RawImp, RigCount, RawImp), RawImp)
 getArgs {vars} env (S k) (Bind _ x b@(Pi _ c _ ty) sc)
     = do defs <- get Ctxt
-         ty' <- map (map rawName) $ unelab env !(normalise defs env ty)
-         let x' = UN $ Basic !(uniqueBasicName defs (map nameRoot vars) (nameRoot x))
-         (sc', ty) <- getArgs (b :: env) k (renameTop x' sc)
+         ty' <- map (map rawName) $ unelab env !(normalise env ty)
+         let x' = UN $ Basic !(uniqueBasicName defs (cast (map nameRoot vars))
+                                  (nameRoot x))
+         (sc', ty) <- getArgs (env :< b) k (renameTop x' sc)
          -- Don't need to use the name if it's not used in the scope type
          let mn = if c == top
                        then case shrinkTerm sc (DropCons SubRefl) of
@@ -62,7 +62,7 @@ getArgs {vars} env (S k) (Bind _ x b@(Pi _ c _ ty) sc)
          pure ((x, mn, p', c, ty') :: sc', ty)
 getArgs env k ty
       = do defs <- get Ctxt
-           ty' <- map (map rawName) $ unelab env !(normalise defs env ty)
+           ty' <- map (map rawName) $ unelab env !(normalise env ty)
            pure ([], ty')
 
 mkType : FC -> List (Name, Maybe Name, PiInfo RawImp, RigCount, RawImp) ->
@@ -86,10 +86,9 @@ mkApp loc n args
 export
 makeLemma : {auto m : Ref MD Metadata} ->
             {auto c : Ref Ctxt Defs} ->
-            {auto s : Ref Syn SyntaxInfo} ->
             FC -> Name -> Nat -> ClosedTerm ->
             Core (RawImp, RawImp)
 makeLemma loc n nlocs ty
     = do defs <- get Ctxt
-         (args, ret) <- getArgs [] nlocs !(normalise defs [] ty)
+         (args, ret) <- getArgs [<] nlocs !(normalise [<] ty)
          pure (mkType loc args ret, mkApp loc n args)
