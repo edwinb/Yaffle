@@ -141,7 +141,6 @@ process (GenerateDef line name)
               Just _ => coreLift_ $ putStrLn "Already defined"
               Nothing => coreLift_ $ putStrLn $ "Can't find declaration for " ++ show name
          pure True
-{-
 process (Missing n_in)
     = do defs <- get Ctxt
          case !(lookupCtxtName n_in (gamma defs)) of
@@ -171,7 +170,6 @@ process (CheckTotal n)
                              coreLift_ (putStrLn (show fn ++ " is " ++ show tot)))
                                (map fst ts)
                        pure True
--}
 process Quit
     = do coreLift_ $ putStrLn "Bye for now!"
          pure False
