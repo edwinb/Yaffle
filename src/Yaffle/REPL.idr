@@ -2,6 +2,7 @@ module Yaffle.REPL
 
 import Core.AutoSearch
 import Core.Binary
+import Core.CompileExpr
 import Core.Context
 import Core.Context.Log
 import Core.Core
@@ -17,6 +18,8 @@ import Core.Termination
 import Core.TT
 import Core.TTCFile
 import Core.Unify
+
+import Compiler.CompileExpr
 
 import TTImp.Elab
 import TTImp.Elab.Check
@@ -170,10 +173,21 @@ process (CheckTotal n)
                              coreLift_ (putStrLn (show fn ++ " is " ++ show tot)))
                                (map fst ts)
                        pure True
+process (ShowCompiled n)
+    = do compileDef n
+         defs <- get Ctxt
+         ns <- lookupCtxtName n (gamma defs)
+         traverse_ showCompiled ns
+         pure True
+  where
+    showCompiled : (Name, Int, GlobalDef) -> Core ()
+    showCompiled (n, i, def)
+        = case compexpr def of
+               Nothing => pure ()
+               Just cd => coreLift $ putStrLn (show n ++ " = " ++ show cd)
 process Quit
     = do coreLift_ $ putStrLn "Bye for now!"
          pure False
-process _ = throw (InternalError "Not implemented")
 
 processCatch : {auto c : Ref Ctxt Defs} ->
                {auto m : Ref MD Metadata} ->

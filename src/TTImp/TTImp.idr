@@ -560,6 +560,7 @@ data ImpREPL : Type where
      GenerateDef : Int -> Name -> ImpREPL
      Missing : Name -> ImpREPL
      CheckTotal : Name -> ImpREPL
+     ShowCompiled : Name -> ImpREPL
      DebugInfo : Name -> ImpREPL
      Quit : ImpREPL
 

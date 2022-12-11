@@ -120,8 +120,8 @@ export
 covering
 Show Def where
   show None = "undefined"
-  show (Function _ tm _ _)
-      = "Function " ++ show tm
+  show (Function _ tm tm' _)
+      = "Function " ++ show tm ++ "\n\tRuntime: " ++ show tm'
   show (DCon di t a)
       = "DataCon " ++ show t ++ " " ++ show a
            ++ maybe "" (\n => " (newtype by " ++ show n ++ ")")

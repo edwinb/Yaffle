@@ -502,6 +502,14 @@ parameters {auto c : Ref Ctxt Defs}
            ignore $ addDef (Resolved i) ({ type := ty } gdef)
 
   export
+  setCompiled : Name -> CDef -> Core ()
+  setCompiled n cexp
+      = do defs <- get Ctxt
+           Just gdef <- lookupCtxtExact n (gamma defs)
+                | Nothing => pure ()
+           ignore $ addDef n ({ compexpr := Just cexp } gdef)
+
+  export
   addContextEntry : Ref STable (IntMap String) =>
                     Name -> Binary Read -> CoreE err Int
   addContextEntry n def

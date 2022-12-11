@@ -4,7 +4,45 @@ version = 0.6.0
 sourcedir = "src"
 
 modules
-  = -- The Core 'Monad', a specialised IO+errors
+  = 
+--     Compiler.ANF,
+--     Compiler.CaseOpts,
+--     Compiler.Common,
+    Compiler.CompileExpr,
+--     Compiler.Generated,
+--     Compiler.Inline,
+--     Compiler.LambdaLift,
+    Compiler.NoMangle,
+--     Compiler.Opts.CSE,
+--     Compiler.Separate,
+--     Compiler.VMCode,
+-- 
+--     Compiler.Opts.ConstantFold,
+--     Compiler.Opts.Identity,
+--     Compiler.Opts.InlineHeuristics,
+-- 
+--     Compiler.ES.Ast,
+--     Compiler.ES.Codegen,
+--     Compiler.ES.Doc,
+--     Compiler.ES.Javascript,
+--     Compiler.ES.Node,
+--     Compiler.ES.State,
+--     Compiler.ES.TailRec,
+--     Compiler.ES.ToAst,
+-- 
+--     Compiler.Interpreter.VMCode,
+-- 
+--     Compiler.RefC,
+--     Compiler.RefC.CC,
+--     Compiler.RefC.RefC,
+-- 
+--     Compiler.Scheme.Chez,
+--     Compiler.Scheme.ChezSep,
+--     Compiler.Scheme.Racket,
+--     Compiler.Scheme.Gambit,
+--     Compiler.Scheme.Common,
+
+    -- The Core 'Monad', a specialised IO+errors
     Core.Core,
 
     -- The core type theory and support

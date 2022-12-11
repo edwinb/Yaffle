@@ -776,13 +776,25 @@ mutual
                _ => corrupt "CExp"
 
   export
-  {vars : _} -> TTC (CConAlt vars) where
-    toBuf (MkConAlt n ci t as sc) = do toBuf n; toBuf ci; toBuf t; toBuf as; toBuf sc
+  {vars : _} -> TTC (CCaseScope vars) where
+    toBuf (CRHS sc) = do tag 0; toBuf sc
+    toBuf (CArg x sc) = do tag 1; toBuf x; toBuf sc
 
     fromBuf
-        = do n <- fromBuf; ci <- fromBuf; t <- fromBuf
-             as <- fromBuf; sc <- fromBuf
-             pure (MkConAlt n ci t as sc)
+        = case !getTag of
+               0 => do sc <- fromBuf
+                       pure (CRHS sc)
+               1 => do x <- fromBuf; sc <- fromBuf
+                       pure (CArg x sc)
+               _ => corrupt "CCaseScope"
+
+  export
+  {vars : _} -> TTC (CConAlt vars) where
+    toBuf (MkConAlt n ci t sc) = do toBuf n; toBuf ci; toBuf t; toBuf sc
+
+    fromBuf
+        = do n <- fromBuf; ci <- fromBuf; t <- fromBuf; sc <- fromBuf
+             pure (MkConAlt n ci t sc)
 
   export
   {vars : _} -> TTC (CConstAlt vars) where

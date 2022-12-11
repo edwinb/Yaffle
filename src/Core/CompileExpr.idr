@@ -94,11 +94,16 @@ mutual
        CCrash : FC -> String -> CExp vars
 
   public export
+  data CCaseScope : SnocList Name -> Type where
+       CRHS : CExp vars -> CCaseScope vars
+       CArg : (x : Name) -> CCaseScope (vars :< x) -> CCaseScope vars
+
+  public export
   data CConAlt : SnocList Name -> Type where
        -- If no tag, then match by constructor name. Back ends might want to
        -- convert names to a unique integer for performance.
-       MkConAlt : Name -> ConInfo -> (tag : Maybe Int) -> (args : SnocList Name) ->
-                  CExp (vars ++ args) -> CConAlt vars
+       MkConAlt : Name -> ConInfo -> (tag : Maybe Int) ->
+                  CCaseScope vars -> CConAlt vars
 
   public export
   data CConstAlt : SnocList Name -> Type where
@@ -325,9 +330,16 @@ mutual
   forgetExp locs (CErased fc) = NmErased fc
   forgetExp locs (CCrash fc msg) = NmCrash fc msg
 
+  getConScope : CCaseScope vars -> (ns : SnocList Name ** CExp (vars ++ ns))
+  getConScope (CRHS tm) = ([<] ** tm)
+  getConScope (CArg c sc)
+      = let (args ** sc') = getConScope sc in
+            ([<c] ++ args ** rewrite appendAssociative vars [<c] args in sc')
+
   forgetConAlt : Names vars -> CConAlt vars -> NamedConAlt
-  forgetConAlt locs (MkConAlt n ci t args exp)
-      = let args' = addLocs args locs in
+  forgetConAlt locs (MkConAlt n ci t sc)
+      = let (args ** exp) = getConScope sc
+            args' = addLocs args locs in
             MkNConAlt n ci t (conArgs args args') (forgetExp args' exp)
 
   forgetConstAlt : Names vars -> CConstAlt vars -> NamedConstAlt
@@ -442,16 +454,20 @@ mutual
   insertNames _ _ (CErased fc) = CErased fc
   insertNames _ _ (CCrash fc x) = CCrash fc x
 
+  insertNamesCScope : SizeOf outer ->
+                      SizeOf ns ->
+                      CCaseScope (inner ++ outer) ->
+                      CCaseScope (inner ++ (ns ++ outer))
+  insertNamesCScope p q (CRHS tm) = CRHS (insertNames p q tm)
+  insertNamesCScope p q (CArg x sc)
+      = CArg x (insertNamesCScope (suc p) q sc)
+
   insertNamesConAlt : SizeOf outer ->
                       SizeOf ns ->
                       CConAlt (inner ++ outer) ->
                       CConAlt (inner ++ (ns ++ outer))
-  insertNamesConAlt {outer} {ns} p q (MkConAlt x ci tag args sc)
-      = MkConAlt x ci tag args
-                 (rewrite sym $ appendAssociative inner (ns ++ outer) args in
-                  rewrite sym $ appendAssociative ns outer args in
-                          insertNames {inner} (mkSizeOf args + p) q
-                            (rewrite appendAssociative inner outer args in sc))
+  insertNamesConAlt {outer} {ns} p q (MkConAlt x ci tag sc)
+      = MkConAlt x ci tag (insertNamesCScope p q sc)
 
   insertNamesConstAlt : SizeOf outer ->
                         SizeOf ns ->
@@ -532,9 +548,15 @@ mutual
   shrinkCExp _ (CErased fc) = CErased fc
   shrinkCExp _ (CCrash fc x) = CCrash fc x
 
+  export
+  shrinkCScope : SubVars newvars vars -> CCaseScope vars -> CCaseScope newvars
+  shrinkCScope p (CRHS tm) = CRHS (shrinkCExp p tm)
+  shrinkCScope p (CArg x sc)
+      = CArg x (shrinkCScope (KeepCons p) sc)
+
   shrinkConAlt : SubVars newvars vars -> CConAlt vars -> CConAlt newvars
-  shrinkConAlt sub (MkConAlt x ci tag args sc)
-        = MkConAlt x ci tag args (shrinkCExp (subExtend args sub) sc)
+  shrinkConAlt sub (MkConAlt x ci tag sc)
+        = MkConAlt x ci tag (shrinkCScope sub sc)
 
   shrinkConstAlt : SubVars newvars vars -> CConstAlt vars -> CConstAlt newvars
   shrinkConstAlt sub (MkConstAlt x sc) = MkConstAlt x (shrinkCExp sub sc)
@@ -609,16 +631,19 @@ mutual
   substEnv _ _ (CErased fc) = CErased fc
   substEnv _ _ (CCrash fc x) = CCrash fc x
 
+  substCScope : SizeOf outer ->
+                SubstCEnv dropped vars ->
+                CCaseScope (vars ++ (dropped ++ outer)) ->
+                CCaseScope (vars ++ outer)
+  substCScope p env (CRHS tm) = CRHS (substEnv p env tm)
+  substCScope p env (CArg x sc) = CArg x (substCScope (suc p) env sc)
+
   substConAlt : SizeOf outer ->
                 SubstCEnv dropped vars ->
                 CConAlt (vars ++ (dropped ++ outer)) ->
                 CConAlt (vars ++ outer)
-  substConAlt {vars} {outer} {dropped} p env (MkConAlt x ci tag args sc)
-      = MkConAlt x ci tag args
-                 (rewrite sym $ appendAssociative vars outer args in
-                          substEnv (mkSizeOf args + p) env
-                            (rewrite appendAssociative dropped outer args in
-                             rewrite appendAssociative vars (dropped ++ outer) args in sc))
+  substConAlt {vars} {outer} {dropped} p env (MkConAlt x ci tag sc)
+      = MkConAlt x ci tag (substCScope p env sc)
 
   substConstAlt : SizeOf outer ->
                   SubstCEnv dropped vars ->
@@ -685,15 +710,20 @@ mutual
   mkLocals later bs (CErased fc) = CErased fc
   mkLocals later bs (CCrash fc x) = CCrash fc x
 
+  mkLocalsCScope : SizeOf outer ->
+                   Bounds bound ->
+                   CCaseScope (vars ++ outer) ->
+                   CCaseScope (vars ++ (bound ++ outer))
+  mkLocalsCScope p bs (CRHS tm) = CRHS (mkLocals p bs tm)
+  mkLocalsCScope p bs (CArg x sc)
+      = CArg x (mkLocalsCScope (suc p) bs sc)
+
   mkLocalsConAlt : SizeOf outer ->
                    Bounds bound ->
                    CConAlt (vars ++ outer) ->
                    CConAlt (vars ++ (bound ++ outer))
-  mkLocalsConAlt {bound} {outer} {vars} p bs (MkConAlt x ci tag args sc)
-      = MkConAlt x ci tag args
-                 (rewrite sym $ appendAssociative vars (bound ++ outer) args in
-                  rewrite sym $ appendAssociative bound outer args in
-                          mkLocals {vars} (mkSizeOf args + p) bs (rewrite appendAssociative vars outer args in sc))
+  mkLocalsConAlt {bound} {outer} {vars} p bs (MkConAlt x ci tag sc)
+      = MkConAlt x ci tag (mkLocalsCScope p bs sc)
 
   mkLocalsConstAlt : SizeOf outer ->
                      Bounds bound ->

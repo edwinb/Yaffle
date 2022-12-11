@@ -793,6 +793,9 @@ command
   <|> do symbol ":"; keyword "total"
          n <- name
          pure (CheckTotal n)
+  <|> do symbol ":"; exactIdent "compile"
+         n <- name
+         pure (ShowCompiled n)
   <|> do symbol ":"; exactIdent "di"
          n <- name
          pure (DebugInfo n)

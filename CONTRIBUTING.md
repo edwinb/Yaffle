@@ -47,6 +47,9 @@ edwinb's next steps:
 * 'expand' needs to know whether the name it's expanding is usable in the
   current namespace. At the moment, it will expand everything.
   - So we'll also need an alternate 'expandAll' for elaborator reflection
+* Port the Compiler hierarchy
+  - To test, make a basic IO monad in Yaffle and try compiling and running
+    some simple programs
 * More tests for Yaffle
 * Termination checker
   - Tests for basic operation of termination and coverage checking
