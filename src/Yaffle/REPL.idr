@@ -20,8 +20,8 @@ import Core.Unify
 
 import TTImp.Elab
 import TTImp.Elab.Check
--- import TTImp.Interactive.ExprSearch
--- import TTImp.Interactive.GenerateDef
+import TTImp.Interactive.ExprSearch
+import TTImp.Interactive.GenerateDef
 import TTImp.Parser
 import TTImp.ProcessFile
 import TTImp.TTImp
@@ -109,14 +109,13 @@ process (DebugInfo n)
          traverse_ showInfo !(lookupCtxtName n (gamma defs))
          pure True
 
-{-
 process (ProofSearch n_in)
     = do defs <- get Ctxt
          [(n, i, ty)] <- lookupTyName n_in (gamma defs)
               | ns => ambiguousName (justFC defaultFC) n_in (map fst ns)
-         def <- search (justFC defaultFC) top False 1000 n ty []
+         def <- search (justFC defaultFC) top False 1000 n ty [<]
          defs <- get Ctxt
-         defnf <- normaliseHoles defs [] def
+         defnf <- normaliseHoles [<] def
          coreLift_ (printLn !(toFullNames defnf))
          pure True
 process (ExprSearch n_in)
@@ -142,6 +141,7 @@ process (GenerateDef line name)
               Just _ => coreLift_ $ putStrLn "Already defined"
               Nothing => coreLift_ $ putStrLn $ "Can't find declaration for " ++ show name
          pure True
+{-
 process (Missing n_in)
     = do defs <- get Ctxt
          case !(lookupCtxtName n_in (gamma defs)) of

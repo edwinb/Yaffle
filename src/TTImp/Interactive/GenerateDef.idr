@@ -7,6 +7,7 @@ import Core.Context.Log
 import Core.Env
 import Core.Evaluate
 import Core.Metadata
+import Core.Search
 import Core.TT
 import Core.Unify
 
@@ -57,7 +58,7 @@ expandClause : {auto c : Ref Ctxt Defs} ->
                Core (Search (List ImpClause))
 expandClause loc opts n c
     = do c <- uniqueRHS c
-         Right clause <- checkClause linear Private PartialOK False n [] (MkNested []) [] c
+         Right clause <- checkClause linear Private PartialOK False n [] (MkNested []) [<] c
             | Left err => noResult -- TODO: impossible clause, do something
                                    -- appropriate
 
@@ -87,7 +88,6 @@ expandClause loc opts n c
     dropLams (S k) (ILam _ _ _ _ _ sc) = dropLams k sc
     dropLams _ tm = tm
 
-{-
 splittableNames : RawImp -> List Name
 splittableNames (IApp _ f (IBindVar _ n))
     = splittableNames f ++ [UN $ Basic n]
@@ -102,8 +102,6 @@ splittableNames _ = []
 trySplit : {auto m : Ref MD Metadata} ->
            {auto c : Ref Ctxt Defs} ->
            {auto u : Ref UST UState} ->
-           {auto s : Ref Syn SyntaxInfo} ->
-           {auto o : Ref ROpts REPLOpts} ->
            FC -> RawImp -> ClosedTerm -> RawImp -> Name ->
            Core (Name, List ImpClause)
 trySplit loc lhsraw lhs rhs n
@@ -142,15 +140,13 @@ trySplit loc lhsraw lhs rhs n
 generateSplits : {auto m : Ref MD Metadata} ->
                  {auto c : Ref Ctxt Defs} ->
                  {auto u : Ref UST UState} ->
-                 {auto s : Ref Syn SyntaxInfo} ->
-                 {auto o : Ref ROpts REPLOpts} ->
                  FC -> SearchOpts -> Int -> ImpClause ->
                  Core (List (Name, List ImpClause))
 generateSplits loc opts fn (ImpossibleClause fc lhs) = pure []
 generateSplits loc opts fn (WithClause fc lhs rig wval prf flags cs) = pure []
 generateSplits loc opts fn (PatClause fc lhs rhs)
     = do (lhstm, _) <-
-                elabTerm fn (InLHS linear) [] (MkNested []) []
+                elabTerm fn (InLHS linear) [] (MkNested []) [<]
                          (IBindHere loc PATTERN lhs) Nothing
          let splitnames =
                  if ltor opts then splittableNames lhs
@@ -170,8 +166,6 @@ mutual
   tryAllSplits : {auto c : Ref Ctxt Defs} ->
                  {auto m : Ref MD Metadata} ->
                  {auto u : Ref UST UState} ->
-                 {auto s : Ref Syn SyntaxInfo} ->
-                 {auto o : Ref ROpts REPLOpts} ->
                  FC -> SearchOpts -> Int ->
                  List (Name, List ImpClause) ->
                  Core (Search (List ImpClause))
@@ -187,8 +181,6 @@ mutual
   mkSplits : {auto c : Ref Ctxt Defs} ->
              {auto m : Ref MD Metadata} ->
              {auto u : Ref UST UState} ->
-             {auto s : Ref Syn SyntaxInfo} ->
-             {auto o : Ref ROpts REPLOpts} ->
              FC -> SearchOpts -> Int -> ImpClause ->
              Core (Search (List ImpClause))
   -- If the clause works, use it. Otherwise, split on one of the splittable
@@ -207,8 +199,6 @@ export
 makeDefFromType : {auto c : Ref Ctxt Defs} ->
                   {auto m : Ref MD Metadata} ->
                   {auto u : Ref UST UState} ->
-                  {auto s : Ref Syn SyntaxInfo} ->
-                  {auto o : Ref ROpts REPLOpts} ->
                   FC ->
                   SearchOpts ->
                   Name -> -- function name to generate
@@ -220,12 +210,12 @@ makeDefFromType loc opts n envlen ty
          (do defs <- branch
              meta <- get MD
              ust <- get UST
-             argns <- getEnvArgNames defs envlen !(nf defs [] ty)
+             argns <- getEnvArgNames defs envlen !(expand !(nf [<] ty))
              -- Need to add implicit patterns for the outer environment.
              -- We won't try splitting on these
              let pre_env = replicate envlen (Implicit loc True)
 
-             rhshole <- uniqueHoleName defs [] (fnName False n ++ "_rhs")
+             rhshole <- uniqueHoleName [] (fnName False n ++ "_rhs")
              let initcs = PatClause loc
                                 (apply (IVar loc n) (pre_env ++ (map (IBindVar loc) argns)))
                                 (IHole loc rhshole)
@@ -243,8 +233,6 @@ export
 makeDef : {auto c : Ref Ctxt Defs} ->
           {auto m : Ref MD Metadata} ->
           {auto u : Ref UST UState} ->
-          {auto s : Ref Syn SyntaxInfo} ->
-          {auto o : Ref ROpts REPLOpts} ->
           (NonEmptyFC -> (Name, Nat, ClosedTerm) -> Bool) ->
           Name -> Core (Search (FC, List ImpClause))
 makeDef p n
@@ -292,8 +280,6 @@ export
 makeDefSort : {auto c : Ref Ctxt Defs} ->
               {auto m : Ref MD Metadata} ->
               {auto u : Ref UST UState} ->
-              {auto s : Ref Syn SyntaxInfo} ->
-              {auto o : Ref ROpts REPLOpts} ->
               (NonEmptyFC -> (Name, Nat, ClosedTerm) -> Bool) ->
               Nat -> (List ImpClause -> List ImpClause -> Ordering) ->
               Name -> Core (Search (FC, List ImpClause))
@@ -304,8 +290,6 @@ export
 makeDefN : {auto c : Ref Ctxt Defs} ->
            {auto m : Ref MD Metadata} ->
            {auto u : Ref UST UState} ->
-           {auto s : Ref Syn SyntaxInfo} ->
-           {auto o : Ref ROpts REPLOpts} ->
            (NonEmptyFC -> (Name, Nat, ClosedTerm) -> Bool) ->
            Nat -> Name -> Core (List (FC, List ImpClause))
 makeDefN p max n
