@@ -419,7 +419,55 @@ getNewType : {vars : _} ->
              FC -> CExp vars ->
              Name -> List (CaseAlt vars) ->
              Core (Maybe (CExp vars))
-getNewType _ _ _ _ = pure Nothing -- TMP
+getNewType fc scr n [] = pure Nothing
+getNewType fc scr n (DefaultCase _ sc :: ns)
+    = pure $ Nothing
+getNewType fc scr n (ConCase _ x tag sc :: ns)
+    = do defs <- get Ctxt
+         Just (DCon di t a) <- lookupDefExact x (gamma defs)
+              | _ => pure Nothing
+         let Just (noworld, pos) = newTypeArg di
+              | _ => pure Nothing
+         if noworld
+            then substScr 0 pos scr Lin sc
+            else substLetScr 0 pos scr Lin sc
+  where
+    -- no %World, so substitute diretly
+    substScr : {args : _} ->
+               Nat -> Nat -> CExp vars ->
+               SubstCEnv args vars ->
+               CaseScope (vars ++ args) ->
+               Core (Maybe (CExp vars))
+    substScr i pos x env (RHS tm)
+        = do tm' <- toCExp n tm
+             pure $ Just (substs env tm')
+    substScr i pos x env (Arg c n sc)
+        = if i == pos
+             then substScr (S i) pos x (env :< x) sc
+             else substScr (S i) pos x (env :< CErased fc) sc
+
+    -- When we find the scrutinee, let bind it and substitute the name into
+    -- the RHS, so the thing still gets evaluated if it's an action on %World
+    substLetScr : {args : _} ->
+               Nat -> Nat -> CExp vars ->
+               SubstCEnv args (vars :< MN "eff" 0) ->
+               CaseScope (vars ++ args) ->
+               Core (Maybe (CExp vars))
+    substLetScr i pos x env (RHS tm)
+        = do tm' <- toCExp n tm
+             let tm' = insertNames {outer = args} {inner = vars} {ns = [<MN "eff" 0]}
+                            (mkSizeOf _) (mkSizeOf _) tm'
+             let rettm = CLet fc (MN "eff" 0) False x
+                       (substs env
+                          (rewrite sym (appendAssociative vars [<MN "eff" 0] args)
+                                     in tm'))
+             pure $ Just rettm
+    substLetScr i pos x env (Arg c n sc)
+        = if i == pos
+             then substLetScr (S i) pos x (env :< CLocal fc First) sc
+             else substLetScr (S i) pos x (env :< CErased fc) sc
+
+getNewType fc scr n (_ :: ns) = getNewType fc scr n ns
 
 toCExpCase : {vars : _} ->
              {auto c : Ref Ctxt Defs} ->
@@ -519,58 +567,6 @@ toCExp n tm
                              pure $ builtinMagic res
                  let res = expandToArity a f' args'
                  pure $ builtinMagic res
-
-{-
-mutual
-  getNewType fc scr n [] = pure Nothing
-  getNewType fc scr n (DefaultCase sc :: ns)
-      = pure $ Nothing
-  getNewType {vars} fc scr n (ConCase x tag args sc :: ns)
-      = do defs <- get Ctxt
-           case !(lookupDefExact x (gamma defs)) of
-                -- If the flag is False, we still take the
-                -- default, but need to evaluate the scrutinee of the
-                -- case anyway - if the data structure contains a %World,
-                -- that we've erased, it means it has interacted with the
-                -- outside world, so we need to evaluate to keep the
-                -- side effect.
-                Just (DCon _ arity (Just (noworld, pos))) =>
--- FIXME: We don't need the commented out bit *for now* because io_bind
--- isn't being inlined, but it does need to be a little bit cleverer to
--- get the best performance.
--- I'm (edwinb) keeping it visible here because I plan to put it back in
--- more or less this form once case inlining works better and the whole thing
--- works in a nice principled way.
-                     if noworld -- just substitute the scrutinee into
-                                -- the RHS
-                        then
-                             let env : SubstCEnv args vars
-                                     = mkSubst 0 scr pos args in
-                              do log "compiler.newtype.world" 50 "Inlining case on \{show n} (no world)"
-                                 pure $ Just (substs env !(toCExpTree n sc))
-                        else -- let bind the scrutinee, and substitute the
-                             -- name into the RHS
-                             let env : SubstCEnv args (MN "eff" 0 :: vars)
-                                     = mkSubst 0 (CLocal fc First) pos args in
-                             do sc' <- toCExpTree n sc
-                                let scope = insertNames {outer=args}
-                                                        {inner=vars}
-                                                        {ns = [MN "eff" 0]}
-                                                        (mkSizeOf _) (mkSizeOf _) sc'
-                                let tm = CLet fc (MN "eff" 0) False scr (substs env scope)
-                                log "compiler.newtype.world" 50 "Kept the scrutinee \{show tm}"
-                                pure (Just tm)
-                _ => pure Nothing -- there's a normal match to do
-    where
-      mkSubst : Nat -> CExp vs ->
-                Nat -> (args : List Name) -> SubstCEnv args vs
-      mkSubst _ _ _ [] = Nil
-      mkSubst i scr pos (a :: as)
-          = if i == pos
-               then scr :: mkSubst (1 + i) scr pos as
-               else CErased fc :: mkSubst (1 + i) scr pos as
-  getNewType fc scr n (_ :: ns) = getNewType fc scr n ns
-  -}
 
 data NArgs : Type where
      User : Name -> List (Glued [<]) -> NArgs

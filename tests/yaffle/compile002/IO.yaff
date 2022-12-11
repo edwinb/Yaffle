@@ -1,0 +1,22 @@
+data IORes : Type -> Type where
+     MkIORes : (result : a) -> (1 x : %World) -> IORes a
+
+PrimIO : Type -> Type
+PrimIO a = (1 x : %World) -> IORes a
+
+data IO : Type -> Type where
+     MkIO : (1 fn : PrimIO a) -> IO a
+
+io_pure : a -> IO a
+io_pure x = MkIO (MkIORes x)
+
+prim__io_bind : (1 act : PrimIO a) -> (1 k : a -> PrimIO b) -> PrimIO b
+prim__io_bind fn k w
+    = case fn w of
+           MkIORes x' w' => k x' w'
+
+io_bind : (1 act : IO a) -> (1 k : a -> IO b) -> IO b
+io_bind (MkIO fn) k
+    = MkIO (\w => case fn w of
+                       MkIORes x' w' => case k x' of
+                                             MkIO res => res w')

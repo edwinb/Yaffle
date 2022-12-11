@@ -1,0 +1,4 @@
+:compile Main.plus
+:compile Main.append
+:q
+

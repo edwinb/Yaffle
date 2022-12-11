@@ -63,6 +63,14 @@ atom fname
          end <- location
          pure (IBindVar (MkFC fname start end) x)
   <|> do start <- location
+         x <- pragma "MkWorld"
+         end <- location
+         pure (IPrimVal (MkFC fname start end) WorldVal)
+  <|> do start <- location
+         x <- pragma "World"
+         end <- location
+         pure (IPrimVal (MkFC fname start end) (PrT WorldType))
+  <|> do start <- location
          x <- holeName
          end <- location
          pure (IHole (MkFC fname start end) x)
