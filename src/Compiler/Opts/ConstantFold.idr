@@ -3,10 +3,11 @@ module Compiler.Opts.ConstantFold
 import Compiler.CompileExpr
 import Core.Context
 import Core.Context.Log
+import Core.Evaluate
 import Core.Primitives
-import Core.Value
-import Core.Name
+import Core.TT.Name
 import Data.List
+import Data.SnocList
 import Data.Vect
 
 findConstAlt : Constant -> List (CConstAlt vars) ->
@@ -23,30 +24,30 @@ foldableOp (Cast _ IntType) = False
 foldableOp (Cast from to)   = isJust (intKind from) && isJust (intKind to)
 foldableOp _                = True
 
+data Subst : SnocList Name -> SnocList Name -> Type where
+  Lin  : Subst [<] vars
+  (:<) : Subst ds vars -> CExp vars -> Subst (ds :< d) vars
+  Wk   : Subst ds vars -> SizeOf ws -> Subst (ds ++ ws) (vars ++ ws)
 
-data Subst : List Name -> List Name -> Type where
-  Nil  : Subst [] vars
-  (::) : CExp vars -> Subst ds vars -> Subst (d :: ds) vars
-  Wk   : SizeOf ws -> Subst ds vars -> Subst (ws ++ ds) (ws ++ vars)
-
-initSubst : (vars : List Name) -> Subst vars vars
+initSubst : (vars : SnocList Name) -> Subst vars vars
 initSubst vars
-  = rewrite sym $ appendNilRightNeutral vars in
-    Wk (mkSizeOf vars) []
+  = rewrite sym $ appendLinLeftNeutral vars in
+    Wk [<] (mkSizeOf vars)
 
+wk : Subst ds vars ->
+     SizeOf out ->
+     Subst (ds ++ out) (vars ++ out)
+wk (Wk {ws, ds, vars} rho sws) sout
+    = rewrite sym $ appendAssociative ds ws out in
+      rewrite sym $ appendAssociative vars ws out in
+      Wk rho (sout + sws)
+wk rho ws = Wk rho ws
 
-wk : SizeOf out -> Subst ds vars -> Subst (out ++ ds) (out ++ vars)
-wk sout (Wk {ws, ds, vars} sws rho)
-  = rewrite appendAssociative out ws ds in
-    rewrite appendAssociative out ws vars in
-    Wk (sout + sws) rho
-wk ws rho = Wk ws rho
-
-record WkCExp (vars : List Name) where
+record WkCExp (vars : SnocList Name) where
   constructor MkWkCExp
-  {0 outer, supp : List Name}
+  {0 outer, supp : SnocList Name}
   size : SizeOf outer
-  0 prf : vars === outer ++ supp
+  0 prf : vars === supp ++ outer
   expr : CExp supp
 
 Weaken WkCExp where
@@ -61,13 +62,13 @@ lookup fc (MkVar p) rho = case go p rho of
 
   go : {i : Nat} -> {0 ds, vars : _} -> (0 _ : IsVar n i ds) ->
        Subst ds vars -> Either (Var vars) (WkCExp vars)
-  go First     (val :: rho) = Right (MkWkCExp zero Refl val)
-  go (Later p) (val :: rho) = go p rho
-  go p         (Wk ws  rho) = case sizedView ws of
+  go First     (rho :< val) = Right (MkWkCExp zero Refl val)
+  go (Later p) (rho :< val) = go p rho
+  go p         (Wk rho ws) = case sizedView ws of
     Z => go p rho
     S ws' => case i of
       Z => Left (MkVar First)
-      S i' => bimap later weaken (go (dropLater p) (Wk ws' rho))
+      S i' => bimap later weaken (go (dropLater p) (Wk rho ws'))
 
 -- constant folding of primitive functions
 -- if a primitive function is applied to only constant
@@ -80,14 +81,14 @@ constFold : {vars' : _} ->
 constFold rho (CLocal fc p) = lookup fc (MkVar p) rho
 constFold rho e@(CRef fc x) = CRef fc x
 constFold rho (CLam fc x y)
-  = CLam fc x $ constFold (wk (mkSizeOf [x]) rho) y
+  = CLam fc x $ constFold (wk rho (mkSizeOf [<x])) y
 constFold rho (CLet fc x inlineOK y z) =
     let val = constFold rho y
      in case val of
         CPrimVal _ _ => if inlineOK
-            then constFold (val :: rho) z
-            else CLet fc x inlineOK val (constFold (wk (mkSizeOf [x]) rho) z)
-        _ => CLet fc x inlineOK val (constFold (wk (mkSizeOf [x]) rho) z)
+            then constFold (rho :< val) z
+            else CLet fc x inlineOK val (constFold (wk rho (mkSizeOf [<x])) z)
+        _ => CLet fc x inlineOK val (constFold (wk rho (mkSizeOf [<x])) z)
 constFold rho (CApp fc (CRef fc2 n) [x]) =
   if n == NS typesNS (UN $ Basic "prim__integerToNat")
      then case constFold rho x of
@@ -111,11 +112,11 @@ constFold rho (COp {arity} fc fn xs) =
     toNF (CPrimVal fc (I _)) = Nothing
     toNF (CPrimVal fc (Db _)) = Nothing
     -- Fold the rest
-    toNF (CPrimVal fc c) = Just $ NPrimVal fc c
+    toNF (CPrimVal fc c) = Just $ VPrimVal fc c
     toNF _ = Nothing
 
     fromNF : NF vars' -> Maybe (CExp vars')
-    fromNF (NPrimVal fc c) = Just $ CPrimVal fc c
+    fromNF (VPrimVal fc c) = Just $ CPrimVal fc c
     fromNF _ = Nothing
 
     commutative : PrimType -> Bool
@@ -138,11 +139,17 @@ constFold rho (CExtPrim fc p xs) = CExtPrim fc p $ constFold rho <$> xs
 constFold rho (CForce fc x y) = CForce fc x $ constFold rho y
 constFold rho (CDelay fc x y) = CDelay fc x $ constFold rho y
 constFold rho (CConCase fc sc xs x)
-  = CConCase fc (constFold rho sc) (foldAlt <$> xs) (constFold rho <$> x)
+  = CConCase fc (constFold rho sc) (foldAlt rho <$> xs) (constFold rho <$> x)
   where
-    foldAlt : CConAlt vars -> CConAlt vars'
-    foldAlt (MkConAlt n ci t xs e)
-      = MkConAlt n ci t xs $ constFold (wk (mkSizeOf xs) rho) e
+    foldScope : forall vars . {vars' : _} ->
+                Subst vars vars' -> CCaseScope vars -> CCaseScope vars'
+    foldScope rho (CRHS tm) = CRHS (constFold rho tm)
+    foldScope rho (CArg x sc) = CArg x (foldScope (wk rho (mkSizeOf [<x])) sc)
+
+    foldAlt : forall vars . {vars' : _} ->
+              Subst vars vars' -> CConAlt vars -> CConAlt vars'
+    foldAlt rho (MkConAlt n ci t sc)
+        = MkConAlt n ci t (foldScope rho sc)
 
 constFold rho (CConstCase fc sc xs x) =
     let sc' = constFold rho sc

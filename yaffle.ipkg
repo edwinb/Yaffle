@@ -16,11 +16,11 @@ modules
 --     Compiler.Opts.CSE,
 --     Compiler.Separate,
 --     Compiler.VMCode,
--- 
---     Compiler.Opts.ConstantFold,
+
+    Compiler.Opts.ConstantFold,
 --     Compiler.Opts.Identity,
 --     Compiler.Opts.InlineHeuristics,
--- 
+
 --     Compiler.ES.Ast,
 --     Compiler.ES.Codegen,
 --     Compiler.ES.Doc,
@@ -29,13 +29,13 @@ modules
 --     Compiler.ES.State,
 --     Compiler.ES.TailRec,
 --     Compiler.ES.ToAst,
--- 
+
 --     Compiler.Interpreter.VMCode,
--- 
+
 --     Compiler.RefC,
 --     Compiler.RefC.CC,
 --     Compiler.RefC.RefC,
--- 
+
 --     Compiler.Scheme.Chez,
 --     Compiler.Scheme.ChezSep,
 --     Compiler.Scheme.Racket,
