@@ -20,6 +20,7 @@ import Libraries.Data.NameMap
 import Data.List
 import Data.Vect
 
+{-
 %default covering
 
 data EEnv : List Name -> List Name -> Type where

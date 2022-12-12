@@ -32,39 +32,39 @@ case t of
 
 shiftUnder : {args : _} ->
              {idx : _} ->
-             (0 p : IsVar n idx (x :: args ++ vars)) ->
-             NVar n (args ++ x :: vars)
+             (0 p : IsVar n idx (vars ++ args :< x)) ->
+             NVar n (vars :< x ++ args)
 shiftUnder First = weakenNVar (mkSizeOf args) (MkNVar First)
 shiftUnder (Later p) = insertNVar (mkSizeOf args) (MkNVar p)
 
 shiftVar : {outer, args : _} ->
            {idx : _} ->
-           (0 p : IsVar n idx (outer ++ (x :: args ++ vars))) ->
-           NVar n (outer ++ (args ++ x :: vars))
-shiftVar {outer = []} p = shiftUnder p
-shiftVar {outer = (n::xs)} First = MkNVar First
-shiftVar {outer = (y::xs)} (Later p)
+           (0 p : IsVar n idx ((vars ++ args :< x) ++ outer)) ->
+           NVar n ((vars :< x ++ args) ++ outer)
+shiftVar {outer = [<]} p = shiftUnder p
+shiftVar {outer = (xs :< n)} First = MkNVar First
+shiftVar {outer = (xs :< y)} (Later p)
     = case shiftVar p of
            MkNVar p' => MkNVar (Later p')
 
 mutual
   shiftBinder : {outer, args : _} ->
                 (new : Name) ->
-                CExp (outer ++ old :: (args ++ vars)) ->
-                CExp (outer ++ (args ++ new :: vars))
+                CExp ((vars ++ args) :< old ++ outer) ->
+                CExp ((vars :< new ++ args) ++ outer)
   shiftBinder new (CLocal fc p)
       = case shiftVar p of
              MkNVar p' => CLocal fc (renameVar p')
     where
-      renameVar : IsVar x i (outer ++ (args ++ (old :: rest))) ->
-                  IsVar x i (outer ++ (args ++ (new :: rest)))
+      renameVar : IsVar x i (((rest :< old) ++ args) ++ outer) ->
+                  IsVar x i (((rest :< new) ++ args) ++ outer)
       renameVar = believe_me -- it's the same index, so just the identity at run time
   shiftBinder new (CRef fc n) = CRef fc n
   shiftBinder {outer} new (CLam fc n sc)
-      = CLam fc n $ shiftBinder {outer = n :: outer} new sc
+      = CLam fc n $ shiftBinder {outer = outer :< n} new sc
   shiftBinder new (CLet fc n inlineOK val sc)
       = CLet fc n inlineOK (shiftBinder new val)
-                           $ shiftBinder {outer = n :: outer} new sc
+                           $ shiftBinder {outer = outer :< n} new sc
   shiftBinder new (CApp fc f args)
       = CApp fc (shiftBinder new f) $ map (shiftBinder new) args
   shiftBinder new (CCon fc ci c tag args)
@@ -86,66 +86,89 @@ mutual
   shiftBinder new (CErased fc) = CErased fc
   shiftBinder new (CCrash fc msg) = CCrash fc msg
 
+  shiftBinderConScope : {outer, args : _} ->
+                (new : Name) ->
+                CCaseScope ((vars ++ args) :< old ++ outer) ->
+                CCaseScope ((vars :< new ++ args) ++ outer)
+  shiftBinderConScope new (CRHS tm) = CRHS (shiftBinder new tm)
+  shiftBinderConScope new (CArg x sc)
+      = CArg x (shiftBinderConScope {outer = outer :< x} new sc)
+
   shiftBinderConAlt : {outer, args : _} ->
                 (new : Name) ->
-                CConAlt (outer ++ (x :: args ++ vars)) ->
-                CConAlt (outer ++ (args ++ new :: vars))
-  shiftBinderConAlt new (MkConAlt n ci t args' sc)
-      = let sc' : CExp ((args' ++ outer) ++ (x :: args ++ vars))
-                = rewrite sym (appendAssociative args' outer (x :: args ++ vars)) in sc in
-        MkConAlt n ci t args' $
-           rewrite (appendAssociative args' outer (args ++ new :: vars))
-             in shiftBinder new {outer = args' ++ outer} sc'
+                CConAlt ((vars ++ args) :< old ++ outer) ->
+                CConAlt ((vars :< new ++ args) ++ outer)
+  shiftBinderConAlt new (MkConAlt n ci t sc)
+      = MkConAlt n ci t (shiftBinderConScope new sc)
 
   shiftBinderConstAlt : {outer, args : _} ->
                 (new : Name) ->
-                CConstAlt (outer ++ (x :: args ++ vars)) ->
-                CConstAlt (outer ++ (args ++ new :: vars))
+                CConstAlt ((vars ++ args) :< old ++ outer) ->
+                CConstAlt ((vars :< new ++ args) ++ outer)
   shiftBinderConstAlt new (MkConstAlt c sc) = MkConstAlt c $ shiftBinder new sc
 
 -- If there's a lambda inside a case, move the variable so that it's bound
 -- outside the case block so that we can bind it just once outside the block
 liftOutLambda : {args : _} ->
                 (new : Name) ->
-                CExp (old :: args ++ vars) ->
-                CExp (args ++ new :: vars)
-liftOutLambda = shiftBinder {outer = []}
+                CExp (vars ++ args :< old) ->
+                CExp (vars :< new ++ args)
+liftOutLambda = shiftBinder {outer = [<]}
 
 -- If all the alternatives start with a lambda, we can have a single lambda
 -- binding outside
 tryLiftOut : (new : Name) ->
              List (CConAlt vars) ->
-             Maybe (List (CConAlt (new :: vars)))
+             Maybe (List (CConAlt (vars :< new)))
 tryLiftOut new [] = Just []
-tryLiftOut new (MkConAlt n ci t args (CLam fc x sc) :: as)
-    = do as' <- tryLiftOut new as
-         let sc' = liftOutLambda new sc
-         pure (MkConAlt n ci t args sc' :: as')
+tryLiftOut new (MkConAlt n ci t sc :: as)
+    = do sc' <- tryLiftOutScope {args = [<]} sc
+         as' <- tryLiftOut new as
+         pure (MkConAlt n ci t sc' :: as')
+  where
+    tryLiftOutScope : forall vars .
+                      {args : _} ->
+                      CCaseScope (vars ++ args) ->
+                      Maybe (CCaseScope (vars :< new ++ args))
+    tryLiftOutScope (CRHS (CLam fc x sc))
+        = let sc' = liftOutLambda {args} new sc in
+              pure (CRHS sc')
+    tryLiftOutScope (CArg x sc)
+        = do sc' <- tryLiftOutScope {args = args :< x} sc
+             pure (CArg x sc')
+    tryLiftOutScope _ = Nothing
 tryLiftOut _ _ = Nothing
 
 tryLiftOutConst : (new : Name) ->
                   List (CConstAlt vars) ->
-                  Maybe (List (CConstAlt (new :: vars)))
+                  Maybe (List (CConstAlt (vars :< new)))
 tryLiftOutConst new [] = Just []
 tryLiftOutConst new (MkConstAlt c (CLam fc x sc) :: as)
     = do as' <- tryLiftOutConst new as
-         let sc' = liftOutLambda {args = []} new sc
+         let sc' = liftOutLambda {args = [<]} new sc
          pure (MkConstAlt c sc' :: as')
 tryLiftOutConst _ _ = Nothing
 
 tryLiftDef : (new : Name) ->
              Maybe (CExp vars) ->
-             Maybe (Maybe (CExp (new :: vars)))
+             Maybe (Maybe (CExp (vars :< new)))
 tryLiftDef new Nothing = Just Nothing
 tryLiftDef new (Just (CLam fc x sc))
-   = let sc' = liftOutLambda {args = []} new sc in
+   = let sc' = liftOutLambda {args = [<]} new sc in
          pure (Just sc')
 tryLiftDef _ _ = Nothing
 
 allLams : List (CConAlt vars) -> Bool
 allLams [] = True
-allLams (MkConAlt n ci t args (CLam _ _ _) :: as)
-   = allLams as
+allLams (MkConAlt n ci t sc :: as)
+   = if isLam sc
+        then allLams as
+        else False
+  where
+    isLam : forall vars . CCaseScope vars -> Bool
+    isLam (CRHS (CLam{})) = True
+    isLam (CRHS _) = False
+    isLam (CArg x sc) = isLam sc
 allLams _ = False
 
 allLamsConst : List (CConstAlt vars) -> Bool
@@ -239,10 +262,15 @@ mutual
   -- All the others, no recursive case so just return the input
   caseLam x = pure x
 
+  caseLamConScope : {auto n : Ref NextName Int} ->
+                    CCaseScope vars -> Core (CCaseScope vars)
+  caseLamConScope (CRHS tm) = CRHS <$> caseLam tm
+  caseLamConScope (CArg x sc) = CArg x <$> caseLamConScope sc
+
   caseLamConAlt : {auto n : Ref NextName Int} ->
                   CConAlt vars -> Core (CConAlt vars)
-  caseLamConAlt (MkConAlt n ci tag args sc)
-      = MkConAlt n ci tag args <$> caseLam sc
+  caseLamConAlt (MkConAlt n ci tag sc)
+      = MkConAlt n ci tag <$> caseLamConScope sc
 
   caseLamConstAlt : {auto n : Ref NextName Int} ->
                     CConstAlt vars -> Core (CConstAlt vars)
@@ -303,12 +331,18 @@ doCaseOfCase : FC ->
 doCaseOfCase fc x xalts alts def
     = CConCase fc x (map updateAlt xalts) Nothing
   where
+    updateScope : {args : SnocList Name} ->
+                  CCaseScope (vars ++ args) -> CCaseScope (vars ++ args)
+    updateScope {args} (CRHS tm)
+        = CRHS $ CConCase fc tm
+                   (map (weakenNs (mkSizeOf args)) alts)
+                   (map (weakenNs (mkSizeOf args)) def)
+    updateScope (CArg x sc)
+        = CArg x (updateScope {args = args :< x} sc)
+
     updateAlt : CConAlt vars -> CConAlt vars
-    updateAlt (MkConAlt n ci t args sc)
-        = MkConAlt n ci t args $
-              CConCase fc sc
-                       (map (weakenNs (mkSizeOf args)) alts)
-                       (map (weakenNs (mkSizeOf args)) def)
+    updateAlt (MkConAlt n ci t sc)
+        = MkConAlt n ci t (updateScope {args = [<]} sc)
 
 doCaseOfConstCase : FC ->
                     (x : CExp vars) ->
@@ -331,7 +365,12 @@ tryCaseOfCase (CConCase fc (CConCase fc' x xalts Nothing) alts def)
          else Nothing
   where
     conCase : CConAlt vars -> Bool
-    conCase (MkConAlt _ _ _ _ (CCon _ _ _ _ _)) = True
+    conCase (MkConAlt _ _ _ sc) = isCon sc
+      where
+        isCon : forall vars . CCaseScope vars -> Bool
+        isCon (CRHS (CCon _ _ _ _ _)) = True
+        isCon (CRHS _) = False
+        isCon (CArg x sc) = isCon sc
     conCase _ = False
 
     canCaseOfCase : List (CConAlt vars) -> Bool

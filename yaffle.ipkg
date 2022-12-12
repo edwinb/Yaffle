@@ -6,7 +6,7 @@ sourcedir = "src"
 modules
   = 
 --     Compiler.ANF,
---     Compiler.CaseOpts,
+    Compiler.CaseOpts,
 --     Compiler.Common,
     Compiler.CompileExpr,
 --     Compiler.Generated,
