@@ -18,8 +18,8 @@ modules
 --     Compiler.VMCode,
 
     Compiler.Opts.ConstantFold,
---     Compiler.Opts.Identity,
---     Compiler.Opts.InlineHeuristics,
+    Compiler.Opts.Identity,
+    Compiler.Opts.InlineHeuristics,
 
 --     Compiler.ES.Ast,
 --     Compiler.ES.Codegen,

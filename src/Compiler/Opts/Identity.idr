@@ -4,19 +4,20 @@ import Compiler.CompileExpr
 import Core.Context
 import Core.Context.Log
 import Data.List
+import Data.SnocList
 import Data.Vect
 
-makeArgs : (args : List Name) -> List (Var (args ++ vars))
+makeArgs : (args : SnocList Name) -> List (Var (vars ++ args))
 makeArgs args = makeArgs' args id
   where
-    makeArgs' : (args : List Name) -> (Var (args ++ vars) -> a) -> List a
-    makeArgs' [] f = []
-    makeArgs' (x :: xs) f = f (MkVar First) :: makeArgs' xs (f . weaken)
+    makeArgs' : (args : SnocList Name) -> (Var (vars ++ args) -> a) -> List a
+    makeArgs' [<] f = []
+    makeArgs' (xs :< x) f = f (MkVar First) :: makeArgs' xs (f . weaken)
 
 parameters (fn1 : Name) (idIdx : Nat)
   mutual
     -- special case for matching on 'Nat'-shaped things
-    isUnsucc : Var vars -> CExp vars -> Maybe (Constant, Var (x :: vars))
+    isUnsucc : Var vars -> CExp vars -> Maybe (Constant, Var (vars :< x))
     isUnsucc (MkVar {i} _) (COp _ (Sub _) [CLocal {idx} _ _, CPrimVal _ c]) =
         if i == idx
             then Just (c, MkVar First)
@@ -80,14 +81,19 @@ parameters (fn1 : Name) (idIdx : Nat)
         && all altEq xs
         && maybeVarEq var con const x
       where
+        scopeEq : forall vars .
+                  (args : SnocList Name) ->
+                  Name ->
+                  Var (vars ++ args) ->
+                  List (Var (vars ++ args)) ->
+                  CCaseScope (vars ++ args) -> Bool
+        scopeEq args y var vs (CRHS tm)
+            = cexpIdentity var (Just (y, vs)) const tm
+        scopeEq args y var vs (CArg x sc)
+            = scopeEq (args :< x) y (weaken var) (MkVar First :: map weaken vs) sc
 
         altEq : CConAlt vars -> Bool
-        altEq (MkConAlt y _ _ args exp) =
-            cexpIdentity
-                (weakenNs (mkSizeOf args) var)
-                (Just (y, makeArgs args))
-                const
-                exp
+        altEq (MkConAlt y _ _ sc) = scopeEq [<] y var [] sc
     cexpIdentity var con const (CConstCase fc sc xs x) =
         cexpIdentity var Nothing Nothing sc
         && all altEq xs
@@ -112,13 +118,14 @@ checkIdentity fn (v :: vs) exp idx = if cexpIdentity fn idx v Nothing Nothing ex
     else checkIdentity fn vs exp (S idx)
 
 calcIdentity : (fullName : Name) -> CDef -> Maybe Nat
-calcIdentity fn (MkFun args exp) = checkIdentity fn (makeArgs {vars=[]} args) (rewrite appendNilRightNeutral args in exp) Z
+calcIdentity fn (MkFun args exp)
+   = checkIdentity fn (makeArgs {vars=[<]} args) (rewrite appendLinLeftNeutral args in exp) Z
 calcIdentity _ _ = Nothing
 
-getArg : FC -> Nat -> (args : List Name) -> Maybe (CExp args)
-getArg _ _ [] = Nothing
-getArg fc Z (a :: _) = Just $ CLocal fc First
-getArg fc (S k) (_ :: as) = weaken <$> getArg fc k as
+getArg : FC -> Nat -> (args : SnocList Name) -> Maybe (CExp args)
+getArg _ _ [<] = Nothing
+getArg fc Z (_ :< a) = Just $ CLocal fc First
+getArg fc (S k) (as :< _) = weaken <$> getArg fc k as
 
 idCDef : Nat -> CDef -> Maybe CDef
 idCDef idx (MkFun args exp) = MkFun args <$> getArg (getFC exp) idx args
