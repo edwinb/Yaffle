@@ -97,11 +97,15 @@ plug Nil f = f
 plug (Cons t ts) f = plug ts (ClApp f t)
 
 
-data HEqual : {0 a, b : Type} -> a -> b -> Type where
-  Refl : HEqual x x
+namespace Builtin
 
-Equal :  {0 a : Type} -> a -> a -> Type
-Equal x y = HEqual x y
+  public export
+  data HEqual : {0 a, b : Type} -> a -> b -> Type where
+    Refl : {0 a : Type} -> {0 x : a} -> HEqual x x
+
+  public export
+  Equal :  {0 a : Type} -> a -> a -> Type
+  Equal x y = HEqual x y
 
 0 plugSnoc : (ctx : EvalContext a (Arr dom b)) ->
            (t : Closed dom) ->
@@ -454,7 +458,7 @@ namespace ValidClosed
 
 namespace ValidEnv
 
-  public export
+  export
   lookup : {0 g, a : _} -> (env : ValidEnv g) -> Elem a g -> ValidClosed a
   lookup (Element (Cons t env) p) Here = Element t (fst p)
   lookup (Element (Cons t env) p) (There v) = lookup (Element env (snd p)) v
@@ -550,7 +554,9 @@ namespace Machine
 
     Var : {0 g, a, b : _} -> {0 ctx : ValidEvalContext a b} ->
           {env : ValidEnv g} -> {v : Elem a g} ->
-          Trace (getTerm (lookup env v)) (getEnv (lookup env v)) ctx ->
+          {0 g' : Context} -> {0 t' : Term g' a} -> {0 env' : Env g'} -> {0 prf' : IsValidEnv env'} ->
+          Equal (lookup env v) (Element (Closure t' env') prf') ->
+          Trace t' (Element env' prf') ctx ->
           Trace (Var v) env ctx
 
     App : {0 g, a, b, c, env : _} -> {0 ctx : ValidEvalContext b c} ->
@@ -571,8 +577,10 @@ namespace Machine
   data View : Trace t env ctx -> Type where
     VVar : {0 g, a, b : _} -> {0 ctx : ValidEvalContext a b} ->
            {0 env : ValidEnv g} -> {0 v : Elem a g} ->
-           (0 tr : Trace (getTerm (lookup env v)) (getEnv (lookup env v)) ctx) ->
-           View {t = Var v} {env} {ctx} (Var tr)
+           {0 g' : _} -> {t', env' : _} -> {0 prf' : _} ->
+           (0 eq : Equal (lookup env v) (Element (Closure {g = g'} t' env') prf')) ->
+           (0 tr : Trace t' (Element env' prf') ctx) ->
+           View {t = Var v} {env} {ctx} (Var eq tr)
     VApp : {0 g, a, b, c, env : _} ->
            {0 f : Term g (Arr a b)} -> {0 t : Term g a} ->
            {0 ctx : ValidEvalContext b c} ->
@@ -588,11 +596,29 @@ namespace Machine
             (sc : Term (Cons a g) b) ->
             View (Done {sc} {env})
 
+  -- nasty inversion principle
+  data IsVar :
+    {0 g, a, b : _} -> {0 env : ValidEnv g} ->
+    {0 ctx : ValidEvalContext a b} -> {0 v : Elem a g} ->
+    (tr : Trace (Var v) env ctx) -> Type where
+    MkIsVar :
+     {0 g, a, b : _} -> {0 env : ValidEnv g} ->
+     {0 ctx : ValidEvalContext a b} -> {0 v : Elem a g} ->
+     {0 tr : Trace (Var v) env ctx} ->
+     {0 g' : Context} ->
+     {0 t' : Term g' a} ->
+     {0 env' : Env g'} ->
+     {0 prf' : IsValidEnv env'} ->
+     (0 eq : Equal (lookup env v) (Element (Closure t' env') prf')) ->
+     (tr' : Trace t' (Element env' prf') ctx) ->
+     (inversion : Equal tr (Var eq tr')) ->
+     IsVar tr
+
   vvar : {0 g, a, b : _} -> {0 env : ValidEnv g} ->
-         {0 ctx : ValidEvalContext a b} -> {0 v : Elem a g} -> (tr : Trace (Var v) env ctx) ->
-         DPair (Trace (getTerm (lookup env v)) (getEnv (lookup env v)) ctx)
-               (\ tr' => Equal tr (Var tr'))
-  vvar (Var tr) = MkDPair tr Refl
+         {0 ctx : ValidEvalContext a b} -> {0 v : Elem a g} ->
+         (tr : Trace (Var v) env ctx) ->
+         IsVar tr
+  vvar (Var eq tr) = MkIsVar eq tr Refl
 
   vapp : {0 env, ctx, f, t : _} ->
          (tr : Trace (App f t) env ctx) ->
@@ -628,10 +654,32 @@ namespace Machine
 
     in go tr (fst eqs) (snd eqs)
 
+  withProof : {0 a : Type} -> (x : a) -> DPair a (Equal x)
+  withProof x = MkDPair x Refl
+
+  cong : {0 a, b : Type} -> (f : a -> b) ->
+         {0 x, y : a} -> (0 eq : Equal x y) -> Equal (f x) (f y)
+  cong f Refl = Refl
+
   view : {0 g, a, b : _} ->
          (t : Term g a) -> (env : ValidEnv g) -> (ctx : ValidEvalContext a b) ->
          (0 tr : Trace t env ctx) -> View tr
-  view (Var v) env ctx tr = rewrite snd (vvar {env} {ctx} {v} tr) in VVar _
+  view (Var v) env ctx tr with 0 (vvar tr)
+    view (Var v) env ctx (Var eq tr') | MkIsVar eq tr' Refl =
+      let go : {0 g' : Context} -> {0 t' : Term g' a} ->
+               {0 env' : Env g'} -> {0 prf' : IsValidEnv env'} ->
+               {0 g'' : Context} -> {t'' : Term g'' a} ->
+               {env'' : Env g''} -> {0 prf'' : IsValidEnv env''} ->
+               (0 eq : Equal (lookup env v) (Element (Closure t' env') prf')) ->
+               (0 cast : Equal {a = ValidClosed a}
+                          (Element (Closure t' env') prf')
+                          (Element (Closure t'' env'') prf'')) ->
+               (0 tr' : Trace t' (Element env' prf') ctx) ->
+               Machine.View (Var {v} {env} eq tr')
+          go eq Refl tr' = VVar eq tr'
+      in case withProof (lookup env v) of
+           MkDPair (Element (Closure t'' env'') prf'') leq =>
+             go eq (trans (sym eq) leq) tr'
   view (App f t) env ctx tr = rewrite snd (vapp tr) in VApp _
   view (Lam sc) env ctx@_ tr with (view ctx)
     view (Lam sc) env Nil tr | Nil = rewrite vlam0 Refl tr in VDone sc
@@ -643,13 +691,14 @@ namespace Machine
     {ctx : ValidEvalContext a b} ->
     (0 tr : Trace t env ctx) -> Value b
   refocus tr@_ with (view _ _ _ tr)
-    refocus tr@_ | VVar tr' = refocus tr'
+    refocus tr@_ | VVar eq tr' = refocus tr'
     refocus tr@_ | VApp tr' = refocus tr'
     refocus tr@_ | VBeta tr' = refocus tr'
     refocus tr@_ | VDone sc = Val (Closure (Lam sc) (fst env)) Lam
 
   -- This is way TOO nasty because we don't have eta for records :((
 
+{-
   correctness :
     {0 g, b : _} ->
     {a : Ty} ->
