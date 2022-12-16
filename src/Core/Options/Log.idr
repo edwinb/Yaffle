@@ -80,6 +80,7 @@ knownTopics = [
     ("declare.param", Nothing),
     ("declare.record", Nothing),
     ("declare.record.field", Nothing),
+    ("declare.record.parameters", Just "Showing the implicitly bound parameters"),
     ("declare.record.projection", Nothing),
     ("declare.record.projection.prefix", Nothing),
     ("declare.type", Nothing),
