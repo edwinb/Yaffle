@@ -1,5 +1,5 @@
 Processing as TTImp
 Written "build/ttc/Vect.ttc"
-Yaffle> Main.plus = [< {ext:0}, {ext:1}]: (%case !{ext:0} [(%concase Main.plus Just 0 [< ] !{ext:1}), (%concase Main.plus Just 1 [< {e:0}] ((%lam {succ:0} (+Integer [1, !{succ:0}])) [(Main.plus [!{e:0}, !{ext:1}])]))] Nothing)
-Yaffle> Main.append = [< {ext:3}, {ext:4}]: (%case !{ext:3} [(%concase Main.append Just 0 [< ] !{ext:4}), (%concase Main.append Just 1 [< {e:2}, {e:1}] (%con [cons] Main.Cons Just 1 [!{e:2}, (Main.append [!{e:1}, !{ext:4}])]))] Nothing)
+Yaffle> Main.plus = [< {ext:0}, {ext:1}]: (%case !{ext:0} [(%constcase 0 !{ext:1})] Just (%let {e:0} (-Integer [!{ext:0}, 1]) (+Integer [(Main.plus [!{e:0}, !{ext:1}]), 1])))
+Yaffle> Main.append = [< {ext:3}, {ext:4}]: (%case !{ext:3} [(%concase [nil] Main.Nil Just 0 [< ] !{ext:4}), (%concase [cons] Main.Cons Just 1 [< {e:2}, {e:1}] (%con [cons] Main.Cons Just 1 [!{e:2}, (Main.append [!{e:1}, !{ext:4}])]))] Nothing)
 Yaffle> Bye for now!

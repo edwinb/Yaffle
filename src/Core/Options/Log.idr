@@ -58,6 +58,7 @@ knownTopics = [
     ("compiler.identity", Just "Log definitions that are equivalent to identity at runtime."),
     ("compiler.inline.eval", Just "Log function definitions before and after inlining."),
     ("compiler.inline.heuristic", Just "Log names the inlining heuristic(s) have decided to inline."),
+    ("compiler.inline.io_bind", Just "Log the attempts to inline `io_bind`."),
     ("compiler.interpreter", Just "Log the call-stack of the VMCode interpreter."),
     ("compiler.refc", Nothing),
     ("compiler.refc.cc", Nothing),

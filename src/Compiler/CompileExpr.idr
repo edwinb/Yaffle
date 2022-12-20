@@ -362,7 +362,7 @@ conCases n (ConCase fc x tag sc :: ns)
                        _ => Nothing
          case nt of
               Just pos => conCases n ns -- skip it
-              _ => do xn <- getFullName n
+              _ => do xn <- getFullName x
                       sc' <- toCExpScope 0 (eraseArgs gdef) sc
                       ns' <- conCases n ns
                       if dcon (definition gdef)

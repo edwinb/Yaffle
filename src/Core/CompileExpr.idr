@@ -737,6 +737,11 @@ refsToLocals None tm = tm
 refsToLocals bs y = mkLocals zero bs y
 
 export
+refsToLocalsScope : Bounds bound -> CCaseScope vars -> CCaseScope (vars ++ bound)
+refsToLocalsScope None sc = sc
+refsToLocalsScope bs y = mkLocalsCScope zero bs y
+
+export
 getFC : CExp args -> FC
 getFC (CLocal fc _) = fc
 getFC (CRef fc _) = fc

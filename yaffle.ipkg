@@ -10,7 +10,7 @@ modules
 --     Compiler.Common,
     Compiler.CompileExpr,
 --     Compiler.Generated,
---     Compiler.Inline,
+    Compiler.Inline,
 --     Compiler.LambdaLift,
     Compiler.NoMangle,
 --     Compiler.Opts.CSE,

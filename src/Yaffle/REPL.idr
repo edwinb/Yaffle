@@ -20,6 +20,7 @@ import Core.TTCFile
 import Core.Unify
 
 import Compiler.CompileExpr
+import Compiler.Inline
 
 import TTImp.Elab
 import TTImp.Elab.Check
@@ -48,6 +49,7 @@ showInfo (n, _, d)
          tot <- getTotality replFC n >>= toFullNames
          coreLift_ $ putStrLn (show n ++ " ==>\n" ++
                    "\t" ++ show !(toFullNames (definition d)) ++ "\n" ++
+                   "\t" ++ show (flags d) ++ "\n" ++
                    "\t" ++ show (sizeChange d) ++ "\n" ++
                    "\t" ++ show tot ++ "\n")
 
@@ -174,7 +176,7 @@ process (CheckTotal n)
                                (map fst ts)
                        pure True
 process (ShowCompiled n)
-    = do compileDef n
+    = do compileAndInlineAll
          defs <- get Ctxt
          ns <- lookupCtxtName n (gamma defs)
          traverse_ showCompiled ns
