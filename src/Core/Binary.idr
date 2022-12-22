@@ -38,7 +38,7 @@ modTime fname
        coreLift $ closeFile f
        pure t
 
-makeSTable : Int -> List (String, Int) -> CoreTTC (Binary Write)
+makeSTable : Integer -> List (String, Int) -> CoreTTC (Binary Write)
 makeSTable size xs
     = do st <- newRef STable stInit
          newbuf <- initBinaryS st size
@@ -56,7 +56,7 @@ makeSTable size xs
 -- Write as a single binary blob, to allow skipping it if we don't need it,
 -- e.g. when just reading a prefix of a file to get its dependencies
 writeSTableData : Ref Bin (Binary Write) =>
-                  Int -> List (String, Int) -> CoreTTC ()
+                  Integer -> List (String, Int) -> CoreTTC ()
 writeSTableData size xs
     = do st <- makeSTable size xs
          toBuf st
@@ -106,7 +106,7 @@ writeToFile hdr hash fname bdata
          outputData <- get Bin
          Right ok <- coreLift $
                        writeBufferToFile fname
-                                         (buf outputData) (used outputData)
+                                         (buf outputData) (cast $ used outputData)
                | Left (err, size) => pure (Left err)
          pure (Right ok)
 
@@ -122,7 +122,7 @@ readFromFile hdr fname
     -- Then create a new Binary Read with all of this data
     = do Right b <- coreLift $ createBufferFromFile fname
                | Left err => pure (Left err)
-         bsize <- coreLift $ rawSize b
+         bsize <- cast {to = Integer} <$> coreLift (rawSize b)
          stRef <- newRef STable empty
          let filebuf = MkBin b stRef 0 bsize bsize
          bin <- newRef Bin filebuf
@@ -159,7 +159,7 @@ readNoStringTable hdr fname
     -- Then create a new Binary Read with all of this data
     = do Right b <- coreLift $ createBufferFromFile fname
                | Left err => pure (Left err)
-         bsize <- coreLift $ rawSize b
+         bsize <- cast {to = Integer} <$> coreLift (rawSize b)
          stRef <- newRef STable empty
          let filebuf = MkBin b stRef 0 bsize bsize
          bin <- newRef Bin filebuf
@@ -187,7 +187,7 @@ readHash : (headerID : String) -> -- TTM or TT2
 readHash hdr fname
     = do Right b <- coreLift $ createBufferFromFile fname
                | Left err => pure (Left err)
-         bsize <- coreLift $ rawSize b
+         bsize <- cast {to = Integer} <$> coreLift (rawSize b)
          stRef <- newRef STable empty
          let filebuf = MkBin b stRef 0 bsize bsize
          bin <- newRef Bin filebuf
