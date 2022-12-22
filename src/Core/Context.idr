@@ -425,12 +425,18 @@ parameters {auto c : Ref Ctxt Defs}
            pure $ maybe Nothing (Just . rewriteName) (rewritenames (options defs))
 
   export
+  getEqualTy : Core (Maybe Name)
+  getEqualTy
+    = do defs <- get Ctxt
+         pure (equalType <$> rewritenames (options defs))
+
+  export
   isEqualTy : Name -> Core Bool
   isEqualTy n
       = do defs <- get Ctxt
-           case rewritenames (options defs) of
+           case !getEqualTy of
                 Nothing => pure False
-                Just r => pure $ !(getFullName n) == !(getFullName (equalType r))
+                Just r => pure $ !(getFullName n) == !(getFullName r)
 
   export
   fromIntegerName : Core (Maybe Name)
