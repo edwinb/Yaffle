@@ -102,6 +102,9 @@ public export
 ImpParameter' : Type -> Type
 
 public export
+ImpParameter : Type
+
+public export
 ImpDecl : Type
 
 public export
@@ -131,6 +134,7 @@ FnOpt = FnOpt' Name
 ImpTy = ImpTy' Name
 ImpData = ImpData' Name
 ImpParameter' nm = (Name, RigCount, PiInfo (RawImp' nm), RawImp' nm)
+ImpParameter = ImpParameter' Name
 ImpDecl = ImpDecl' Name
 IField = IField' Name
 ImpRecord = ImpRecord' Name
@@ -277,7 +281,9 @@ data Directive : Type where
 
 public export
 data ImpData' : Type -> Type where
-     MkImpData : FC -> (n : Name) -> (tycon : RawImp' nm) ->
+     MkImpData : FC -> (n : Name) ->
+                 -- the type is optional if the datatype was pre-declared in a mutual block
+                 (tycon : Maybe (RawImp' nm)) ->
                  (opts : List DataOpt) ->
                  (datacons : List (ImpTy' nm)) -> ImpData' nm
      MkImpLater : FC -> (n : Name) -> (tycon : RawImp' nm) -> ImpData' nm

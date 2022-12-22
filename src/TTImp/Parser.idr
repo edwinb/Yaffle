@@ -598,8 +598,9 @@ dataDecl fname indents
     = do start <- location
          keyword "data"
          n <- name
-         symbol ":"
-         ty <- expr fname indents
+         ty <- optional $ do
+           symbol ":"
+           expr fname indents
          keyword "where"
          opts <- option [] (do symbol "["
                                dopts <- sepBy1 (symbol ",") dataOpt

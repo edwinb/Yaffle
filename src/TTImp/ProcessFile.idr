@@ -87,7 +87,7 @@ parameters {auto c : Ref Ctxt Defs}
 
       bindDataNames : ImpData -> Core ImpData
       bindDataNames (MkImpData fc n t opts cons)
-          = do t' <- bindTypeNames fc [] (cast vars) t
+          = do t' <- traverseOpt (bindTypeNames fc [] (cast vars)) t
                cons' <- traverse bindConNames cons
                pure (MkImpData fc n t' opts cons')
       bindDataNames (MkImpLater fc n t)
