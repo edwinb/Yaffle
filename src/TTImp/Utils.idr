@@ -28,7 +28,7 @@ rawImpFromDecl : ImpDecl -> List RawImp
 rawImpFromDecl decl = case decl of
     IClaim fc1 y z ys ty => [getFromTy ty]
     IData fc1 y _ (MkImpData fc2 n tycon opts datacons)
-        => tycon :: map getFromTy datacons
+        => maybe id (::) tycon $ map getFromTy datacons
     IData fc1 y _ (MkImpLater fc2 n tycon) => [tycon]
     IDef fc1 y ys => getFromClause !ys
     IParameters fc1 ys zs => rawImpFromDecl !zs ++ map getParamTy ys
@@ -375,7 +375,7 @@ mutual
   substNamesData' : Bool -> List Name -> List (Name, RawImp) ->
                     ImpData -> ImpData
   substNamesData' bvar bound ps (MkImpData fc n con opts dcons)
-      = MkImpData fc n (substNames' bvar bound ps con) opts
+      = MkImpData fc n (map (substNames' bvar bound ps) con) opts
                   (map (substNamesTy' bvar bound ps) dcons)
   substNamesData' bvar bound ps (MkImpLater fc n con)
       = MkImpLater fc n (substNames' bvar bound ps con)
@@ -476,7 +476,7 @@ mutual
 
   substLocData : FC -> ImpData -> ImpData
   substLocData fc' (MkImpData fc n con opts dcons)
-      = MkImpData fc' n (substLoc fc' con) opts
+      = MkImpData fc' n (map (substLoc fc') con) opts
                         (map (substLocTy fc') dcons)
   substLocData fc' (MkImpLater fc n con)
       = MkImpLater fc' n (substLoc fc' con)
