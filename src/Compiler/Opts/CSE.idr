@@ -30,13 +30,13 @@ module Compiler.Opts.CSE
 import Core.CompileExpr
 import Core.Context
 import Core.Context.Log
-import Core.Name
 import Core.TT
 
 import Core.Ord
 import Data.List
 import Data.String
 import Data.Vect
+import Libraries.Data.SortedSet
 import Libraries.Data.SortedMap
 
 ||| Maping from a pairing of closed terms together with
@@ -44,7 +44,7 @@ import Libraries.Data.SortedMap
 ||| occurences in toplevel definitions.
 public export
 UsageMap : Type
-UsageMap = SortedMap (Integer, CExp []) (Name, Integer)
+UsageMap = SortedMap (Integer, CExp [<]) (Name, Integer)
 
 ||| Number of appearances of a closed expression.
 |||
@@ -71,7 +71,7 @@ Show Count where
 ||| the expression appears only in one place.
 public export
 ReplaceMap : Type
-ReplaceMap = SortedMap Name (CExp [], Count)
+ReplaceMap = SortedMap Name (CExp [<], Count)
 
 toReplaceMap : UsageMap -> ReplaceMap
 toReplaceMap = SortedMap.fromList
@@ -93,7 +93,7 @@ record St where
 -- returning a new machine generated name to be used
 -- if the expression should be lifted to the toplevel.
 -- Very small expressions are being ignored.
-store : Ref Sts St => Integer -> CExp [] -> Core (Maybe Name)
+store : Ref Sts St => Integer -> CExp [<] -> Core (Maybe Name)
 store sz exp =
   if sz < 5
      then pure Nothing
@@ -112,13 +112,13 @@ store sz exp =
 --          Strengthening of Expressions
 --------------------------------------------------------------------------------
 
-dropVar :  (pre : List Name)
+dropVar :  (pre : SnocList Name)
         -> (n : Nat)
-        -> (0 p : IsVar x n (pre ++ ns))
+        -> (0 p : IsVar x n (ns ++ pre))
         -> Maybe (IsVar x n pre)
-dropVar [] _ _        = Nothing
-dropVar (y :: xs) 0 First = Just First
-dropVar (y :: xs) (S k) (Later p) =
+dropVar [<] _ _        = Nothing
+dropVar (xs :< y) 0 First = Just First
+dropVar (xs :< y) (S k) (Later p) =
   case dropVar xs k p of
     Just p' => Just $ Later p'
     Nothing => Nothing
@@ -127,7 +127,7 @@ mutual
   -- tries to 'strengthen' an expression by removing
   -- a prefix of bound variables. typically, this is invoked
   -- with `{pre = []}`.
-  dropEnv : {pre : List Name} -> CExp (pre ++ ns) -> Maybe (CExp pre)
+  dropEnv : {pre : SnocList Name} -> CExp (ns ++ pre) -> Maybe (CExp pre)
   dropEnv (CLocal {idx} fc p) = (\q => CLocal fc q) <$> dropVar pre idx p
   dropEnv (CRef fc x) = Just (CRef fc x)
   dropEnv (CLam fc x y) = CLam fc x <$> dropEnv y
@@ -155,14 +155,19 @@ mutual
   dropEnv (CErased fc) = Just $ CErased fc
   dropEnv (CCrash fc x) = Just $ CCrash fc x
 
-  dropConAlt :  {pre : List Name}
-             -> CConAlt (pre ++ ns)
-             -> Maybe (CConAlt pre)
-  dropConAlt (MkConAlt x y tag args z) =
-    MkConAlt x y tag args . embed <$> dropEnv z
+  dropCaseScope :  {pre : SnocList Name}
+             -> CCaseScope (ns ++ pre)
+             -> Maybe (CCaseScope pre)
+  dropCaseScope (CRHS tm) = CRHS <$> dropEnv tm
+  dropCaseScope (CArg x sc) = CArg x <$> dropCaseScope sc
 
-  dropConstAlt :  {pre : List Name}
-               -> CConstAlt (pre ++ ns)
+  dropConAlt :  {pre : SnocList Name}
+             -> CConAlt (ns ++ pre)
+             -> Maybe (CConAlt pre)
+  dropConAlt (MkConAlt x y tag z) = MkConAlt x y tag <$> dropCaseScope z
+
+  dropConstAlt :  {pre : SnocList Name}
+               -> CConstAlt (ns ++ pre)
                -> Maybe (CConstAlt pre)
   dropConstAlt (MkConstAlt x y) = MkConstAlt x <$> dropEnv y
 
@@ -198,7 +203,7 @@ mutual
 
   analyze exp = do
     (sze, exp') <- analyzeSubExp exp
-    case dropEnv {pre = []} exp' of
+    case dropEnv {pre = [<]} exp' of
       Just e0 => do
         Just nm <- store sze e0
           | Nothing => pure (sze, exp')
@@ -275,12 +280,22 @@ mutual
   analyzeSubExp c@(CErased _)    = pure (1, c)
   analyzeSubExp c@(CCrash _ _)   = pure (1, c)
 
+  analyzeCaseScope :  { auto c : Ref Sts St }
+                -> CCaseScope ns
+                -> Core (Integer, CCaseScope ns)
+  analyzeCaseScope (CRHS tm)
+      = do (sz, tm') <- analyze tm
+           pure (sz, CRHS tm')
+  analyzeCaseScope (CArg x sc)
+      = do (sz, sc') <- analyzeCaseScope sc
+           pure (sz, CArg x sc')
+
   analyzeConAlt :  { auto c : Ref Sts St }
                 -> CConAlt ns
                 -> Core (Integer, CConAlt ns)
-  analyzeConAlt (MkConAlt n c t as z) = do
-    (sz, z') <- analyze z
-    pure (sz + 1, MkConAlt n c t as z')
+  analyzeConAlt (MkConAlt n c t z) = do
+    (sz, z') <- analyzeCaseScope z
+    pure (sz + 1, MkConAlt n c t z')
 
   analyzeConstAlt : Ref Sts St => CConstAlt ns -> Core (Integer, CConstAlt ns)
   analyzeConstAlt (MkConstAlt c y) = do
@@ -426,13 +441,20 @@ mutual
   replaceExp _ c@(CErased _)    = pure c
   replaceExp _ c@(CCrash _ _)   = pure c
 
+  replaceCaseScope :  Ref ReplaceMap ReplaceMap
+                => Ref Ctxt Defs
+                => (parentCount : Integer)
+                -> CCaseScope ns
+                -> Core (CCaseScope ns)
+  replaceCaseScope pc (CRHS tm) = CRHS <$> replaceExp pc tm
+  replaceCaseScope pc (CArg x sc) = CArg x <$> replaceCaseScope pc sc
+
   replaceConAlt :  Ref ReplaceMap ReplaceMap
                 => Ref Ctxt Defs
                 => (parentCount : Integer)
                 -> CConAlt ns
                 -> Core (CConAlt ns)
-  replaceConAlt pc (MkConAlt n c t as z) =
-    MkConAlt n c t as <$> replaceExp pc z
+  replaceConAlt pc (MkConAlt n c t z) = MkConAlt n c t <$> replaceCaseScope pc z
 
   replaceConstAlt :  Ref ReplaceMap ReplaceMap
                   => Ref Ctxt Defs
@@ -454,11 +476,11 @@ replaceDef (n, fc, d@(MkError _))       = pure (n, fc, d)
 
 newToplevelDefs : ReplaceMap -> List (Name, FC, CDef)
 newToplevelDefs rm = mapMaybe toDef $ SortedMap.toList rm
-  where toDef : (Name,(CExp[],Count)) -> Maybe (Name, FC, CDef)
-        toDef (nm,(exp,Many)) = Just (nm, EmptyFC, MkFun [] exp)
+  where toDef : (Name,(CExp[<],Count)) -> Maybe (Name, FC, CDef)
+        toDef (nm,(exp,Many)) = Just (nm, EmptyFC, MkFun [<] exp)
         toDef _               = Nothing
 
-undefinedCount : (Name, (CExp [], Count)) -> Bool
+undefinedCount : (Name, (CExp [<], Count)) -> Bool
 undefinedCount (_, _, Once) = False
 undefinedCount (_, _, Many) = False
 undefinedCount (_, _, C x)  = True
@@ -485,4 +507,5 @@ cse defs me = do
     ::  map (\(name,(_,cnt)) =>
                   show name ++ ": count " ++ show cnt
            ) filtered
-  pure (newToplevelDefs replaceMap ++ replacedDefs, replacedMain)
+  let newDefs := newToplevelDefs replaceMap ++ replacedDefs
+  pure (newDefs, replacedMain)

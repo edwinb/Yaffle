@@ -137,7 +137,6 @@ tryLiftOut new (MkConAlt n ci t sc :: as)
         = do sc' <- tryLiftOutScope {args = args :< x} sc
              pure (CArg x sc')
     tryLiftOutScope _ = Nothing
-tryLiftOut _ _ = Nothing
 
 tryLiftOutConst : (new : Name) ->
                   List (CConstAlt vars) ->
@@ -169,7 +168,6 @@ allLams (MkConAlt n ci t sc :: as)
     isLam (CRHS (CLam{})) = True
     isLam (CRHS _) = False
     isLam (CArg x sc) = isLam sc
-allLams _ = False
 
 allLamsConst : List (CConstAlt vars) -> Bool
 allLamsConst [] = True
@@ -371,7 +369,6 @@ tryCaseOfCase (CConCase fc (CConCase fc' x xalts Nothing) alts def)
         isCon (CRHS (CCon _ _ _ _ _)) = True
         isCon (CRHS _) = False
         isCon (CArg x sc) = isCon sc
-    conCase _ = False
 
     canCaseOfCase : List (CConAlt vars) -> Bool
     canCaseOfCase [] = True

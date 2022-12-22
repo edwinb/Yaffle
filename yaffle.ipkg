@@ -13,13 +13,14 @@ modules
     Compiler.Inline,
 --     Compiler.LambdaLift,
     Compiler.NoMangle,
---     Compiler.Opts.CSE,
 --     Compiler.Separate,
 --     Compiler.VMCode,
 
     Compiler.Opts.ConstantFold,
+    Compiler.Opts.CSE,
     Compiler.Opts.Identity,
     Compiler.Opts.InlineHeuristics,
+    Compiler.Opts.ToplevelConstants,
 
 --     Compiler.ES.Ast,
 --     Compiler.ES.Codegen,
@@ -72,6 +73,7 @@ modules
     Core.FC,
     Core.InitPrimitives,
     Core.Options,
+    Core.Ord,
     Core.Primitives,
     Core.Reflect,
     Core.Search,
