@@ -1,6 +1,7 @@
+# The Idris2 version with s/idris2/yaffle/
 include ../../config.mk
 
-TARGET = libidris2_support
+TARGET = libyaffle_support
 
 LIBTARGET = $(TARGET).a
 DYLIBTARGET = $(TARGET)$(SHLIB_SUFFIX)
@@ -51,8 +52,8 @@ cleandep: clean
 
 .PHONY: install
 install: build
-	mkdir -p ${PREFIX}/idris2-${IDRIS2_VERSION}/lib
-	mkdir -p ${PREFIX}/idris2-${IDRIS2_VERSION}/support/c
-	install -m 755 $(DYLIBTARGET) ${PREFIX}/idris2-${IDRIS2_VERSION}/lib
-	install -m 644 $(LIBTARGET)   ${PREFIX}/idris2-${IDRIS2_VERSION}/lib
-	install -m 644 *.h            ${PREFIX}/idris2-${IDRIS2_VERSION}/support/c
+	mkdir -p ${PREFIX}/yaffle-${YAFFLE_VERSION}/lib
+	mkdir -p ${PREFIX}/yaffle-${YAFFLE_VERSION}/support/c
+	install -m 755 $(DYLIBTARGET) ${PREFIX}/yaffle-${YAFFLE_VERSION}/lib
+	install -m 644 $(LIBTARGET)   ${PREFIX}/yaffle-${YAFFLE_VERSION}/lib
+	install -m 644 *.h            ${PREFIX}/yaffle-${YAFFLE_VERSION}/support/c

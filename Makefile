@@ -60,11 +60,11 @@ export YAFFLE_BOOT_PATH := "$(YAFFLE_BOOT_PATH)"
 
 export SCHEME
 
-.PHONY: all idris2-exec libdocs testenv testenv-clean support support-clean clean FORCE
+.PHONY: all yaffle-exec libdocs testenv testenv-clean support support-clean clean FORCE
 
 all: support ${TARGET} libs
 
-idris2-exec: ${TARGET}
+yaffle-exec: ${TARGET}
 
 ${TARGET}: src/IdrisPaths.idr
 	${YAFFLE_BOOT} --build ${YAFFLE_APP_IPKG}
@@ -101,7 +101,8 @@ papers: contrib linear
 
 bootstrap-libs : prelude base linear network
 #libs : prelude base contrib network test-lib linear papers
-# no libs yet!
+# TODO: no libs yet! Put clean-libs and install-libs back too
+# (or maybe placeholder libs directories?)
 libs : 
 
 libdocs:
@@ -163,8 +164,8 @@ retest: testenv
 	@${MAKE} -C tests retest only=$(only) YAFFLE=${TARGET} YAFFLE_PREFIX=${TEST_PREFIX}
 
 test-installed:
-	@${MAKE} -C tests testbin      YAFFLE=$(YAFFLE_PREFIX)/bin/idris2 YAFFLE_PREFIX=${YAFFLE_PREFIX}
-	@${MAKE} -C tests only=$(only) YAFFLE=$(YAFFLE_PREFIX)/bin/idris2 YAFFLE_PREFIX=${YAFFLE_PREFIX}
+	@${MAKE} -C tests testbin      YAFFLE=$(YAFFLE_PREFIX)/bin/yaffle YAFFLE_PREFIX=${YAFFLE_PREFIX}
+	@${MAKE} -C tests only=$(only) YAFFLE=$(YAFFLE_PREFIX)/bin/yaffle YAFFLE_PREFIX=${YAFFLE_PREFIX}
 
 support:
 	@${MAKE} -C support/c
@@ -185,14 +186,16 @@ clean-libs:
 	${MAKE} -C libs/linear clean
 	${MAKE} -C libs/papers clean
 
-clean: clean-libs support-clean testenv-clean
+# No libs yet! clean: clean-libs support-clean testenv-clean
+# clean: clean-libs support-clean testenv-clean
+clean: support-clean testenv-clean
 	-${YAFFLE_BOOT} --clean ${YAFFLE_APP_IPKG}
 	$(RM) src/IdrisPaths.idr
 	${MAKE} -C tests clean
 	$(RM) -r build
 
-install: install-idris2 install-support install-libs
-bootstrap-install: install-idris2 install-support install-bootstrap-libs
+install: install-yaffle install-support install-libs
+bootstrap-install: install-yaffle install-support install-bootstrap-libs
 
 install-api: src/IdrisPaths.idr
 	${YAFFLE_BOOT} --install ${YAFFLE_LIB_IPKG}
@@ -200,7 +203,7 @@ install-api: src/IdrisPaths.idr
 install-with-src-api: src/IdrisPaths.idr
 	${YAFFLE_BOOT} --install-with-src ${YAFFLE_LIB_IPKG}
 
-install-idris2:
+install-yaffle:
 	mkdir -p ${PREFIX}/bin/
 	install ${TARGET} ${PREFIX}/bin
 ifeq ($(OS), windows)
@@ -214,11 +217,9 @@ endif
 install-support:
 	mkdir -p ${PREFIX}/${NAME_VERSION}/support/docs
 	mkdir -p ${PREFIX}/${NAME_VERSION}/support/racket
-	mkdir -p ${PREFIX}/${NAME_VERSION}/support/gambit
 	mkdir -p ${PREFIX}/${NAME_VERSION}/support/js
 	install -m 644 support/docs/*.css ${PREFIX}/${NAME_VERSION}/support/docs
 	install -m 644 support/racket/* ${PREFIX}/${NAME_VERSION}/support/racket
-	install -m 644 support/gambit/* ${PREFIX}/${NAME_VERSION}/support/gambit
 	install -m 644 support/js/* ${PREFIX}/${NAME_VERSION}/support/js
 	@${MAKE} -C support/c install
 	@${MAKE} -C support/refc install
@@ -230,9 +231,11 @@ install-bootstrap-libs:
 	${MAKE} -C libs/linear install  YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
 	${MAKE} -C libs/network install YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
 
-install-libs: install-bootstrap-libs
-	${MAKE} -C libs/contrib install YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
-	${MAKE} -C libs/test install YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
+# Nothing to do yet!
+install-libs: 
+#install-libs: install-bootstrap-libs
+#	${MAKE} -C libs/contrib install YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
+#	${MAKE} -C libs/test install YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
 
 install-with-src-libs:
 	${MAKE} -C libs/prelude install-with-src YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
@@ -264,21 +267,21 @@ install-libdocs: libdocs
 bootstrap: support
 	@if [ "$$(echo '(threaded?)' | $(SCHEME) --quiet)" = "#f" ] ; then \
 		echo "ERROR: Chez is missing threading support" ; exit 1 ; fi
-	mkdir -p bootstrap-build/idris2_app
-	cp support/c/${YAFFLE_SUPPORT} bootstrap-build/idris2_app/
-	sed 's/libidris2_support.so/${YAFFLE_SUPPORT}/g; s|__PREFIX__|${YAFFLE_BOOT_PREFIX}|g' \
-		bootstrap/idris2_app/idris2.ss \
-		> bootstrap-build/idris2_app/idris2-boot.ss
+	mkdir -p bootstrap-build/yaffle_app
+	cp support/c/${YAFFLE_SUPPORT} bootstrap-build/yaffle_app/
+	sed 's/libyaffle_support.so/${YAFFLE_SUPPORT}/g; s|__PREFIX__|${YAFFLE_BOOT_PREFIX}|g' \
+		bootstrap/yaffle_app/yaffle.ss \
+		> bootstrap-build/yaffle_app/yaffle-boot.ss
 	$(SHELL) ./bootstrap-stage1-chez.sh
 	YAFFLE_CG="chez" $(SHELL) ./bootstrap-stage2.sh
 
 # Bootstrapping using racket
 bootstrap-racket: support
-	mkdir -p bootstrap-build/idris2_app
-	cp support/c/${YAFFLE_SUPPORT} bootstrap-build/idris2_app/
+	mkdir -p bootstrap-build/yaffle_app
+	cp support/c/${YAFFLE_SUPPORT} bootstrap-build/yaffle_app/
 	sed 's|__PREFIX__|${YAFFLE_BOOT_PREFIX}|g' \
-		bootstrap/idris2_app/idris2.rkt \
-		> bootstrap-build/idris2_app/idris2-boot.rkt
+		bootstrap/yaffle_app/yaffle.rkt \
+		> bootstrap-build/yaffle_app/yaffle-boot.rkt
 	$(SHELL) ./bootstrap-stage1-racket.sh
 	YAFFLE_CG="racket" $(SHELL) ./bootstrap-stage2.sh
 
@@ -286,7 +289,7 @@ bootstrap-test:
 	$(MAKE) test INTERACTIVE='' YAFFLE_PREFIX=${YAFFLE_BOOT_PREFIX}
 
 ci-windows-bootstrap-test:
-	$(MAKE) test except="idris2/repl005" INTERACTIVE='' YAFFLE_PREFIX=${YAFFLE_BOOT_PREFIX}
+	$(MAKE) test except="yaffle/repl005" INTERACTIVE='' YAFFLE_PREFIX=${YAFFLE_BOOT_PREFIX}
 
 bootstrap-clean:
 	$(RM) -r bootstrap-build

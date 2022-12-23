@@ -1,6 +1,6 @@
 include ../../config.mk
 
-TARGET = libidris2_refc
+TARGET = libyaffle_refc
 
 LIBTARGET = $(TARGET).a
 
@@ -42,5 +42,5 @@ cleandep: clean
 
 .PHONY: install
 install: build
-	mkdir -p ${PREFIX}/idris2-${IDRIS2_VERSION}/support/refc
-	install -m 644 $(LIBTARGET) *.h ${PREFIX}/idris2-${IDRIS2_VERSION}/support/refc
+	mkdir -p ${PREFIX}/yaffle-${YAFFLE_VERSION}/support/refc
+	install -m 644 $(LIBTARGET) *.h ${PREFIX}/yaffle-${YAFFLE_VERSION}/support/refc
