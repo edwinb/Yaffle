@@ -1,8 +1,7 @@
 module Compiler.Separate
 
-import public Core.FC
-import public Core.Name
-import public Core.Name.Namespace
+import public Core.TT
+import public Core.TT.Namespace
 import public Core.CompileExpr
 import public Compiler.VMCode
 import public Libraries.Data.Graph
