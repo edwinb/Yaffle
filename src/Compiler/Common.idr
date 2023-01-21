@@ -24,12 +24,10 @@ import Data.List1
 import Libraries.Data.NameMap
 import Data.String as String
 
-import Idris.Syntax
-import Idris.Env
-
 import System.Directory
 import System.Info
 
+{-
 %default covering
 
 ||| Generic interface to some code generator

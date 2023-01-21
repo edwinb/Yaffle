@@ -5,7 +5,7 @@ sourcedir = "src"
 
 modules
   = 
---     Compiler.ANF,
+    Compiler.ANF,
     Compiler.CaseOpts,
 --     Compiler.Common,
     Compiler.CompileExpr,
@@ -14,7 +14,7 @@ modules
 --     Compiler.LambdaLift,
     Compiler.NoMangle,
 --     Compiler.Separate,
---     Compiler.VMCode,
+    Compiler.VMCode,
 
     Compiler.Opts.ConstantFold,
     Compiler.Opts.CSE,
