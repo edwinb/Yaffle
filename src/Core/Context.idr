@@ -275,6 +275,20 @@ parameters {auto c : Ref Ctxt Defs}
 -- Dealing with various options
 
   export
+  getPPrint : Core PPrinter
+  getPPrint
+      = do defs <- get Ctxt
+           pure (printing (options defs))
+
+  export
+  setPPrint : PPrinter -> Core ()
+  setPPrint ppopts = update Ctxt { options->printing := ppopts }
+
+  export
+  setCG : CG -> Core ()
+  setCG cg = update Ctxt { options->session->codegen := cg }
+
+  export
   setPrefix : String -> Core ()
   setPrefix dir = update Ctxt { options->dirs->prefix_dir := dir }
 

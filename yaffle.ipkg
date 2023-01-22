@@ -102,6 +102,7 @@ modules
     -- Idris front end
     Idris.Env,
     Idris.REPL.Opts,
+    Idris.Resugar,
     Idris.Syntax,
     Idris.Syntax.Builtin,
     Idris.Syntax.Pragmas,
