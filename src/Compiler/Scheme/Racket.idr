@@ -9,7 +9,6 @@ import Core.Options
 import Core.Context
 import Core.Context.Log
 import Core.Directory
-import Core.Name
 import Core.TT
 import Protocol.Hex
 import Libraries.Utils.Path
@@ -20,7 +19,6 @@ import Data.String
 import Data.Vect
 
 import Idris.Env
-import Idris.Syntax
 
 import System
 import System.Directory
@@ -391,7 +389,7 @@ compileToRKT c appdir tm outfile
          compdefs <- traverse (getScheme racketPrim racketString) ndefs
          let code = fastConcat (map snd fgndefs ++ compdefs)
          main <- schExp racketPrim racketString 0 ctm
-         support <- readDataFile "racket/support.rkt"
+         support <- file $ readDataFile "racket/support.rkt"
          ds <- getDirectives Racket
          extraRuntime <- getExtraRuntime ds
          let prof = profile !getSession
@@ -403,14 +401,14 @@ compileToRKT c appdir tm outfile
                    support ++ extraRuntime ++ code ++
                    runmain ++ schFooter
          Right () <- coreLift $ writeFile outfile scm
-            | Left err => throw (FileErr outfile err)
+            | Left err => throw (FileErr (SystemFileErr outfile err))
          coreLift_ $ chmodRaw outfile 0o755
          pure ()
 
 makeSh : String -> String -> String -> String -> Core ()
 makeSh racket outShRel appdir outAbs
     = do Right () <- coreLift $ writeFile outShRel (startRacket racket appdir outAbs)
-            | Left err => throw (FileErr outShRel err)
+            | Left err => throw (FileErr (SystemFileErr outShRel err))
          pure ()
 
 ||| Make Windows start scripts, one for bash environments and one batch file
@@ -418,18 +416,17 @@ makeShWindows : String -> String -> String -> String -> Core ()
 makeShWindows racket outShRel appdir outAbs
     = do let cmdFile = outShRel ++ ".cmd"
          Right () <- coreLift $ writeFile cmdFile (startRacketCmd racket appdir outAbs)
-            | Left err => throw (FileErr cmdFile err)
+            | Left err => throw (FileErr (SystemFileErr cmdFile err))
          Right () <- coreLift $ writeFile outShRel (startRacketWinSh racket appdir outAbs)
-            | Left err => throw (FileErr outShRel err)
+            | Left err => throw (FileErr (SystemFileErr outShRel err))
          pure ()
 
 compileExpr :
   Bool ->
   Ref Ctxt Defs ->
-  Ref Syn SyntaxInfo ->
   (tmpDir : String) -> (outputDir : String) ->
   ClosedTerm -> (outfile : String) -> Core (Maybe String)
-compileExpr mkexec c s tmpDir outputDir tm outfile
+compileExpr mkexec c tmpDir outputDir tm outfile
     = do let appDirRel = outfile ++ "_app" -- relative to build dir
          let appDirGen = outputDir </> appDirRel -- relative to here
          coreLift_ $ mkdirAll appDirGen
@@ -466,10 +463,9 @@ compileExpr mkexec c s tmpDir outputDir tm outfile
 
 executeExpr :
   Ref Ctxt Defs ->
-  Ref Syn SyntaxInfo ->
   (tmpDir : String) -> ClosedTerm -> Core ()
-executeExpr c s tmpDir tm
-    = do Just sh <- compileExpr False c s tmpDir tmpDir tm "_tmpracket"
+executeExpr c tmpDir tm
+    = do Just sh <- compileExpr False c tmpDir tmpDir tm "_tmpracket"
             | Nothing => throw (InternalError "compileExpr returned Nothing")
          coreLift_ $ system [sh]
 
