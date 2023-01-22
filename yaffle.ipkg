@@ -112,7 +112,7 @@ modules
 
     Idris.Version,
 
---     Idris.IDEMode.CaseSplit,
+    Idris.IDEMode.CaseSplit,
     Idris.IDEMode.Commands,
 --     Idris.IDEMode.Holes,
 --     Idris.IDEMode.MakeClause,
@@ -120,7 +120,7 @@ modules
 --     Idris.IDEMode.Pretty,
 --     Idris.IDEMode.REPL,
 --     Idris.IDEMode.SyntaxHighlight,
---     Idris.IDEMode.TokenLine,
+    Idris.IDEMode.TokenLine,
 
     -- The language of TT with implicits
     TTImp.BindImplicits,
