@@ -542,6 +542,19 @@ export
 file : CoreFile a -> Core a
 file = wrap FileErr
 
+export
+writeFile : (fname : String) -> (content : String) -> CoreFile ()
+writeFile fname content =
+  coreLift (writeFile fname content) >>= \case
+    Right () => pure ()
+    Left err => throw $ SystemFileErr fname err
+
+export
+readFile : (fname : String) -> CoreFile String
+readFile fname =
+  coreLift (readFile fname) >>= \case
+    Right content => pure content
+    Left err => throw $ SystemFileErr fname err
 
 -- Not fully correct, see e.g. `UnreachableClause` where we don't check the
 -- Envs & Terms because we don't yet have equality instances for these
