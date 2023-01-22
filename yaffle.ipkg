@@ -101,7 +101,25 @@ modules
 
     -- Idris front end
     Idris.Env,
+    Idris.REPL.Opts,
+--     Idris.Syntax,
+--     Idris.Syntax.Builtin,
+--     Idris.Syntax.Pragmas,
+--     Idris.Syntax.TTC,
+--     Idris.Syntax.Traversals,
+--     Idris.Syntax.Views,
+
     Idris.Version,
+
+--     Idris.IDEMode.CaseSplit,
+--     Idris.IDEMode.Commands,
+--     Idris.IDEMode.Holes,
+--     Idris.IDEMode.MakeClause,
+--     Idris.IDEMode.Parser,
+--     Idris.IDEMode.Pretty,
+--     Idris.IDEMode.REPL,
+--     Idris.IDEMode.SyntaxHighlight,
+--     Idris.IDEMode.TokenLine,
 
     -- The language of TT with implicits
     TTImp.BindImplicits,
@@ -168,16 +186,16 @@ modules
     Parser.Support,
     Parser.Unlit,
 
---     Protocol.IDE,
---     Protocol.IDE.Command,
---     Protocol.IDE.Decoration,
---     Protocol.IDE.FileContext,
---     Protocol.IDE.Formatting,
---     Protocol.IDE.Holes,
---     Protocol.IDE.Result,
---     Protocol.IDE.Highlight,
     Protocol.Hex,
---     Protocol.SExp,
+    Protocol.IDE,
+    Protocol.IDE.Command,
+    Protocol.IDE.Decoration,
+    Protocol.IDE.FileContext,
+    Protocol.IDE.Formatting,
+    Protocol.IDE.Highlight,
+    Protocol.IDE.Holes,
+    Protocol.IDE.Result,
+    Protocol.SExp,
 --     Protocol.SExp.Parser,
 
     -- Things we'd expect in a base library, but since this project is the
