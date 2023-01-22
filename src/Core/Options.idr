@@ -54,7 +54,6 @@ public export
 data CG = Chez
         | ChezSep
         | Racket
-        | Gambit
         | Node
         | Javascript
         | RefC
@@ -66,7 +65,6 @@ Eq CG where
   Chez == Chez = True
   ChezSep == ChezSep = True
   Racket == Racket = True
-  Gambit == Gambit = True
   Node == Node = True
   Javascript == Javascript = True
   RefC == RefC = True
@@ -79,7 +77,6 @@ Show CG where
   show Chez = "chez"
   show ChezSep = "chez-sep"
   show Racket = "racket"
-  show Gambit = "gambit"
   show Node = "node"
   show Javascript = "javascript"
   show RefC = "refc"
@@ -210,7 +207,6 @@ availableCGs o
        ("node", Node),
        ("javascript", Javascript),
        ("refc", RefC),
-       ("gambit", Gambit),
        ("vmcode-interp", VMCodeInterp)] ++ additionalCGs o
 
 export

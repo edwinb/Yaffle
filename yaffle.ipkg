@@ -38,10 +38,9 @@ modules
 --     Compiler.RefC.CC,
 --     Compiler.RefC.RefC,
 
---     Compiler.Scheme.Chez,
+    Compiler.Scheme.Chez,
 --     Compiler.Scheme.ChezSep,
 --     Compiler.Scheme.Racket,
---     Compiler.Scheme.Gambit,
     Compiler.Scheme.Common,
 
     -- The Core 'Monad', a specialised IO+errors
