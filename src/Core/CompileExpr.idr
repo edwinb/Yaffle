@@ -152,7 +152,7 @@ mutual
 
   public export
   data NamedConAlt : Type where
-       MkNConAlt : Name -> ConInfo -> (tag : Maybe Int) -> (args : SnocList Name) ->
+       MkNConAlt : Name -> ConInfo -> (tag : Maybe Int) -> (args : List Name) ->
                    NamedCExp -> NamedConAlt
 
   public export
@@ -204,7 +204,7 @@ data CDef : Type where
 public export
 data NamedDef : Type where
      -- Normal function definition
-     MkNmFun : (args : SnocList Name) -> NamedCExp -> NamedDef
+     MkNmFun : (args : List Name) -> NamedCExp -> NamedDef
      -- Constructor
      MkNmCon : (tag : Maybe Int) -> (arity : Nat) -> (nt : Maybe Nat) -> NamedDef
      -- Foreign definition
@@ -340,7 +340,7 @@ mutual
   forgetConAlt locs (MkConAlt n ci t sc)
       = let (args ** exp) = getConScope sc
             args' = addLocs args locs in
-            MkNConAlt n ci t (conArgs args args') (forgetExp args' exp)
+            MkNConAlt n ci t (cast (conArgs args args')) (forgetExp args' exp)
 
   forgetConstAlt : Names vars -> CConstAlt vars -> NamedConstAlt
   forgetConstAlt locs (MkConstAlt c exp)
@@ -357,7 +357,7 @@ forgetDef : CDef -> NamedDef
 forgetDef (MkFun args def)
     = let ns = addLocs args [<]
           args' = conArgs {vars = [<]} args ns in
-          MkNmFun args' (forget def)
+          MkNmFun (cast args') (forget def)
 forgetDef (MkCon t a nt) = MkNmCon t a nt
 forgetDef (MkForeign ccs fargs ty) = MkNmForeign ccs fargs ty
 forgetDef (MkError err) = MkNmError (forget err)

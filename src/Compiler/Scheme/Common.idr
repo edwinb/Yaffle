@@ -4,7 +4,6 @@ import Compiler.Common
 import Compiler.CompileExpr
 
 import Core.Context
-import Core.Name
 import Core.TT
 
 import Data.Vect

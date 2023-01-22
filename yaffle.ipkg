@@ -7,7 +7,7 @@ modules
   = 
     Compiler.ANF,
     Compiler.CaseOpts,
---     Compiler.Common,
+    Compiler.Common,
     Compiler.CompileExpr,
 --     Compiler.Generated,
     Compiler.Inline,
@@ -41,7 +41,7 @@ modules
 --     Compiler.Scheme.ChezSep,
 --     Compiler.Scheme.Racket,
 --     Compiler.Scheme.Gambit,
---     Compiler.Scheme.Common,
+    Compiler.Scheme.Common,
 
     -- The Core 'Monad', a specialised IO+errors
     Core.Core,
