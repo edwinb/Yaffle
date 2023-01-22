@@ -102,9 +102,9 @@ modules
     -- Idris front end
     Idris.Env,
     Idris.REPL.Opts,
---     Idris.Syntax,
+    Idris.Syntax,
 --     Idris.Syntax.Builtin,
---     Idris.Syntax.Pragmas,
+    Idris.Syntax.Pragmas,
 --     Idris.Syntax.TTC,
 --     Idris.Syntax.Traversals,
 --     Idris.Syntax.Views,

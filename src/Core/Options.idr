@@ -114,6 +114,11 @@ data LangExt
      | Borrowing -- not yet implemented
 
 export
+Show LangExt where
+  show ElabReflection = "ElabReflection"
+  show Borrowing = "Borrowing"
+
+export
 Eq LangExt where
   ElabReflection == ElabReflection = True
   Borrowing == Borrowing = True

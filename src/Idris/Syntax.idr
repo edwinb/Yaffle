@@ -4,7 +4,6 @@ import public Core.Context
 import public Core.Context.Log
 import public Core.Core
 import public Core.FC
-import public Core.Normalise
 import public Core.Options
 import public Core.TT
 
@@ -16,6 +15,7 @@ import Data.SnocList
 import Data.String
 
 import public Idris.Syntax.Pragmas
+import public Idris.REPL.Opts
 
 import Libraries.Data.ANameMap
 import Libraries.Data.NameMap
@@ -437,7 +437,7 @@ mutual
        PNamespace : FC -> Namespace -> List (PDecl' nm) -> PDecl' nm
        PTransform : FC -> String -> PTerm' nm -> PTerm' nm -> PDecl' nm
        PRunElabDecl : FC -> PTerm' nm -> PDecl' nm
-       PDirective : FC -> Directive -> PDecl' nm
+       PDirective : FC -> Syntax.Directive -> PDecl' nm
        PBuiltin : FC -> BuiltinType -> Name -> PDecl' nm
 
   export
@@ -492,63 +492,6 @@ definedIn (PParameters _ _ pds :: ds) = definedIn pds ++ definedIn ds
 definedIn (PUsing _ _ pds :: ds) = definedIn pds ++ definedIn ds
 definedIn (PNamespace _ _ ns :: ds) = definedIn ns ++ definedIn ds
 definedIn (_ :: ds) = definedIn ds
-
-public export
-data REPLEval : Type where
-     EvalTC : REPLEval -- Evaluate as if part of the typechecker
-     NormaliseAll : REPLEval -- Normalise everything (default)
-     Execute : REPLEval -- Evaluate then pass to an executer
-     Scheme : REPLEval -- Use the scheme evaluator
-
-export
-Show REPLEval where
-  show EvalTC = "typecheck"
-  show NormaliseAll = "normalise"
-  show Execute = "execute"
-  show Scheme = "scheme"
-
-export
-Pretty Void REPLEval where
-  pretty EvalTC = pretty "typecheck"
-  pretty NormaliseAll = pretty "normalise"
-  pretty Execute = pretty "execute"
-  pretty Scheme = pretty "scheme"
-
-public export
-data REPLOpt : Type where
-     ShowImplicits : Bool -> REPLOpt
-     ShowNamespace : Bool -> REPLOpt
-     ShowMachineNames : Bool -> REPLOpt
-     ShowTypes : Bool -> REPLOpt
-     EvalMode : REPLEval -> REPLOpt
-     Editor : String -> REPLOpt
-     CG : String -> REPLOpt
-     Profile : Bool -> REPLOpt
-     EvalTiming : Bool -> REPLOpt
-
-export
-Show REPLOpt where
-  show (ShowImplicits impl) = "showimplicits = " ++ show impl
-  show (ShowNamespace ns) = "shownamespace = " ++ show ns
-  show (ShowMachineNames mn) = "showmachinenames = " ++ show mn
-  show (ShowTypes typs) = "showtypes = " ++ show typs
-  show (EvalMode mod) = "eval = " ++ show mod
-  show (Editor editor) = "editor = " ++ show editor
-  show (CG str) = "cg = " ++ str
-  show (Profile p) = "profile = " ++ show p
-  show (EvalTiming p) = "evaltiming = " ++ show p
-
-export
-Pretty Void REPLOpt where
-  pretty (ShowImplicits impl) = "showimplicits" <++> equals <++> pretty (show impl)
-  pretty (ShowNamespace ns) = "shownamespace" <++> equals <++> pretty (show ns)
-  pretty (ShowMachineNames mn) = "showmachinenames" <++> equals <++> pretty (show mn)
-  pretty (ShowTypes typs) = "showtypes" <++> equals <++> pretty (show typs)
-  pretty (EvalMode mod) = "eval" <++> equals <++> pretty mod
-  pretty (Editor editor) = "editor" <++> equals <++> pretty editor
-  pretty (CG str) = "cg" <++> equals <++> pretty str
-  pretty (Profile p) = "profile" <++> equals <++> pretty (show p)
-  pretty (EvalTiming p) = "evaltiming" <++> equals <++> pretty (show p)
 
 public export
 data EditCmd : Type where

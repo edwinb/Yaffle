@@ -122,3 +122,7 @@ lub x y = if x <= y then y else x
 export
 glb : RigCount -> RigCount -> RigCount
 glb x y = if x <= y then x else y
+
+export
+showCount : RigCount -> String
+showCount = elimSemi "0 " "1 " (const "")

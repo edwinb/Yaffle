@@ -1,5 +1,6 @@
 module Idris.Syntax.Pragmas
 
+import Core.Options
 import Data.List -- until 0.6.0 release
 import Data.String
 
@@ -29,25 +30,9 @@ data KwPragma
   | KwNfMetavarThreshold
   | KwSearchTimeOut
 
-public export
-data LangExt
-  = ElabReflection
-  | Borrowing -- not yet implemented
-
 export
 allLangExts : List LangExt
 allLangExts = [ElabReflection, Borrowing]
-
-export
-Show LangExt where
-  show ElabReflection = "ElabReflection"
-  show Borrowing = "Borrowing"
-
-export
-Eq LangExt where
-  ElabReflection == ElabReflection = True
-  Borrowing == Borrowing = True
-  _ == _ = False
 
 public export
 data PragmaArg
