@@ -8,7 +8,6 @@ import Compiler.Scheme.Common
 import Core.Context
 import Core.Context.Log
 import Core.Directory
-import Core.Name
 import Core.Options
 import Core.TT
 import Protocol.Hex
@@ -20,9 +19,6 @@ import Data.Maybe
 import Data.String
 import Data.Vect
 
-import Idris.Env
-import Idris.Syntax
-
 import System
 import System.Directory
 import System.Info
@@ -30,6 +26,7 @@ import System.Info
 import Libraries.Data.Version
 import Libraries.Utils.String
 
+{-
 %default covering
 
 export

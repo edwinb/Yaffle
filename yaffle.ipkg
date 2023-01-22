@@ -9,7 +9,7 @@ modules
     Compiler.CaseOpts,
     Compiler.Common,
     Compiler.CompileExpr,
---     Compiler.Generated,
+    Compiler.Generated,
     Compiler.Inline,
     Compiler.LambdaLift,
     Compiler.NoMangle,
