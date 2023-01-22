@@ -7,7 +7,7 @@ import Core.Context.Log
 import Core.Directory
 import Core.Options
 import Core.Env
-import Core.Normalise
+import Core.Evaluate
 import Data.List1
 import Data.String
 import Compiler.ES.Ast
@@ -20,11 +20,9 @@ import Libraries.Data.SortedMap
 import Protocol.Hex
 import Libraries.Data.String.Extra
 
-import Idris.Pretty.Annotations
-import Idris.Syntax
-import Idris.Doc.String
-
 import Data.Vect
+
+%hide Core.TT.TT.Tag
 
 --------------------------------------------------------------------------------
 --          Utilities
@@ -512,7 +510,7 @@ makeForeign n x = do
     "lambda" => pure . constant nd . paren $ Text def
     "support" => do
       let (name, lib) = breakDrop1 ',' def
-      lib_code <- readDataFile ("js/" ++ lib ++ ".js")
+      lib_code <- file $ readDataFile ("js/" ++ lib ++ ".js")
       addToPreamble lib lib_code
       pure . constant nd . Text $ lib ++ "_" ++ name
     "stringIterator" =>
@@ -727,9 +725,9 @@ printDoc Pretty y = pretty (y <+> LineBreak)
 printDoc Compact y = compact y
 printDoc Minimal y = compact y
 
+{-
 -- generate code for the given toplevel function.
 def :  {auto c : Ref Ctxt Defs}
-    -> {auto s : Ref Syn SyntaxInfo}
     -> {auto e : Ref ESs ESSt}
     -> {auto nm : Ref NoMangleMap NoMangleMap}
     -> Function

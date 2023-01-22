@@ -23,14 +23,15 @@ modules
     Compiler.Opts.InlineHeuristics,
     Compiler.Opts.ToplevelConstants,
 
---     Compiler.ES.Ast,
+-- Rest of this needs Idris pretty printing, so come back to it later
+    Compiler.ES.Ast,
 --     Compiler.ES.Codegen,
---     Compiler.ES.Doc,
+    Compiler.ES.Doc,
 --     Compiler.ES.Javascript,
 --     Compiler.ES.Node,
---     Compiler.ES.State,
---     Compiler.ES.TailRec,
---     Compiler.ES.ToAst,
+    Compiler.ES.State,
+    Compiler.ES.TailRec,
+    Compiler.ES.ToAst,
 
     Compiler.Interpreter.VMCode,
 

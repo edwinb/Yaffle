@@ -122,7 +122,7 @@ import Libraries.Data.Graph
 import Libraries.Data.SortedSet
 import Libraries.Data.List.Extra as L
 import Libraries.Data.SortedMap as M
-import Core.Name
+import Core.TT.Name
 import Core.CompileExpr
 import Core.Context
 
