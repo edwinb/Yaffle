@@ -1,6 +1,6 @@
 module Idris.IDEMode.MakeClause
 
-import Core.Name
+import Core.TT.Name
 import Parser.Lexer.Source
 import Parser.Unlit
 

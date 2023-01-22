@@ -4,6 +4,7 @@
 module Idris.IDEMode.Parser
 
 import Core.Core
+import Core.Error
 import Core.FC
 
 import Protocol.SExp

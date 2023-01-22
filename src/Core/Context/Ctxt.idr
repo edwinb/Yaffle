@@ -589,21 +589,6 @@ parameters {auto c : Ref Ctxt Defs}
            put Ctxt ({ gamma.stringTable $= Binary.Prims.addString s } defs)
            pure s
 
-export
-defNameType : Def -> Maybe NameType
-defNameType None = Nothing
-defNameType (Function {}) = Just Func
-defNameType (ExternDef {}) = Just Func
-defNameType (ForeignDef {}) = Just Func
-defNameType (DCon _ tag ar) = Just (DataCon tag ar)
-defNameType (TCon _ ar) = Just (TyCon ar)
-defNameType (Hole {}) = Just Func
-defNameType (BySearch {}) = Nothing
-defNameType (Guess {}) = Nothing
-defNameType ImpBind = Just Bound
-defNameType (UniverseLevel {}) = Nothing
-defNameType Delayed = Nothing
-
 --- HasNames and instances
 -- Conversion between full names and resolved names. We can only do this
 -- once we have a context to refer to to get the full names, so we'll
