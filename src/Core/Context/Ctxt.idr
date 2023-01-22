@@ -510,12 +510,10 @@ parameters {auto c : Ref Ctxt Defs}
            ignore $ addDef n ({ compexpr := Just cexp } gdef)
 
   export
-  addContextEntry : Ref STable (IntMap String) =>
-                    Name -> Binary Read -> CoreE err Int
+  addContextEntry : Name -> Binary Read -> CoreE err Int
   addContextEntry n def
       = do defs <- get Ctxt
-           smap <- get STable
-           (idx, gam') <- addEntry n (Coded smap def) (gamma defs)
+           (idx, gam') <- addEntry n (Coded def) (gamma defs)
            put Ctxt ({ gamma := gam' } defs)
            pure idx
 

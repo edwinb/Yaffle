@@ -19,15 +19,17 @@ import Core.TTC
 import Libraries.Data.IOArray
 import Libraries.Utils.Scheme
 
+import Data.Buffer
 import Data.List
 import Data.List1
+import Data.SnocList
+import Libraries.Data.IntMap
 import Libraries.Data.NameMap
 import Data.String as String
 
 import System.Directory
 import System.Info
 
-{-
 %default covering
 
 ||| Generic interface to some code generator
@@ -35,11 +37,11 @@ public export
 record Codegen where
   constructor MkCG
   ||| Compile an Idris 2 expression, saving it to a file.
-  compileExpr : Ref Ctxt Defs -> Ref Syn SyntaxInfo ->
+  compileExpr : Ref Ctxt Defs ->
                 (tmpDir : String) -> (outputDir : String) ->
                 ClosedTerm -> (outfile : String) -> Core (Maybe String)
   ||| Execute an Idris 2 expression directly.
-  executeExpr : Ref Ctxt Defs -> Ref Syn SyntaxInfo ->
+  executeExpr : Ref Ctxt Defs ->
                 (tmpDir : String) -> ClosedTerm -> Core ()
   ||| Incrementally compile definitions in the current module (toIR defs)
   ||| if supported
@@ -47,7 +49,7 @@ record Codegen where
   ||| file, if successful, plus any other backend specific data in a list
   ||| of strings. The generated object file should be placed in the same
   ||| directory as the associated TTC.
-  incCompileFile : Maybe (Ref Ctxt Defs -> Ref Syn SyntaxInfo ->
+  incCompileFile : Maybe (Ref Ctxt Defs ->
                           (sourcefile : String) ->
                           Core (Maybe (String, List String)))
   ||| If incremental compilation is supported, get the output file extension
@@ -77,10 +79,10 @@ Ord UsePhase where
 public export
 record CompileData where
   constructor MkCompileData
-  mainExpr : CExp [] -- main expression to execute. This also appears in
-                     -- the definitions below as MN "__mainExpression" 0
-                     -- For incremental compilation and for compiling exported
-                     -- names only, this can be set to 'erased'.
+  mainExpr : CExp [<] -- main expression to execute. This also appears in
+                      -- the definitions below as MN "__mainExpression" 0
+                      -- For incremental compilation and for compiling exported
+                      -- names only, this can be set to 'erased'.
   exported : List (Name, String) -- names to be made accessible to the foreign
                      -- and what they should be called in that language
   namedDefs : List (Name, FC, NamedDef)
@@ -100,65 +102,62 @@ record CompileData where
 ||| that executes the `compileExpr` method of the Codegen
 export
 compile : {auto c : Ref Ctxt Defs} ->
-          {auto s : Ref Syn SyntaxInfo} ->
           Codegen ->
           ClosedTerm -> (outfile : String) -> Core (Maybe String)
-compile {c} {s} cg tm out
+compile {c} cg tm out
     = do d <- getDirs
          let tmpDir = execBuildDir d
          let outputDir = outputDirWithDefault d
-         ensureDirectoryExists tmpDir
-         ensureDirectoryExists outputDir
+         file $ ensureDirectoryExists tmpDir
+         file $ ensureDirectoryExists outputDir
          logTime 1 "Code generation overall" $
-             compileExpr cg c s tmpDir outputDir tm out
+             compileExpr cg c tmpDir outputDir tm out
 
 ||| execute
 ||| As with `compile`, produce a functon that executes
 ||| the `executeExpr` method of the given Codegen
 export
 execute : {auto c : Ref Ctxt Defs} ->
-          {auto s : Ref Syn SyntaxInfo} ->
           Codegen -> ClosedTerm -> Core ()
-execute {c} {s} cg tm
+execute {c} cg tm
     = do d <- getDirs
          let tmpDir = execBuildDir d
-         ensureDirectoryExists tmpDir
-         executeExpr cg c s tmpDir tm
+         file $ ensureDirectoryExists tmpDir
+         executeExpr cg c tmpDir tm
 
 export
 incCompile : {auto c : Ref Ctxt Defs} ->
-             {auto s : Ref Syn SyntaxInfo} ->
              Codegen -> String -> Core (Maybe (String, List String))
-incCompile {c} {s} cg src
+incCompile {c} cg src
     = do let Just inc = incCompileFile cg
              | Nothing => pure Nothing
-         inc c s src
+         inc c src
 
 -- If an entry isn't already decoded, get the minimal entry we need for
 -- compilation, and record the Binary so that we can put it back when we're
 -- done (so that we don't obliterate the definition)
-getMinimalDef : ContextEntry -> Core (GlobalDef, Maybe (Namespace, Binary))
+getMinimalDef : ContextEntry -> CoreTTC (GlobalDef, Maybe (Binary Read))
 getMinimalDef (Decoded def) = pure (def, Nothing)
-getMinimalDef (Coded ns bin)
+getMinimalDef (Coded bin)
     = do b <- newRef Bin bin
-         cdef <- fromBuf b
-         refsRList <- fromBuf b
+         cdef <- fromBuf
+         refsRList <- fromBuf
          let refsR = map fromList refsRList
-         fc <- fromBuf b
-         mul <- fromBuf b
-         name <- fromBuf b
+         loc <- fromBuf
+         mul <- fromBuf
+         name <- fromBuf
          let def
-             = MkGlobalDef fc name (Erased fc Placeholder) [] [] [] [] mul
-                           [] Public (MkTotality Unchecked IsCovering)
-                           [] Nothing refsR False False True
+             = MkGlobalDef loc name (Erased loc Placeholder) [] [] [] [] mul
+                           [<] Public (MkTotality Unchecked IsCovering)
+                           [] Nothing refsR False
                            None cdef Nothing [] Nothing
-         pure (def, Just (ns, bin))
+         pure (def, Just bin)
 
 -- ||| Recursively get all calls in a function definition
 -- ||| Note: this only checks resolved names
 getAllDesc : {auto c : Ref Ctxt Defs} ->
              List Name -> -- calls to check
-             IOArray (Int, Maybe (Namespace, Binary)) ->
+             IOArray (Int, Maybe (Binary Read)) ->
                             -- which nodes have been visited. If the entry is
                             -- present, it's visited. Keep the binary entry, if
                             -- we partially decoded it, so that we can put back
@@ -174,7 +173,7 @@ getAllDesc (n@(Resolved i) :: rest) arr defs
             Nothing => do log "compile.execute" 20 $ "Couldn't find " ++ show n
                           getAllDesc rest arr defs
             Just (_, entry) =>
-              do (def, bin) <- getMinimalDef entry
+              do (def, bin) <- ttc $ getMinimalDef entry
                  ignore $ addDef n def
                  let refs = refersToRuntime def
                  if multiplicity def /= erased
@@ -203,10 +202,10 @@ getNamedDef (n,fc,cdef) =
    in warnIfHole n ndef >> pure (n,fc,ndef)
 
 replaceEntry : {auto c : Ref Ctxt Defs} ->
-               (Int, Maybe (Namespace, Binary)) -> Core ()
+               (Int, Maybe (Binary Read)) -> Core ()
 replaceEntry (i, Nothing) = pure ()
-replaceEntry (i, Just (ns, b))
-    = ignore $ addContextEntry ns (Resolved i) b
+replaceEntry (i, Just b)
+    = ignore $ addContextEntry (Resolved i) b
 
 natHackNames : List Name
 natHackNames =
@@ -219,7 +218,7 @@ dumpIR : Show def => String -> List (Name, def) -> Core ()
 dumpIR fn lns
     = do let cstrs = map dumpDef lns
          Right () <- coreLift $ writeFile fn (fastConcat cstrs)
-               | Left err => throw (FileErr fn err)
+               | Left err => throw (FileErr (SystemFileErr fn err))
          pure ()
   where
     fullShow : Name -> String
@@ -228,7 +227,6 @@ dumpIR fn lns
 
     dumpDef : (Name, def) -> String
     dumpDef (n, d) = fullShow n ++ " = " ++ show d ++ "\n"
-
 
 export
 nonErased : {auto c : Ref Ctxt Defs} ->
@@ -337,7 +335,7 @@ getCompileDataWith exports doLazyAnnots phase_in tm_in
                               traverse (lambdaLift doLazyAnnots) cseDefs
                          else pure []
 
-         let lifted = (mainname, MkLFun [] [] liftedtm) ::
+         let lifted = (mainname, MkLFun [<] [<] liftedtm) ::
                       ldefs ++ concat lifted_in
 
          anf <- if phase >= ANF
@@ -394,7 +392,7 @@ getCompileData = getCompileDataWith []
 
 export
 compileTerm : {auto c : Ref Ctxt Defs} ->
-              ClosedTerm -> Core (CExp [])
+              ClosedTerm -> Core (CExp [<])
 compileTerm tm_in
     = do tm <- toFullNames tm_in
          fixArityExp !(compileExp tm)
@@ -506,23 +504,36 @@ locate libspec
                                       fn ++ "." ++ ver ++ ".dylib")]
                                 (fn ++ "." ++ dylib_suffix ++ "." ++ ver)
 
-         fullname <- catch (findLibraryFile fname)
+         fullname <- catch (file $ findLibraryFile fname)
                            (\err => -- assume a system library so not
                                     -- in our library path
                                     pure fname)
          pure (fname, fullname)
+
+readBinaryFile : (fname : String) -> IO (Either FileError (Buffer, Int))
+readBinaryFile fname
+    = do Right b <- createBufferFromFile fname
+               | Left err => pure (Left err)
+         bsize <- rawSize b
+         let bsize = cast bsize
+         pure (Right (b, bsize))
+
+writeBinaryFile : (fname : String) -> Int -> Buffer -> IO (Either FileError ())
+writeBinaryFile fname size buf
+    = do Right ok <- writeBufferToFile fname buf size
+               | Left (err, size) => pure (Left err)
+         pure (Right ok)
 
 export
 copyLib : (String, String) -> Core ()
 copyLib (lib, fullname)
     = if lib == fullname
          then pure ()
-         else do Right bin <- coreLift $ readFromFile fullname
+         else do Right (bin, size) <- coreLift $ readBinaryFile fullname
                     | Left err => pure () -- assume a system library installed globally
-                 Right _ <- coreLift $ writeToFile lib bin
-                    | Left err => throw (FileErr lib err)
+                 Right _ <- coreLift $ writeBinaryFile lib size bin
+                    | Left err => throw (FileErr (SystemFileErr lib err))
                  pure ()
-
 
 -- parses `--directive extraRuntime=/path/to/defs.scm` options for textual inclusion in generated
 -- source. Use with `%foreign "scheme:..."` declarations to write runtime-specific scheme calls.
@@ -546,7 +557,7 @@ getExtraRuntime directives
     readPath : String -> Core String
     readPath p = do
       Right contents <- coreLift $ readFile p
-        | Left err => throw (FileErr p err)
+        | Left err => throw (FileErr (SystemFileErr p err))
       pure contents
 
 ||| Cast implementations. Values of `ConstantPrimitives` can
