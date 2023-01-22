@@ -5,6 +5,7 @@ sourcedir = "src"
 
 modules
   = 
+    -- Idris-specific compiler back ends
     Compiler.ANF,
     Compiler.CaseOpts,
     Compiler.Common,
@@ -97,6 +98,10 @@ modules
     Core.Unify.State,
     Core.Unify.Unify,
     Core.Warning,
+
+    -- Idris front end
+    Idris.Env,
+    Idris.Version,
 
     -- The language of TT with implicits
     TTImp.BindImplicits,

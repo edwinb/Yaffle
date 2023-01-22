@@ -15,6 +15,15 @@ Conventions
 Some high level decisions
 -------------------------
 
+* Module hierarchy:
+  + `Idris.*` and `Compiler.*` can import from any part of the hierarchy
+  + `TTImp.*` may not import `Idris.*` or `Compiler.*`
+  + `Core.*` may not import `TTImp.*`, `Idris.*` or `Compiler.*`
+  + In other words: `Idris.*` and `Compiler.*` are considered Idris front-end,
+    `TTImp` is a library for elaborating TT with implicits, and `Core` is a
+    library for the core type theory.
+  + Eventually, `ttimp` should be a package of its own consisting of the
+    `TTImp.*` and `Core.*` parts of the hierarchy.
 * Let's not invent anything new unless we have absolutely no other option!
   It's more important to do what we already know as well as we possible
   can.
