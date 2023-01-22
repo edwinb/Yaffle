@@ -928,6 +928,12 @@ funKindedName nm = MkKindedName (Just Func) nm nm
 export
 Show KindedName where show = show . rawName
 
+export
+covering
+[Raw] Show KindedName where
+  showPrec d (MkKindedName nm fn rn) =
+    showCon d "MkKindedName" $ showArg nm ++ showArg @{Raw} fn ++ showArg @{Raw} rn
+
 public export
 data DotReason = NonLinearVar
                | VarApplied
