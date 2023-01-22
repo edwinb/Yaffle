@@ -39,4 +39,5 @@ jobs:
           make install
       - name: Build Yaffle
         run: |
-          ~/.idris2/bin/idris2 --build 
+          export PATH=$PATH:$HOME/.idris2/bin
+          make all
