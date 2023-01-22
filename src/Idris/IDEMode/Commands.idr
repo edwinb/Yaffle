@@ -3,7 +3,7 @@ module Idris.IDEMode.Commands
 import Core.Core
 import Core.Context
 import Core.Context.Log
-import Core.Name
+import Core.TT.Name
 import public Idris.REPL.Opts
 import Protocol.Hex
 
