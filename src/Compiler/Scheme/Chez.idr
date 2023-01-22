@@ -13,6 +13,8 @@ import Core.TT
 import Protocol.Hex
 import Libraries.Utils.Path
 
+import Idris.Env
+
 import Data.List
 import Data.List1
 import Data.Maybe
@@ -26,7 +28,6 @@ import System.Info
 import Libraries.Data.Version
 import Libraries.Utils.String
 
-{-
 %default covering
 
 export
@@ -461,7 +462,7 @@ compileToSS c prof appdir tm outfile
          compdefs <- traverse (getScheme chezExtPrim chezString) ndefs
          let code = fastConcat (map snd fgndefs ++ compdefs)
          main <- schExp chezExtPrim chezString 0 ctm
-         support <- readDataFile "chez/support.ss"
+         support <- file $ readDataFile "chez/support.ss"
          extraRuntime <- getExtraRuntime ds
          let scm = schHeader chez (map snd libs) True ++
                    support ++ extraRuntime ++ code ++
@@ -469,7 +470,7 @@ compileToSS c prof appdir tm outfile
                    "(collect-request-handler (lambda () (collect) (blodwen-run-finalisers)))\n" ++
                    main ++ schFooter prof True
          Right () <- coreLift $ writeFile outfile scm
-            | Left err => throw (FileErr outfile err)
+            | Left err => throw (FileErr (SystemFileErr outfile err))
          coreLift_ $ chmodRaw outfile 0o755
 
 ||| Compile a Chez Scheme source file to an executable, daringly with runtime checks off.
@@ -484,7 +485,7 @@ compileToSO prof chez appDirRel outSsAbs
                      "[compile-file-message #f]) (compile-program " ++
                     show outSsAbs ++ "))"
          Right () <- coreLift $ writeFile tmpFileAbs build
-            | Left err => throw (FileErr tmpFileAbs err)
+            | Left err => throw (FileErr (SystemFileErr tmpFileAbs err))
          coreLift_ $ chmodRaw tmpFileAbs 0o755
          coreLift_ $ system [chez, "--script", tmpFileAbs]
          pure ()
@@ -503,7 +504,7 @@ compileToSSInc c mods libs appdir tm outfile
          loadsos <- traverse (loadSO appdir) (nub mods)
 
          main <- schExp chezExtPrim chezString 0 ctm
-         support <- readDataFile "chez/support.ss"
+         support <- file $ readDataFile "chez/support.ss"
 
          let scm = schHeader chez [] False ++
                    support ++
@@ -513,7 +514,7 @@ compileToSSInc c mods libs appdir tm outfile
                    main ++ schFooter False False
 
          Right () <- coreLift $ writeFile outfile scm
-            | Left err => throw (FileErr outfile err)
+            | Left err => throw (FileErr (SystemFileErr outfile err))
          coreLift_ $ chmodRaw outfile 0o755
          pure ()
 
@@ -521,7 +522,7 @@ compileToSSInc c mods libs appdir tm outfile
 makeSh : String -> String -> String -> Core ()
 makeSh outShRel appdir outAbs
     = do Right () <- coreLift $ writeFile outShRel (startChez appdir outAbs)
-            | Left err => throw (FileErr outShRel err)
+            | Left err => throw (FileErr (SystemFileErr outShRel err))
          pure ()
 
 ||| Make Windows start scripts, one for bash environments and one batch file
@@ -529,18 +530,17 @@ makeShWindows : String -> String -> String -> String -> String -> Core ()
 makeShWindows chez outShRel appdir outAbs progType
     = do let cmdFile = outShRel ++ ".cmd"
          Right () <- coreLift $ writeFile cmdFile (startChezCmd chez appdir outAbs progType)
-            | Left err => throw (FileErr cmdFile err)
+            | Left err => throw (FileErr (SystemFileErr cmdFile err))
          Right () <- coreLift $ writeFile outShRel (startChezWinSh chez appdir outAbs progType)
-            | Left err => throw (FileErr outShRel err)
+            | Left err => throw (FileErr (SystemFileErr outShRel err))
          pure ()
 
 compileExprWhole :
   Bool ->
   Ref Ctxt Defs ->
-  Ref Syn SyntaxInfo ->
   (tmpDir : String) -> (outputDir : String) ->
   ClosedTerm -> (outfile : String) -> Core (Maybe String)
-compileExprWhole makeitso c s tmpDir outputDir tm outfile
+compileExprWhole makeitso c tmpDir outputDir tm outfile
     = do let appDirRel = outfile ++ "_app" -- relative to build dir
          let appDirGen = outputDir </> appDirRel -- relative to here
          coreLift_ $ mkdirAll appDirGen
@@ -565,15 +565,14 @@ compileExprWhole makeitso c s tmpDir outputDir tm outfile
 compileExprInc :
   Bool ->
   Ref Ctxt Defs ->
-  Ref Syn SyntaxInfo ->
   (tmpDir : String) -> (outputDir : String) ->
   ClosedTerm -> (outfile : String) -> Core (Maybe String)
-compileExprInc makeitso c s tmpDir outputDir tm outfile
+compileExprInc makeitso c tmpDir outputDir tm outfile
     = do defs <- get Ctxt
          let Just (mods, libs) = lookup Chez (allIncData defs)
              | Nothing =>
                  do coreLift $ putStrLn $ "Missing incremental compile data, reverting to whole program compilation"
-                    compileExprWhole makeitso c s tmpDir outputDir tm outfile
+                    compileExprWhole makeitso c tmpDir outputDir tm outfile
          let appDirRel = outfile ++ "_app" -- relative to build dir
          let appDirGen = outputDir </> appDirRel -- relative to here
          coreLift_ $ mkdirAll appDirGen
@@ -596,31 +595,28 @@ compileExprInc makeitso c s tmpDir outputDir tm outfile
 compileExpr :
   Bool ->
   Ref Ctxt Defs ->
-  Ref Syn SyntaxInfo ->
   (tmpDir : String) -> (outputDir : String) ->
   ClosedTerm -> (outfile : String) -> Core (Maybe String)
-compileExpr makeitso c s tmpDir outputDir tm outfile
+compileExpr makeitso c tmpDir outputDir tm outfile
     = do sesh <- getSession
          if not (wholeProgram sesh) && (Chez `elem` incrementalCGs sesh)
-            then compileExprInc makeitso c s tmpDir outputDir tm outfile
-            else compileExprWhole makeitso c s tmpDir outputDir tm outfile
+            then compileExprInc makeitso c tmpDir outputDir tm outfile
+            else compileExprWhole makeitso c tmpDir outputDir tm outfile
 
 ||| Chez Scheme implementation of the `executeExpr` interface.
 ||| This implementation simply runs the usual compiler, saving it to a temp file, then interpreting it.
 executeExpr :
   Ref Ctxt Defs ->
-  Ref Syn SyntaxInfo ->
   (tmpDir : String) -> ClosedTerm -> Core ()
-executeExpr c s tmpDir tm
-    = do Just sh <- compileExpr False c s tmpDir tmpDir tm "_tmpchez"
+executeExpr c tmpDir tm
+    = do Just sh <- compileExpr False c tmpDir tmpDir tm "_tmpchez"
             | Nothing => throw (InternalError "compileExpr returned Nothing")
          coreLift_ $ system [sh]
 
 incCompile :
   Ref Ctxt Defs ->
-  Ref Syn SyntaxInfo ->
   (sourceFile : String) -> Core (Maybe (String, List String))
-incCompile c s sourceFile
+incCompile c sourceFile
     = do
          ssFile <- getTTCFileName sourceFile "ss"
          soFile <- getTTCFileName sourceFile "so"
@@ -644,7 +640,7 @@ incCompile c s sourceFile
                compdefs <- traverse (getScheme chezExtPrim chezString) ndefs
                let code = fastConcat (map snd fgndefs ++ compdefs)
                Right () <- coreLift $ writeFile ssFile code
-                  | Left err => throw (FileErr ssFile err)
+                  | Left err => throw (FileErr (SystemFileErr ssFile err))
 
                -- Compile to .so
                let tmpFileAbs = outputDir </> "compileChez"
@@ -652,7 +648,7 @@ incCompile c s sourceFile
                            "[compile-file-message #f]) (compile-file " ++
                           show ssFile ++ "))"
                Right () <- coreLift $ writeFile tmpFileAbs build
-                  | Left err => throw (FileErr tmpFileAbs err)
+                  | Left err => throw (FileErr (SystemFileErr tmpFileAbs err))
                coreLift_ $ system [chez, "--script", tmpFileAbs]
                pure (Just (soFilename, mapMaybe fst fgndefs))
 

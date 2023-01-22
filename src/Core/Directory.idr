@@ -1,5 +1,6 @@
 module Core.Directory
 
+import Core.Binary
 import Core.Context
 import Core.Context.Log
 import Core.Core
@@ -10,6 +11,7 @@ import Core.Options
 
 import Parser.Unlit
 
+import Libraries.Data.Version
 import Libraries.Utils.Path
 
 import Data.List
@@ -18,6 +20,56 @@ import Data.Maybe
 import System.Directory
 
 %default total
+
+------------------------------------------------------------------------
+-- Package directories
+
+export
+pkgGlobalDirectory : {auto c : Ref Ctxt Defs} -> Version -> Core String
+pkgGlobalDirectory version =
+  do d <- getDirs
+     pure (prefix_dir d </> "idris2-" ++ showVersion False version)
+
+export
+pkgLocalDirectory : {auto c : Ref Ctxt Defs} -> Core String
+pkgLocalDirectory =
+  do d <- getDirs
+     Just srcdir <- coreLift currentDir
+       | Nothing => throw (InternalError "Can't get current directory")
+     pure $ srcdir </> depends_dir d
+
+------------------------------------------------------------------------
+-- TTC directories
+
+export
+ttcBuildDirectory : {auto c : Ref Ctxt Defs} -> Core String
+ttcBuildDirectory =
+  do d <- getDirs
+     pure (build_dir d </> "ttc" </> show ttcVersion)
+
+export
+libInstallDirectory : {auto c : Ref Ctxt Defs} -> Version -> String -> Core String
+libInstallDirectory version lib =
+  do gbdir <- pkgGlobalDirectory version
+     pure (gbdir </> lib)
+
+export
+ttcInstallDirectory : {auto c : Ref Ctxt Defs} -> Version -> String -> Core String
+ttcInstallDirectory version lib =
+  do libDir <- libInstallDirectory version lib
+     pure (libDir </> show ttcVersion)
+
+export
+srcInstallDirectory : {auto c : Ref Ctxt Defs} -> Version -> String -> Core String
+srcInstallDirectory = libInstallDirectory
+
+export
+extraSearchDirectories : {auto c : Ref Ctxt Defs} -> Core (List String)
+extraSearchDirectories =
+  do d <- getDirs
+     pure (map (</> show ttcVersion) (extra_dirs d ++ package_dirs d))
+
+------------------------------------------------------------------------
 
 public export
 data IdrSrcExt = E_idr | E_lidr | E_yaff | E_org | E_md
