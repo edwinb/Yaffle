@@ -142,6 +142,21 @@ Show Def where
   show ImpBind = "Bound name"
   show Delayed = "Delayed"
 
+export
+defNameType : Def -> Maybe NameType
+defNameType None = Nothing
+defNameType (Function {}) = Just Func
+defNameType (ExternDef {}) = Just Func
+defNameType (ForeignDef {}) = Just Func
+defNameType (DCon _ tag ar) = Just (DataCon tag ar)
+defNameType (TCon _ ar) = Just (TyCon ar)
+defNameType (Hole {}) = Just Func
+defNameType (BySearch {}) = Nothing
+defNameType (Guess {}) = Nothing
+defNameType ImpBind = Just Bound
+defNameType (UniverseLevel {}) = Nothing
+defNameType Delayed = Nothing
+
 public export
 record Constructor where
   constructor MkCon

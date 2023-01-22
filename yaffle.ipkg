@@ -101,6 +101,9 @@ modules
 
     -- Idris front end
     Idris.Env,
+    Idris.Pretty,
+    Idris.Pretty.Annotations,
+    Idris.Pretty.Render,
     Idris.REPL.Opts,
     Idris.Resugar,
     Idris.Syntax,

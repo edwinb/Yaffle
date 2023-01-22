@@ -156,6 +156,12 @@ record GlobalDef where
   evaldef : Maybe CompiledTerm
 
 export
+gDefKindedName : GlobalDef -> KindedName
+gDefKindedName def
+  = let nm = fullname def in
+    MkKindedName (defNameType $ definition def) nm nm
+
+export
 refersTo : GlobalDef -> NameMap Bool
 refersTo def = maybe empty id (refersToM def)
 
