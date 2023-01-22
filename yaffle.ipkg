@@ -34,9 +34,9 @@ modules
 
     Compiler.Interpreter.VMCode,
 
---     Compiler.RefC,
---     Compiler.RefC.CC,
---     Compiler.RefC.RefC,
+    Compiler.RefC,
+    Compiler.RefC.CC,
+    Compiler.RefC.RefC,
 
     Compiler.Scheme.Chez,
     Compiler.Scheme.ChezSep,

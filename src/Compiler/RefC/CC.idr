@@ -58,8 +58,8 @@ compileCObjectFile {asLibrary} sourceFile objectFile =
      cFlags <- coreLift findCFLAGS
      cppFlags <- coreLift findCPPFLAGS
 
-     refcDir <- findDataFile "refc"
-     cDir <- findDataFile "c"
+     refcDir <- file $ findDataFile "refc"
+     cDir <- file $ findDataFile "c"
 
      let libraryFlag = if asLibrary then ["-fpic"] else []
 
@@ -87,8 +87,8 @@ compileCFile {asShared} objectFile outFile =
      ldFlags <- coreLift findLDFLAGS
 
      dirs <- getDirs
-     refcDir <- findDataFile "refc"
-     supportFile <- findLibraryFile "libidris2_support.a"
+     refcDir <- file $ findDataFile "refc"
+     supportFile <- file $ findLibraryFile "libidris2_support.a"
 
      let sharedFlag = if asShared then ["-shared"] else []
 
