@@ -168,8 +168,17 @@ modules
     Parser.Support,
     Parser.Unlit,
 
-
+--     Protocol.IDE,
+--     Protocol.IDE.Command,
+--     Protocol.IDE.Decoration,
+--     Protocol.IDE.FileContext,
+--     Protocol.IDE.Formatting,
+--     Protocol.IDE.Holes,
+--     Protocol.IDE.Result,
+--     Protocol.IDE.Highlight,
     Protocol.Hex,
+--     Protocol.SExp,
+--     Protocol.SExp.Parser,
 
     -- Things we'd expect in a base library, but since this project is the
     -- core of everything, include them here for bootstrapping.
