@@ -103,11 +103,11 @@ modules
     Idris.Env,
     Idris.REPL.Opts,
     Idris.Syntax,
---     Idris.Syntax.Builtin,
+    Idris.Syntax.Builtin,
     Idris.Syntax.Pragmas,
---     Idris.Syntax.TTC,
---     Idris.Syntax.Traversals,
---     Idris.Syntax.Views,
+    Idris.Syntax.TTC,
+    Idris.Syntax.Traversals,
+    Idris.Syntax.Views,
 
     Idris.Version,
 

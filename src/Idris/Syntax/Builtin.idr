@@ -1,6 +1,6 @@
 module Idris.Syntax.Builtin
 
-import Core.Name
+import Core.TT.Name
 
 %default total
 
