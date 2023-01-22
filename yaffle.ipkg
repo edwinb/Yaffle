@@ -32,7 +32,7 @@ modules
 --     Compiler.ES.TailRec,
 --     Compiler.ES.ToAst,
 
---     Compiler.Interpreter.VMCode,
+    Compiler.Interpreter.VMCode,
 
 --     Compiler.RefC,
 --     Compiler.RefC.CC,

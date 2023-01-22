@@ -4,12 +4,10 @@ import Core.Core
 import Core.Context
 import Core.Context.Log
 import Core.Primitives
-import Core.Value
+import Core.Evaluate
 
 import Compiler.Common
 import Compiler.VMCode
-
-import Idris.Syntax
 
 import Libraries.Data.IOArray
 import Libraries.Data.NameMap
@@ -113,8 +111,8 @@ indexMaybe (x :: xs) idx = if idx <= 0 then Just x else indexMaybe xs (idx - 1)
 callPrim : Ref State InterpState => Stack -> PrimFn ar -> Vect ar Object -> Core Object
 callPrim stk BelieveMe [_, _, obj] = pure obj
 callPrim stk fn args = case the (Either Object (Vect ar Constant)) $ traverse getConst args of
-    Right args' => case getOp {vars=[]} fn (NPrimVal EmptyFC <$> args') of
-        Just (NPrimVal _ res) => pure $ Const res
+    Right args' => case getOp {vars=[<]} fn (VPrimVal EmptyFC <$> args') of
+        Just (VPrimVal _ res) => pure $ Const res
         _ => interpError stk $ "OP: Error calling " ++ show (opName fn) ++ " with operands: " ++ show args'
     Left obj => interpError stk $ "OP: Expected Constant, found " ++ showType obj
   where
@@ -286,15 +284,13 @@ parameters {auto c : Ref Ctxt Defs}
 
 compileExpr :
   Ref Ctxt Defs ->
-  Ref Syn SyntaxInfo ->
   String -> String -> ClosedTerm -> String -> Core (Maybe String)
-compileExpr _ _ _ _ _ _ = throw (InternalError "compile not implemeted for vmcode-interp")
+compileExpr _ _ _ _ _ = throw (InternalError "compile not implemeted for vmcode-interp")
 
 executeExpr :
   Ref Ctxt Defs ->
-  Ref Syn SyntaxInfo ->
   String -> ClosedTerm -> Core ()
-executeExpr c s _ tm = do
+executeExpr c _ tm = do
     cdata <- getCompileData False VMCode tm
     st <- newRef State !(initInterpState cdata.vmcode)
     ignore $ callFunc [] (MN "__mainExpression" 0) []
