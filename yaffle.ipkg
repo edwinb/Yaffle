@@ -121,9 +121,12 @@ modules
     Idris.Package.Init,
     Idris.Package.Types,
 
+    Idris.Parser,
+    Idris.Parser.Let,
     Idris.Pretty,
     Idris.Pretty.Annotations,
     Idris.Pretty.Render,
+--     Idris.ProcessIdr,
     Idris.REPL.Common,
     Idris.REPL.Opts,
     Idris.Resugar,

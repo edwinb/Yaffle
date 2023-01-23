@@ -71,6 +71,12 @@ actH : String -> EmptyRule ()
 actH s = act (MkState [<] [s])
 
 export
+debugInfo : Rule DebugInfo
+debugInfo = terminal "Expected a magic debug info directive" $ \case
+  MagicDebugInfo di => Just di
+  _ => Nothing
+
+export
 eoi : EmptyRule ()
 eoi = ignore $ nextIs "Expected end of input" isEOI
   where
@@ -336,6 +342,13 @@ reservedNames
       , "Bits8", "Bits16", "Bits32", "Bits64"
       , "String", "Char", "Double", "Lazy", "Inf", "Force", "Delay"
       ]
+
+export
+anyReservedIdent : Rule (WithBounds String)
+anyReservedIdent = do
+    id <- bounds identPart
+    unless (id.val `elem` reservedNames) $ failLoc id.bounds "Expected reserved identifier"
+    pure id
 
 isNotReservedName : WithBounds String -> EmptyRule ()
 isNotReservedName x
