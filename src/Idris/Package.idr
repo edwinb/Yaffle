@@ -7,7 +7,7 @@ import Core.Context.Log
 import Core.Core
 import Core.Directory
 import Core.Metadata
-import Core.Name.Namespace
+import Core.TT.Namespace
 import Core.Options
 import Core.Unify
 
@@ -46,6 +46,7 @@ import Idris.Version
 import public Idris.Package.Types
 import Idris.Package.Init
 
+{-
 %default covering
 
 installDir : PkgDesc -> String

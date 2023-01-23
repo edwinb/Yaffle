@@ -101,6 +101,7 @@ modules
     Core.Warning,
 
     -- Idris front end
+    Idris.CommandLine,
     Idris.Desugar,
     Idris.Desugar.Mutual,
 
@@ -116,6 +117,7 @@ modules
 
     Idris.Env,
     Idris.Error,
+    Idris.ModTree,
 
 --     Idris.Package,
     Idris.Package.Init,
@@ -127,6 +129,7 @@ modules
     Idris.Pretty.Annotations,
     Idris.Pretty.Render,
     Idris.ProcessIdr,
+--     Idris.REPL,
     Idris.REPL.Common,
     Idris.REPL.Opts,
     Idris.Resugar,
