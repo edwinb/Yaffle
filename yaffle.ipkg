@@ -101,7 +101,7 @@ modules
     Core.Warning,
 
     -- Idris front end
---     Idris.Desugar,
+    Idris.Desugar,
     Idris.Desugar.Mutual,
 
     Idris.Doc.Annotations,

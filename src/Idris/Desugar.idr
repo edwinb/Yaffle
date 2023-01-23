@@ -42,8 +42,6 @@ import Data.List
 import Data.List.Views
 import Data.String
 
-{-
-
 -- Convert high level Idris declarations (PDecl from Idris.Syntax) into
 -- TTImp, recording any high level syntax info on the way (e.g. infix
 -- operators)
@@ -266,10 +264,10 @@ mutual
   desugarB side ps (PBracketed fc e) = desugarB side ps e
   desugarB side ps (POp fc opFC op l r)
       = do ts <- toTokList (POp fc opFC op l r)
-           desugarTree side ps !(parseOps ts)
+           desugarTree side ps !(shunt fc (parseOps ts))
   desugarB side ps (PPrefixOp fc opFC op arg)
       = do ts <- toTokList (PPrefixOp fc opFC op arg)
-           desugarTree side ps !(parseOps ts)
+           desugarTree side ps !(shunt fc (parseOps ts))
   desugarB side ps (PSectionL fc opFC op arg)
       = do syn <- get Syn
            -- It might actually be a prefix argument rather than a section
@@ -1072,7 +1070,7 @@ mutual
                              | _ => pure (Left Nothing)
                          -- otherwise have a look at the displayed message
                          log "desugar.failing" 10 $ "Failing block based on \{show msg} failed with \{show err}"
-                         test <- checkError msg err
+                         test <- Idris.Error.checkError msg err
                          pure $ Left $ do
                               -- Unless the error is the expected one
                               guard (not test)

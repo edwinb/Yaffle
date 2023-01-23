@@ -10,6 +10,7 @@ import public Data.IORef
 import System.File
 
 import Libraries.Data.Tap
+import Libraries.Data.IMaybe
 
 -- CoreE is a wrapper around IO that is specialised for efficiency.
 export
@@ -125,10 +126,24 @@ export %inline
 unless : Bool -> Lazy (CoreE err ()) -> CoreE err ()
 unless = when . not
 
+export
+iwhen : (b : Bool) -> Lazy (CoreE err a) -> CoreE err (IMaybe b a)
+iwhen True f = Just <$> f
+iwhen False _ = pure Nothing
+
+export
+iunless : (b : Bool) -> Lazy (CoreE err a) -> CoreE err (IMaybe (not b) a)
+iunless b f = iwhen (not b) f
+
 export %inline
 whenJust : Maybe a -> (a -> CoreE err ()) -> CoreE err ()
 whenJust (Just a) k = k a
 whenJust Nothing k = pure ()
+
+export
+iwhenJust : IMaybe b a -> (a -> CoreE err ()) -> CoreE err ()
+iwhenJust (Just a) k = k a
+iwhenJust Nothing k = pure ()
 
 -- Control.Catchable in Idris 1, just copied here (but maybe no need for
 -- it since we'll only have the one instance for Core Error...)

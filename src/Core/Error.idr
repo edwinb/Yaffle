@@ -12,6 +12,8 @@ import Data.List1
 import Data.String
 import System.File
 
+import Libraries.Utils.Shunting
+
 -- All the core TTImp errors
 
 public export
@@ -541,6 +543,10 @@ ttc = wrap TTCErr
 export
 file : CoreFile a -> Core a
 file = wrap FileErr
+
+export
+shunt : FC -> CoreSh a -> Core a
+shunt fc = wrap (\err => GenericMsg fc (show err))
 
 export
 writeFile : (fname : String) -> (content : String) -> CoreFile ()
