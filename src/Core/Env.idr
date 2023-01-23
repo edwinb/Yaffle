@@ -45,6 +45,13 @@ getBinder : Weaken tm =>
             (0 p : IsVar x idx vars) -> Env tm vars -> Binder (tm vars)
 getBinder el env = getBinderUnder [<] el env
 
+-- For getBinderLoc, we are not reusing getBinder because there is no need to
+-- needlessly weaken stuff;
+export
+getBinderLoc : {vars : _} -> {idx : Nat} -> (0 p : IsVar x idx vars) -> Env tm vars -> FC
+getBinderLoc {idx = Z}   First     (_ :< b)   = binderLoc b
+getBinderLoc {idx = S k} (Later p) (env :< _) = getBinderLoc p env
+
 getLetUnder : Weaken tm =>
                  {vars : _} -> {idx : Nat} ->
                  (ns : SnocList Name) ->

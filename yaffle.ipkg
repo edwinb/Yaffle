@@ -109,6 +109,7 @@ modules
     Idris.Doc.String,
 
     Idris.Env,
+    Idris.Error,
 
 --     Idris.Package,
     Idris.Package.Init,

@@ -972,6 +972,16 @@ Show DotReason where
   show UnderAppliedCon = "Under-applied constructor"
 
 export
+Pretty ann DotReason where
+  pretty NonLinearVar = reflow "Non linear pattern variable"
+  pretty VarApplied = reflow "Variable applied to arguments"
+  pretty NotConstructor = reflow "Not a constructor application or primitive"
+  pretty ErasedArg = reflow "Erased argument"
+  pretty UserDotted = reflow "User dotted"
+  pretty UnknownDot = reflow "Unknown reason"
+  pretty UnderAppliedCon = reflow "Under-applied constructor"
+
+export
 Eq LazyReason where
   (==) LInf LInf = True
   (==) LLazy LLazy = True

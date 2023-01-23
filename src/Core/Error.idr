@@ -556,18 +556,6 @@ readFile fname =
     Right content => pure content
     Left err => throw $ SystemFileErr fname err
 
--- Not fully correct, see e.g. `UnreachableClause` where we don't check the
--- Envs & Terms because we don't yet have equality instances for these
-export
-Eq Warning where
-  ParserWarning fc1 x1 == ParserWarning fc2 x2 = fc1 == fc2 && x1 == x2
-  UnreachableClause fc1 rho1 s1 == UnreachableClause fc2 rho2 s2 = fc1 == fc2
-  ShadowingGlobalDefs fc1 xs1 == ShadowingGlobalDefs fc2 xs2 = fc1 == fc2 && xs1 == xs2
-  ShadowingLocalBindings fc1 xs1 == ShadowingLocalBindings fc2 xs2 = fc1 == fc2 && xs1 == xs2
-  Deprecated x1 y1 == Deprecated x2 y2 = x1 == x2 && y1 == y2
-  GenericWarn x1 == GenericWarn x2 = x1 == x2
-  _ == _ = False
-
 export
 Eq FileError where
   GenericFileError x1 == GenericFileError x2 = x1 == x2
