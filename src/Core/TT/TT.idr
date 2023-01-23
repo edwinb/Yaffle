@@ -707,6 +707,11 @@ ClosedTerm : Type
 ClosedTerm = Term [<]
 
 export
+isErased : Term vars -> Bool
+isErased (Erased _ _) = True
+isErased _ = False
+
+export
 getLoc : Term vars -> FC
 getLoc (Local fc _ _) = fc
 getLoc (Ref fc _ _) = fc
