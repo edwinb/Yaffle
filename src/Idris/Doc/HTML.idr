@@ -16,6 +16,7 @@ import Idris.Package.Types
 import Idris.Pretty
 import Idris.Version
 
+{-
 %default covering
 
 getNS : Name -> String

@@ -4,6 +4,7 @@ import Core.Context
 import Core.Context.Log
 import Core.Core
 import Core.Env
+import Core.Evaluate
 import Core.TT
 import Core.TT.Traversals
 
@@ -39,7 +40,6 @@ import public Idris.Doc.Annotations
 import Idris.Doc.Keywords
 import Idris.Doc.Brackets
 
-{-
 %default covering
 
 -- Add a doc string for a name in the current namespace
@@ -87,16 +87,15 @@ prettyType : {auto c : Ref Ctxt Defs} ->
              {auto s : Ref Syn SyntaxInfo} ->
              (IdrisSyntax -> ann) -> ClosedTerm -> Core (Doc ann)
 prettyType syn ty = do
-  defs <- get Ctxt
-  ty <- normaliseHoles defs [] ty
+  ty <- normaliseHoles [<] ty
   ty <- toFullNames ty
-  ty <- resugar [] ty
+  ty <- resugar [<] ty
   pure (prettyBy syn ty)
 
 ||| Look up implementations
 getImplDocs : {auto c : Ref Ctxt Defs} ->
               {auto s : Ref Syn SyntaxInfo} ->
-              (keep : Term [] -> Core Bool) ->
+              (keep : ClosedTerm -> Core Bool) ->
               Core (List (Doc IdrisDocAnn))
 getImplDocs keep
     = do defs <- get Ctxt
@@ -108,10 +107,10 @@ getImplDocs keep
               let Just Func = defNameType (definition def)
                 | _ => pure []
               -- Check that the type mentions the name of interest
-              ty <- toFullNames !(normaliseHoles defs [] (type def))
+              ty <- toFullNames !(normaliseHoles [<] (type def))
               True <- keep ty
                 | False => pure []
-              ty <- resugar [] ty
+              ty <- resugar [<] ty
               pure [annotate (Decl impl) $ prettyBy Syntax ty]
          pure $ case concat docss of
            [] => []
@@ -156,7 +155,7 @@ getDocsForPrimitive constant = do
     let (_, type) = checkPrim EmptyFC constant
     let typeString = prettyBy Syntax constant
                      <++> colon
-                     <++> prettyBy Syntax !(resugar [] type)
+                     <++> prettyBy Syntax !(resugar [<] type)
     hintsDoc <- getHintsForPrimitive constant
     pure $ vcat $ typeString
                :: indent 2 (primDoc constant)
@@ -410,10 +409,11 @@ getDocsForName fc n config
              | [ifacedata] => (Just "interface",) . pure <$> getIFaceDoc ifacedata
              | _ => pure (Nothing, []) -- shouldn't happen, we've resolved ambiguity by now
          case definition d of
-           PMDef _ _ _ _ _ => pure (Nothing, catMaybes [ showTotal (totality d)
-                                                       , pure (showVisible (visibility d))])
-           TCon _ _ _ _ _ _ cons _ =>
-             do let tot = catMaybes [ showTotal (totality d)
+           Function {} => pure (Nothing, catMaybes [ showTotal (totality d)
+                                       , pure (showVisible (visibility d))])
+           TCon ti _ =>
+             do let cons = datacons ti
+                let tot = catMaybes [ showTotal (totality d)
                                     , pure (showVisible (visibility d))]
                 cdocs <- traverse (getDConDoc <=< toFullNames) cons
                 cdoc <- case cdocs of
@@ -442,7 +442,7 @@ getDocsForName fc n config
                                (pure (Nothing, []))
 
              -- Then form the type declaration
-             ty <- resugar [] =<< normaliseHoles defs [] (type def)
+             ty <- resugar [<] =<< normaliseHoles [<] (type def)
              -- when printing e.g. interface methods there is no point in
              -- repeating the interface's name
              let ty = ifThenElse (not dropFirst) ty $ case ty of
@@ -453,7 +453,7 @@ getDocsForName fc n config
              let cat = showCategory Syntax def
              let nm = prettyKindedName typ $ cat
                     $ ifThenElse longNames (pretty0 (show nm)) (prettyName nm)
-             let deprecated = if Context.Deprecate `elem` def.flags
+             let deprecated = if CtxtData.Deprecate `elem` def.flags
                                  then annotate Deprecation "=DEPRECATED=" <+> line else emptyDoc
              let docDecl = deprecated
                      <+> annotate (Decl n) (hsep [prig <+> nm, colon, prettyBy Syntax ty])
@@ -495,7 +495,7 @@ getDocsForImplementation t = do
     -- get the return type of all the candidate hints
     Just (ix, def) <- lookupCtxtExactI hint (gamma defs)
       | Nothing => pure Nothing
-    ty <- resugar [] =<< normaliseHoles defs [] (type def)
+    ty <- resugar [<] =<< normaliseHoles [<] (type def)
     let (_, retTy) = underPis ty
     -- try to see whether it approximates what we are looking for
     -- we throw the head away because it'll be the interface name (I)

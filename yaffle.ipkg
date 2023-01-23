@@ -89,6 +89,7 @@ modules
     Core.TT.Name,
     Core.TT.Namespace,
     Core.TT.RigCount,
+    Core.TT.Traversals,
     Core.TT.TT, -- typechecked core language lives here
     Core.TT.Universes,
     Core.TTC,
@@ -105,7 +106,7 @@ modules
     Idris.Doc.Display,
     Idris.Doc.Keywords,
 --     Idris.Doc.HTML,
---     Idris.Doc.String,
+    Idris.Doc.String,
 
     Idris.Env,
     Idris.Pretty,

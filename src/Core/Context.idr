@@ -30,6 +30,15 @@ getVisibility fc n
               | Nothing => pure Private -- throw (UndefinedName fc n)
          pure $ visibility def
 
+export
+getFieldNames : Context -> Namespace -> List Name
+getFieldNames ctxt recNS
+  = let nms = resolvedAs ctxt in
+    keys $ flip filterBy nms $ \ n =>
+      case isRF n of
+        Nothing => False
+        Just (ns, field) => ns == recNS
+
 -- Find similar looking names in the context
 export
 getSimilarNames : {auto c : Ref Ctxt Defs} ->
