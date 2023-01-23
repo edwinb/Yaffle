@@ -144,7 +144,7 @@ writeTTCFile b file_in
            ttc $ do
              toBuf (importHashes file)
              toBuf (totalReq file)
-             toBuf (incData file)
+             toBuf @{IncData} (incData file)
              toBuf (imported file)
              toBuf (context file)
              toBuf (userHoles file)
@@ -170,7 +170,7 @@ readTTCFile readall file as b
       = ttc $ do
            importHashes <- fromBuf
            totalReq <- fromBuf
-           incData <- fromBuf
+           incData <- fromBuf @{IncData}
            imp <- fromBuf
            if not readall
               then pure (MkTTCFile importHashes totalReq incData

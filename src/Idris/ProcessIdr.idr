@@ -19,6 +19,7 @@ import Core.Env
 import Core.Hash
 import Core.Metadata
 import Core.Options
+import Core.TTCFile
 import Core.Unify
 
 import Parser.Unlit
@@ -38,14 +39,34 @@ import Idris.Syntax.TTC
 import Idris.Pretty
 import Idris.Doc.String
 
+import Data.Buffer
 import Data.List
 import Data.String
+import Libraries.Data.IntMap
 import Libraries.Data.SortedMap
 
 import System.File
 
-{-
 %default covering
+
+-- Process just enough to get the incremental compilation data from a file
+export
+readIncData : (headerID : String) -> -- TTM or TT2
+              (fname : String) ->
+              CoreTTC (List (CG, String, List String))
+readIncData hdr fname
+    = do Right b <- coreLift $ createBufferFromFile fname
+               | Left err => pure []
+         bsize <- cast {to = Integer} <$> coreLift (rawSize b)
+         stRef <- newRef STable empty
+         let filebuf = MkBin b stRef 0 bsize bsize
+         bin <- newRef Bin filebuf
+         -- Check header is okay
+         hdrR <- fromBuf @{RawString}
+         version <- fromBuf @{Wasteful}
+         hash <- fromBuf {a=Int}
+         incData <- fromBuf @{IncData}
+         pure incData
 
 -- If we're on an incremental codegen, check to see if the ttc was
 -- built with incremental.
@@ -56,7 +77,7 @@ missingIncremental ttcFile
   = catch (do s <- getSession
               if s.codegen `elem` s.incrementalCGs
                 then do
-                  incData <- readIncData ttcFile
+                  incData <- ttc $ readIncData "TT2" ttcFile
                   pure $ isNothing $ lookup s.codegen incData
                 else
                   pure False)
@@ -87,7 +108,7 @@ processDecl (PMutual fc ps)
 
 processDecl decl
     = catch (do impdecls <- desugarDecl [] decl
-                traverse_ (Check.processDecl [] (MkNested []) []) impdecls
+                traverse_ (Check.processDecl [] (MkNested []) [<]) impdecls
                 pure [])
             (\err => do giveUpConstraints -- or we'll keep trying...
                         pure [err])
@@ -117,7 +138,7 @@ readModule full loc vis imp as
          Just (syn, hash, more) <- readFromTTC False {extra = SyntaxInfo}
                                                   loc vis fname imp as
               | Nothing => when vis (setVisible (miAsNamespace imp)) -- already loaded, just set visibility
-         extendSyn syn
+         maybe (pure ()) extendSyn syn
 
          defs <- get Ctxt
          modNS <- getNS
@@ -154,7 +175,8 @@ readImportMeta : {auto c : Ref Ctxt Defs} ->
 readImportMeta imp
     = do Right ttcFileName <- nsToPath (loc imp) (path imp)
                | Left err => throw err
-         (_, interfaceHash) <- readHashes ttcFileName
+         Right interfaceHash <- ttc $ readHash "TT2" ttcFileName
+               | Left err => throw (FileErr (SystemFileErr ttcFileName err))
          pure (reexport imp, (nameAs imp, interfaceHash))
 
 prelude : Import
@@ -183,7 +205,7 @@ readAsMain fname
 
          replNS <- getNS
          replNestedNS <- getNestedNS
-         extendSyn syn
+         maybe (pure ()) extendSyn syn
 
          -- Read the main file's top level imported modules, so we have access
          -- to their names (and any of their public imports)
@@ -220,7 +242,7 @@ readHeader : {auto c : Ref Ctxt Defs} ->
              (path : String) -> (origin : ModuleIdent) -> Core Module
 readHeader path origin
     = do Right res <- coreLift (readFile path)
-            | Left err => throw (FileErr path err)
+            | Left err => throw (FileErr (SystemFileErr path err))
          -- Stop at the first :, that's definitely not part of the header, to
          -- save lexing the whole file unnecessarily
          setCurrentElabSource res -- for error printing purposes
@@ -262,16 +284,6 @@ isTTCOutdated ttcFile sourceFiles
            :: zipWith (\ src, tm => "\{src} : \{show tm}") sourceFiles srcTimes
        pure $ any (>= ttcTime) srcTimes
 
-||| If the source files hash hasn't changed
-export
-unchangedHash : (hashFn : Maybe String) -> (ttcFileName : String) -> (sourceFileName : String) -> Core Bool
-unchangedHash hashFn ttcFileName sourceFileName
-  = do Just sourceCodeHash        <- hashFileWith hashFn sourceFileName
-             | _ => pure False
-       (Just storedSourceHash, _) <- readHashes ttcFileName
-             | _ => pure False
-       pure $ sourceCodeHash == storedSourceHash
-
 export
 getCG : {auto o : Ref ROpts REPLOpts} ->
         {auto c : Ref Ctxt Defs} ->
@@ -279,9 +291,8 @@ getCG : {auto o : Ref ROpts REPLOpts} ->
 getCG Chez = pure $ Just codegenChez
 getCG ChezSep = pure $ Just codegenChezSep
 getCG Racket = pure $ Just codegenRacket
-getCG Gambit = pure $ Just codegenGambit
-getCG Node = pure $ Just codegenNode
-getCG Javascript = pure $ Just codegenJavascript
+getCG Node = pure $ Nothing -- FIXME: port JS backend -- Just codegenNode
+getCG Javascript = pure $ Nothing -- Just codegenJavascript
 getCG RefC = pure $ Just codegenRefC
 getCG VMCodeInterp = pure $ Just codegenVMCodeInterp
 getCG (Other s) = getCodegen s
@@ -330,19 +341,14 @@ processMod sourceFileName ttcFileName msg sourcecode origin
         log "module.hash" 5 $ "Interface hash of " ++ show ns ++ ": " ++ show (ifaceHash defs)
         log "module.hash" 5 $ "Import Interface hashes of " ++ show ns ++ " hashes:\n" ++
           show (sort importInterfaceHashes)
-        storedImportInterfaceHashes <- readImportHashes ttcFileName
+        storedImportInterfaceHashes <- ttc $ readImportHashes "TT2" ttcFileName
         log "module.hash" 5 $ "Stored interface hashes of " ++ ttcFileName ++ ":\n" ++
           show (sort storedImportInterfaceHashes)
-
-        let isUnchanged = if session.checkHashesInsteadOfModTime
-                             then unchangedHash (defs.options.hashFn)
-                             else (\ttc,src => not <$> (isTTCOutdated ttc [src]))
-        sourceUnchanged <- isUnchanged ttcFileName sourceFileName
 
         incrementalOK <- not <$> missingIncremental ttcFileName
 
         -- If neither the source nor the interface hashes of imports have changed then no rebuilding is needed
-        if (sourceUnchanged && sort importInterfaceHashes == sort storedImportInterfaceHashes && incrementalOK)
+        if (sort importInterfaceHashes == sort storedImportInterfaceHashes && incrementalOK)
            then -- Hashes the same, source up to date, just set the ns
                 -- for the REPL
                 do setNS (miAsNamespace ns)
@@ -423,7 +429,7 @@ process : {auto c : Ref Ctxt Defs} ->
           Core (List Error)
 process msgPrefix buildMsg sourceFileName ident
     = do Right res <- coreLift (readFile sourceFileName)
-               | Left err => pure [FileErr sourceFileName err]
+               | Left err => pure [FileErr (SystemFileErr sourceFileName err)]
          catch (do ttcFileName <- getTTCFileName sourceFileName "ttc"
                    Just errs <- logTime 1 ("Elaborating " ++ sourceFileName) $
                                    processMod sourceFileName ttcFileName
@@ -434,7 +440,7 @@ process msgPrefix buildMsg sourceFileName ident
                    if isNil errs
                       then
                         do ns <- ctxtPathToNS sourceFileName
-                           makeBuildDirectory ns
+                           file $ makeBuildDirectory ns
                            traverse_
                               (\cg =>
                                   do Just cgdata <- getCG cg

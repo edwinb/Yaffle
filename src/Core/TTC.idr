@@ -900,6 +900,53 @@ TTC CG where
              8 => pure VMCodeInterp
              _ => corrupt "CG"
 
+-- Incremental so needs to be done without string table
+export
+[IncData] TTC (List (CG, String, List String)) where
+  toBuf xs
+      = do toBuf (TailRec_length xs)
+           traverse_ toBufEntry xs
+    where
+      length_aux : List a -> Int -> Int
+      length_aux [] len = len
+      length_aux (_::xs) len = length_aux xs (1 + len)
+
+      TailRec_length : List a -> Int
+      TailRec_length xs = length_aux xs 0
+
+      toBufEntry : (CG, String, List String) -> CoreTTC ()
+      toBufEntry (cg, f, fs)
+          = do toBuf cg
+               toBuf @{RawString} f
+               toBuf (TailRec_length fs)
+               traverse_ (toBuf @{RawString}) fs
+
+  fromBuf
+      = do len <- fromBuf {a = Int}
+           readElems [] (integerToNat (cast len))
+    where
+      readRawStrings : Nat -> CoreTTC (List String)
+      readRawStrings Z = pure []
+      readRawStrings (S k)
+          = do s <- fromBuf @{RawString}
+               ss <- readRawStrings k
+               pure (s :: ss)
+
+      readElem : CoreTTC (CG, String, List String)
+      readElem
+          = do cg <- fromBuf
+               f <- fromBuf @{RawString}
+               len <- fromBuf {a = Int}
+               fs <- readRawStrings (integerToNat (cast len))
+               pure (cg, f, fs)
+
+      readElems : List (CG, String, List String) -> Nat ->
+                  CoreTTC (List (CG, String, List String))
+      readElems xs Z = pure (reverse xs)
+      readElems xs (S k)
+          = do val <- readElem
+               readElems (val :: xs) k
+
 export
 TTC PairNames where
   toBuf l

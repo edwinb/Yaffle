@@ -126,7 +126,7 @@ modules
     Idris.Pretty,
     Idris.Pretty.Annotations,
     Idris.Pretty.Render,
---     Idris.ProcessIdr,
+    Idris.ProcessIdr,
     Idris.REPL.Common,
     Idris.REPL.Opts,
     Idris.Resugar,

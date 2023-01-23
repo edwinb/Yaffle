@@ -2,6 +2,7 @@ module Core.Binary
 
 import public Core.Binary.Prims
 import Core.Core
+import Core.Options
 import Core.TT.Namespace
 
 import Data.Buffer
