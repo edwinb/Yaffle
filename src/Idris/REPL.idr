@@ -3,29 +3,27 @@ module Idris.REPL
 import Compiler.Common
 import Compiler.Inline
 
-import Core.Case.CaseTree
 import Core.CompileExpr
-import Core.CompileExpr.Pretty
 import Core.Context
 import Core.Context.Log
-import Core.Context.Pretty
 import Core.Directory
 import Core.Env
 import Core.FC
-import Core.LinearCheck
+import Core.Check.Linear
 import Core.Metadata
-import Core.Normalise
+import Core.Evaluate
 import Core.Options
 import Core.TT
-import Core.TT.Views
+-- import Core.TT.Views
 import Core.Termination
 import Core.Unify
-import Core.Value
 
-import Core.SchemeEval
+-- import Core.SchemeEval
 
 import Parser.Unlit
 
+import Idris.Pretty.CompileExpr
+import Idris.Pretty.Context
 import Idris.Desugar
 import Idris.Doc.Display
 import Idris.Doc.String
@@ -77,8 +75,6 @@ import Libraries.System.Directory.Tree
 
 import System
 import System.File
-
-{-
 
 %default covering
 
@@ -428,6 +424,7 @@ inferAndElab emode itm env
        ty <- getTerm gty
        pure (tm `WithType` ty)
 
+{-
 processEdit : {auto c : Ref Ctxt Defs} ->
               {auto u : Ref UST UState} ->
               {auto s : Ref Syn SyntaxInfo} ->

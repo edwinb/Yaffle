@@ -5,6 +5,7 @@ import Data.List
 import Data.SnocList
 import Data.Maybe
 import Data.String
+import Data.Vect
 import Libraries.Control.ANSI.SGR
 import Libraries.Data.String.Extra
 
@@ -12,6 +13,7 @@ import Parser.Lexer.Source
 
 import public Idris.Pretty.Annotations
 import public Idris.Pretty.Render
+import public Idris.Pretty.TT
 
 import public Libraries.Text.PrettyPrint.Prettyprinter
 import public Libraries.Text.PrettyPrint.Prettyprinter.Util

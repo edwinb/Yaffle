@@ -210,11 +210,6 @@ Pretty ann PrimType where
     WorldType => "%World"
 
 export
-Pretty ann Constant where
-  pretty (PrT x) = pretty x
-  pretty v = pretty0 $ show v
-
-export
 Eq PrimType where
   IntType == IntType = True
   Int8Type == Int8Type = True
@@ -773,7 +768,7 @@ Show Visibility where
   show Public = "public export"
 
 export
-Pretty ann Visibility where
+Pretty Void Visibility where
   pretty Private = pretty0 "private"
   pretty Export = pretty0 "export"
   pretty Public = pretty0 "public" <+> pretty0 "export"
