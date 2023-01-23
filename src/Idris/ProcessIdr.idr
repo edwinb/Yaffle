@@ -341,7 +341,7 @@ processMod sourceFileName ttcFileName msg sourcecode origin
         log "module.hash" 5 $ "Interface hash of " ++ show ns ++ ": " ++ show (ifaceHash defs)
         log "module.hash" 5 $ "Import Interface hashes of " ++ show ns ++ " hashes:\n" ++
           show (sort importInterfaceHashes)
-        storedImportInterfaceHashes <- ttc $ readImportHashes "TT2" ttcFileName
+        storedImportInterfaceHashes <- ttc $ readImportHashes ttcFileName
         log "module.hash" 5 $ "Stored interface hashes of " ++ ttcFileName ++ ":\n" ++
           show (sort storedImportInterfaceHashes)
 

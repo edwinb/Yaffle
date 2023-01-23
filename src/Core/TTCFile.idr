@@ -454,11 +454,10 @@ readFromTTC nestedns loc reexp fname modNS importAs
 -- Process just enough to get the hashes of the imported modules
 export
 readImportHashes
-         : (headerID : String) -> -- TTM or TT2
-           (fname : String) ->
+         : (fname : String) ->
            CoreTTC (List (Namespace, Int))
-readImportHashes hdr fname
-    = do Right buffer <- readNoStringTable hdr fname
+readImportHashes fname
+    = do Right buffer <- readNoStringTable "TT2" fname
              | _ => pure []
          bin <- newRef Bin buffer -- for reading the file into
          importHashes <- fromBuf
@@ -466,3 +465,16 @@ readImportHashes hdr fname
    where
      toNS : (RawNamespace, Int) -> (Namespace, Int)
      toNS (MkRawNS ns, i) = (ns, i)
+
+-- Process just enough to get the totality requirement of the imported modules
+export
+readTotalReq
+         : (fname : String) ->
+           CoreTTC (Maybe TotalReq)
+readTotalReq fname
+    = do Right buffer <- readNoStringTable "TT2" fname
+             | _ => pure Nothing
+         bin <- newRef Bin buffer -- for reading the file into
+         importHashes <- fromBuf {a = List (Namespace,Int)}
+         totalReq <- fromBuf
+         pure (Just totalReq)

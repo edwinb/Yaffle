@@ -430,6 +430,18 @@ initDefs
 
 parameters {auto c : Ref Ctxt Defs}
 
+  -- Reset the context, except for the options
+  export
+  clearCtxt : Core ()
+  clearCtxt
+      = do defs <- get Ctxt
+           put Ctxt ({ options := resetElab (options defs) } !initDefs)
+    where
+      resetElab : Options -> Options
+      resetElab opts =
+        let tot = totalReq (session opts) in
+        { elabDirectives := { totality := tot } defaultElab } opts
+
   -- Beware: if your hashable thing contains (potentially resolved) names,
   -- it'll be better to use addHashWithNames to make the hash independent
   -- of the internal numbering of names.

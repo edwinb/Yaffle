@@ -5,9 +5,10 @@ import Core.Context
 import Core.Context.Log
 import Core.Core
 import Core.Directory
+import Core.InitPrimitives
 import Core.Metadata
 import Core.Options
-import Core.InitPrimitives
+import Core.TTCFile
 import Core.Unify.State
 
 import Idris.Parser
@@ -25,7 +26,6 @@ import System.Directory
 import Libraries.Data.StringMap
 import Libraries.Data.String.Extra as Extra
 
-{-
 %default covering
 
 record ModTree where
@@ -145,7 +145,7 @@ checkTotalReq : {auto c : Ref Ctxt Defs} ->
 checkTotalReq sourceFile ttcFile expected
   = catch (do log "totality.requirement" 20 $
                 "Reading totalReq from " ++ ttcFile
-              Just got <- readTotalReq ttcFile
+              Just got <- ttc $ readTotalReq ttcFile
                 | Nothing => pure False
               log "totality.requirement" 20 $ unwords
                 [ "Got", show got, "and expected", show expected ++ ":"
@@ -163,25 +163,6 @@ needsBuildingTime : {auto c : Ref Ctxt Defs} ->
 needsBuildingTime sourceFile ttcFile depFiles
   = isTTCOutdated ttcFile (sourceFile :: depFiles)
 
-needsBuildingDepHash : {auto c : Ref Ctxt Defs} ->
-                 String -> Core Bool
-needsBuildingDepHash depFileName
-  = catch (do defs                   <- get Ctxt
-              depTTCFileName         <- getTTCFileName depFileName "ttc"
-              not <$> unchangedHash defs.options.hashFn depTTCFileName depFileName)
-          (\error => pure False)
-
-||| Build from source if any of the dependencies, or the associated source file,
-||| have been modified from the stored hashes.
-needsBuildingHash : {auto c : Ref Ctxt Defs} ->
-                    (sourceFile : String) -> (ttcFile : String) ->
-                    (depFiles : List String) -> Core Bool
-needsBuildingHash sourceFile ttcFile depFiles
-  = do defs                <- get Ctxt
-       sourceUnchanged <- unchangedHash defs.options.hashFn ttcFile sourceFile
-       depFilesHashDiffers <- any id <$> traverse needsBuildingDepHash depFiles
-       pure $ (not sourceUnchanged) || depFilesHashDiffers
-
 export
 needsBuilding :
   {auto c : Ref Ctxt Defs} ->
@@ -193,14 +174,8 @@ needsBuilding sourceFile ttcFile depFiles
        True <- coreLift $ exists ttcFile
          | False => pure True
        -- check if hash match
-       checkHashesInsteadOfTime <- checkHashesInsteadOfModTime <$> getSession
-       False <- ifThenElse checkHashesInsteadOfTime
-                           needsBuildingHash
-                           needsBuildingTime
-                  sourceFile ttcFile depFiles
+       False <- needsBuildingTime sourceFile ttcFile depFiles
          | True => pure True
-
-       log "import" 20 $ "\{ifThenElse checkHashesInsteadOfTime "Hashes" "Mod Times"} still valid for " ++ sourceFile
 
        False <- missingIncremental ttcFile
          | True => pure True
@@ -223,9 +198,8 @@ needsBuilding sourceFile ttcFile depFiles
        -- if it needs rebuilding then remove the buggy .ttc file to avoid going
        -- into an infinite loop!
        Right () <- coreLift $ removeFile ttcFile
-         | Left err => throw (FileErr ttcFile err)
+         | Left err => throw (FileErr (SystemFileErr ttcFile err))
        pure True
-
 
 buildMod : {auto c : Ref Ctxt Defs} ->
            {auto s : Ref Syn SyntaxInfo} ->
