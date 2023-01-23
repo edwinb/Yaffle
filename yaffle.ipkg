@@ -109,6 +109,11 @@ modules
     Idris.Doc.String,
 
     Idris.Env,
+
+--     Idris.Package,
+    Idris.Package.Init,
+    Idris.Package.Types,
+
     Idris.Pretty,
     Idris.Pretty.Annotations,
     Idris.Pretty.Render,
