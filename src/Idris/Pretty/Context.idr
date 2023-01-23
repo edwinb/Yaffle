@@ -8,6 +8,7 @@ import Idris.Doc.Annotations
 
 import Idris.Syntax
 import Idris.Pretty
+import Idris.Resugar
 
 import Core.Context
 
@@ -32,40 +33,37 @@ namespace Raw
   export
   prettyTree : {vars : _} -> Term vars -> Doc IdrisSyntax
   prettyAlt : {vars : _} -> CaseAlt vars -> Doc IdrisSyntax
+  prettyScope : {vars : _} -> CaseScope vars -> Doc IdrisSyntax
 
-{-
-  prettyTree (Case {name} idx prf ty alts)
+  prettyTree (Case fc c sc ty alts)
       = let ann = case ty of
                     Erased _ _ => ""
                     _ => space <+> keyword ":" <++> byShow ty
-        in case_ <++> annotate Bound (pretty0 name) <+> ann <++> of_
+        in case_ <++> annotate Bound (byShow sc) <+> ann <++> of_
          <+> nest 2 (hardline
          <+> vsep (assert_total (map prettyAlt alts)))
-  prettyTree (STerm i tm) = byShow tm
-  prettyTree (Unmatched msg) = "Error:" <++> pretty0 msg
-  prettyTree Impossible = "Impossible"
+  prettyTree tm = byShow tm
 
-  prettyAlt (ConCase n tag args sc)
-      = hsep (annotate (DCon (Just n)) (pretty0 n) ::  map pretty0 args)
-        <++> fatArrow
-        <+> let sc = prettyTree sc in
-            Union (spaces 1 <+> sc) (nest 2 (hardline <+> sc))
-  prettyAlt (DelayCase _ arg sc) =
+  prettyScope (RHS tm) = fatArrow <++> byShow tm
+  prettyScope (Arg c x sc) = annotate Bound (pretty0 x) <++> prettyScope sc
+
+  prettyAlt (ConCase _ n tag sc)
+      = annotate (DCon (Just n)) (pretty0 n) <++> prettyScope sc
+  prettyAlt (DelayCase _ _ arg sc) =
         keyword "Delay" <++> pretty0 arg
         <++> fatArrow
         <+> let sc = prettyTree sc in
             Union (spaces 1 <+> sc) (nest 2 (hardline <+> sc))
-  prettyAlt (ConstCase c sc) =
+  prettyAlt (ConstCase _ c sc) =
         pretty c
         <++> fatArrow
         <+> let sc = prettyTree sc in
             Union (spaces 1 <+> sc) (nest 2 (hardline <+> sc))
-  prettyAlt (DefaultCase sc) =
+  prettyAlt (DefaultCase _ sc) =
         keyword "_"
         <++> fatArrow
         <+> let sc = prettyTree sc in
             Union (spaces 1 <+> sc) (nest 2 (hardline <+> sc))
-            -}
 
   export
   prettyDef : Def -> Doc IdrisDocAnn
@@ -123,6 +121,46 @@ namespace Resugared
     {auto c : Ref Ctxt Defs} ->
     {auto s : Ref Syn SyntaxInfo} ->
     Env Term vars -> CaseAlt vars -> Core (Doc IdrisSyntax)
+  prettyScope : {vars : _} ->
+    {auto c : Ref Ctxt Defs} ->
+    {auto s : Ref Syn SyntaxInfo} ->
+    Env Term vars -> CaseScope vars -> Core (Doc IdrisSyntax)
+
+  prettyScope env (RHS tm) = do
+      tm <- prettyTree env tm
+      pure $ fatArrow <++> tm
+  prettyScope env (Arg c x sc) = do
+      sc <- prettyScope (env :< PVar emptyFC top Explicit (Erased emptyFC Placeholder)) sc
+      pure $ annotate Bound (pretty0 x) <++> sc
+
+  prettyAlt env (ConCase _ n tag sc) = do
+      sc <- prettyScope env sc
+      pure $ annotate (DCon (Just n)) (pretty0 n) <++> sc
+  prettyAlt env (DelayCase _ _ arg tm) = do
+      tm <- prettyTree (env :<
+              PVar emptyFC top Explicit (Erased emptyFC Placeholder) :<
+              PVar emptyFC top Explicit (Erased emptyFC Placeholder)) tm
+      pure $ keyword "Delay" <++> pretty0 arg
+        <++> fatArrow
+        <+> Union (spaces 1 <+> tm) (nest 2 (hardline <+> tm))
+  prettyAlt env (ConstCase _ c tm) = do
+      tm <- prettyTree env tm
+      pure $ pretty c <++> fatArrow <+>
+            Union (spaces 1 <+> tm) (nest 2 (hardline <+> tm))
+  prettyAlt env (DefaultCase _ tm) = do
+      tm <- prettyTree env tm
+      pure $ keyword "_" <++> fatArrow <+>
+            Union (spaces 1 <+> tm) (nest 2 (hardline <+> tm))
+
+  prettyTree env (Case fc c sc ty alts) = do
+      ann <- case ty of
+                  Erased _ _ => pure ""
+                  _ => do ty <- resugar env ty
+                          pure (space <+> keyword ":" <++> pretty ty)
+      alts <- assert_total (traverse (prettyAlt env) alts)
+      pure $ case_ <++> annotate Bound (byShow sc) <+> ann <++> of_
+         <+> nest 2 (hardline <+> vsep alts)
+  prettyTree env tm = pretty <$> resugar env tm
 
   export
   prettyDef : {auto c : Ref Ctxt Defs} ->

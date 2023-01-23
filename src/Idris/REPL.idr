@@ -13,6 +13,7 @@ import Core.Check.Linear
 import Core.Metadata
 import Core.Evaluate
 import Core.Options
+import Core.Search
 import Core.TT
 -- import Core.TT.Views
 import Core.Termination
@@ -56,7 +57,7 @@ import TTImp.TTImp
 import TTImp.Unelab
 import TTImp.Utils
 import TTImp.BindImplicits
-import TTImp.ProcessDecls
+import TTImp.ProcessFile
 
 import Data.SnocList -- until 0.6.0 release
 import Data.List
@@ -149,7 +150,7 @@ getEnvTerm : {vars : _} ->
              (vars' ** (Env Term vars', Term vars'))
 getEnvTerm (n :: ns) env (Bind fc x b sc)
     = if n == x
-         then getEnvTerm ns (b :: env) sc
+         then getEnvTerm ns (env :< b) sc
          else (_ ** (env, Bind fc x b sc))
 getEnvTerm _ env tm = (_ ** (env, tm))
 
@@ -158,7 +159,7 @@ displayPatTerm : {auto c : Ref Ctxt Defs} ->
                  Defs -> ClosedTerm ->
                  Core String
 displayPatTerm defs tm
-    = do ptm <- resugarNoPatvars [] !(normaliseHoles defs [] tm)
+    = do ptm <- resugarNoPatvars [<] !(normaliseHoles [<] tm)
          pure (show ptm)
 
 setOpt : {auto c : Ref Ctxt Defs} ->
@@ -239,7 +240,7 @@ updateFile update
          let Just f = mainfile opts
              | Nothing => pure (DisplayEdit emptyDoc) -- no file, nothing to do
          Right content <- coreLift $ readFile f
-               | Left err => throw (FileErr f err)
+               | Left err => throw (FileErr (SystemFileErr f err))
          coreLift_ $ writeFile (f ++ "~") content
          coreLift_ $ writeFile f (unlines (update (lines content)))
          pure (DisplayEdit emptyDoc)
@@ -344,7 +345,7 @@ dropLamsTm : {vars : _} ->
              Nat -> Env Term vars -> Term vars ->
              (vars' ** (Env Term vars', Term vars'))
 dropLamsTm Z env tm = (_ ** (env, tm))
-dropLamsTm (S k) env (Bind _ _ b sc) = dropLamsTm k (b :: env) sc
+dropLamsTm (S k) env (Bind _ _ b sc) = dropLamsTm k (env :< b) sc
 dropLamsTm _ env tm = (_ ** (env, tm))
 
 findInTree : FilePos -> Name -> PosMap (NonEmptyFC, Name) -> Maybe Name
@@ -380,7 +381,7 @@ findInTree p hint m
     match : (NonEmptyFC, Name) -> Bool
     match (_, n) = matches hint n && checkCandidate n
 
-record TermWithType (vars : List Name) where
+record TermWithType (vars : SnocList Name) where
   constructor WithType
   termOf : Term vars
   typeOf : Term vars
@@ -410,7 +411,7 @@ inferAndElab :
   Env Term vars ->
   Core (TermWithType vars)
 inferAndElab emode itm env
-  = do ttimp <- desugar AnyExpr vars itm
+  = do ttimp <- desugar AnyExpr (cast vars) itm
        let ttimpWithIt = ILocal replFC !getItDecls ttimp
        inidx <- resolveName (UN $ Basic "[input]")
        -- a TMP HACK to prioritise list syntax for List: hide
@@ -421,7 +422,7 @@ inferAndElab emode itm env
                  hide replFC (NS primIONS (UN $ Basic "Nil")))
              (\err => pure ())
        (tm , gty) <- elabTerm inidx emode [] (MkNested []) env ttimpWithIt Nothing
-       ty <- getTerm gty
+       ty <- quote env gty
        pure (tm `WithType` ty)
 
 {-
