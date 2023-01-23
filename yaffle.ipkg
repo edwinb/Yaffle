@@ -101,12 +101,18 @@ modules
     Core.Warning,
 
     -- Idris front end
+--     Idris.Desugar,
+    Idris.Desugar.Mutual,
+
     Idris.Doc.Annotations,
     Idris.Doc.Brackets,
     Idris.Doc.Display,
     Idris.Doc.Keywords,
     Idris.Doc.HTML,
     Idris.Doc.String,
+
+    Idris.Elab.Interface,
+    Idris.Elab.Implementation,
 
     Idris.Env,
     Idris.Error,
