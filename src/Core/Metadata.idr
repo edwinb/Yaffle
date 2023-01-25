@@ -98,6 +98,34 @@ record Metadata where
        semanticAliases : PosMap (NonEmptyFC, NonEmptyFC)
        semanticDefaults : PosMap ASemanticDecoration
 
+||| Combine semanticHighlighting, semanticAliases, and semanticDefaults into
+||| a single posmap with all the information
+export
+allSemanticHighlighting :
+  {auto c : Ref Ctxt Defs} ->
+  Metadata -> Core (PosMap ASemanticDecoration)
+allSemanticHighlighting meta = do
+    let semHigh = meta.semanticHighlighting
+    log "ide-mode.highlight" 19 $
+      "Semantic metadata is: " ++ show semHigh
+
+    let aliases
+          : List ASemanticDecoration
+          = flip foldMap meta.semanticAliases $ \ (from, to) =>
+              let decors = uncurry exactRange (snd to) semHigh in
+              map (\ ((fnm, loc), rest) => ((fnm, snd from), rest)) decors
+    log "ide-mode.highlight.alias" 19 $
+      "Semantic metadata from aliases is: " ++ show aliases
+
+    let defaults
+         : List ASemanticDecoration
+         = flip foldMap meta.semanticDefaults $ \ decor@((_, range), _) =>
+             case uncurry exactRange range semHigh of
+               [] => [decor]
+               _ => []
+
+    pure (fromList aliases `union` (fromList defaults `union` semHigh))
+
 covering
 Show Metadata where
   show (MkMetadata apps names tydecls currentLHS holeLHS nameLocMap

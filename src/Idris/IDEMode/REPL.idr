@@ -33,7 +33,7 @@ import Network.Socket
 import Network.Socket.Data
 import Network.Socket.Raw
 
-import TTImp.Interactive.Completion
+import Idris.Interactive.Completion
 
 import Libraries.Data.String.Extra -- until 0.6.0 release
 

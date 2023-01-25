@@ -57,7 +57,7 @@ getSimilarNames nm = case show <$> userNameRoot nm of
                Just def <- lookupCtxtExact nm (gamma defs)
                    | Nothing => pure Nothing -- should be impossible
                pure (Just (visibility def, dist))
-       kept <- mapMaybeM @{CORE} test (resolvedAs (gamma defs))
+       kept <- NameMap.mapMaybeM @{CORE} test (resolvedAs (gamma defs))
        pure $ Just (str, toList kept)
 
 export
@@ -582,13 +582,6 @@ parameters {auto c : Ref Ctxt Defs}
            update Ctxt { options->dirs->working_dir := cdir }
 
   export
-  getWorkingDir : CoreFile String
-  getWorkingDir
-      = do Just d <- coreLift $ currentDir
-                | Nothing => throw (TTFileErr "Can't get current directory")
-           pure d
-
-  export
   toFullNames : HasNames a =>
                 a -> Core a
   toFullNames t
@@ -712,6 +705,13 @@ parameters {auto c : Ref Ctxt Defs}
            Just def <- lookupCtxtExact n (gamma defs)
                 | Nothing => undefinedName fc n
            ignore $ addDef n ({ visibility := vis } def)
+
+export
+getWorkingDir : CoreFile String
+getWorkingDir
+    = do Just d <- coreLift $ currentDir
+              | Nothing => throw (TTFileErr "Can't get current directory")
+         pure d
 
 export
 isExtension : LangExt -> Defs -> Bool

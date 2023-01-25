@@ -188,6 +188,15 @@ export
 traverse : (a -> CoreE err b) -> List a -> CoreE err (List b)
 traverse f xs = traverse' f xs []
 
+export
+mapMaybeM : (a -> CoreE err (Maybe b)) -> List a -> CoreE err (List b)
+mapMaybeM f = go [<] where
+  go : SnocList b -> List a -> CoreE err (List b)
+  go acc [] = pure (acc <>> [])
+  go acc (a::as) = do
+    mb <- f a
+    go (maybe id (flip (:<)) mb acc) as
+
 %inline
 export
 for : List a -> (a -> CoreE err b) -> CoreE err (List b)

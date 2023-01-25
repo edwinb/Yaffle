@@ -46,7 +46,6 @@ import Idris.Version
 import public Idris.Package.Types
 import Idris.Package.Init
 
-{-
 %default covering
 
 installDir : PkgDesc -> String
@@ -531,7 +530,7 @@ installFrom builddir destdir ns = do
     let destFile = destdir </> filename_trunk <.> ext
     let Just (dir, _) = splitParent destFile
       | Nothing => pure Nothing
-    ensureDirectoryExists dir
+    file $ ensureDirectoryExists dir
     pure $ Just (srcFile, destFile)
 
   objPaths_in <- traverse
@@ -596,16 +595,16 @@ install pkg opts installSrc -- not used but might be in the future
     = do defs <- get Ctxt
          build <- ttcBuildDirectory
          let lib = installDir pkg
-         libTargetDir <- libInstallDirectory lib
-         ttcTargetDir <- ttcInstallDirectory lib
-         srcTargetDir <- srcInstallDirectory lib
+         libTargetDir <- libInstallDirectory version lib
+         ttcTargetDir <- ttcInstallDirectory version lib
+         srcTargetDir <- srcInstallDirectory version lib
 
          let src = source_dir (dirs (options defs))
          runScript (preinstall pkg)
          let toInstall = maybe (modules pkg)
                                (:: modules pkg)
                                (mainmod pkg)
-         wdir <- getWorkingDir
+         wdir <- file getWorkingDir
          -- Make the package installation directory
          Right _ <- coreLift $ mkdirAll libTargetDir
              | Left err => throw $ InternalError $ unlines
@@ -741,7 +740,7 @@ makeDoc pkg opts =
 
        errs <- for cssFiles $ \ cssFile => do
           let fn = cssFile.filename ++ ".css"
-          css <- readDataFile ("docs/" ++ fn)
+          css <- file $ readDataFile ("docs/" ++ fn)
           Right () <- coreLift $ writeFile (docBase </> fn) css
             | Left err => fileError (docBase </> fn) err
           pure (the (List Error) [])
@@ -758,7 +757,7 @@ makeDoc pkg opts =
       _ => (visibility def /= Private)
 
     fileError : String -> FileError -> Core (List Error)
-    fileError filename err = pure [FileErr filename err]
+    fileError filename err = pure [FileErr (SystemFileErr filename err)]
 
 -- Data.These.bitraverse hand specialised for Core
 bitraverseC : (a -> Core c) -> (b -> Core d) -> These a b -> Core (These c d)
@@ -801,7 +800,7 @@ clean pkg opts -- `opts` is not used but might be in the future
                                        [] => Nothing
                                        (x :: xs) => Just(xs, x))
                           pkgmods
-         srcdir <- getWorkingDir
+         srcdir <- file getWorkingDir
          let d = dirs (options defs)
          bdir <- ttcBuildDirectory
          let builddir = srcdir </> bdir </> "ttc"
@@ -862,7 +861,7 @@ runRepl fname = do
 localPackageFile : Maybe String -> Core String
 localPackageFile (Just fp) = pure fp
 localPackageFile Nothing
-  = do wdir <- getWorkingDir
+  = do wdir <- file getWorkingDir
        tree <- coreLift (explore $ parse wdir)
        let candidates = map fileName tree.files
        case filter (".ipkg" `isSuffixOf`) candidates of
@@ -884,16 +883,16 @@ processPackage opts (cmd, mfile)
              False <- coreLift (exists fp)
                | _ => throw (GenericMsg emptyFC ("File " ++ fp ++ " already exists"))
              Right () <- coreLift $ writeFile fp (show $ pretty pkg)
-               | Left err => throw (FileErr fp err)
+               | Left err => throw (FileErr (SystemFileErr fp err))
              pure ()
         _ =>
-          do file <- localPackageFile mfile
-             let Just (dir, filename) = splitParent file
+          do fname <- localPackageFile mfile
+             let Just (dir, filename) = splitParent fname
                  | _ => throw $ InternalError "Tried to split empty string"
              let True = isSuffixOf ".ipkg" filename
-                 | _ => do coreLift $ putStrLn ("Packages must have an '.ipkg' extension: " ++ show file ++ ".")
+                 | _ => do coreLift $ putStrLn ("Packages must have an '.ipkg' extension: " ++ show fname ++ ".")
                            coreLift (exitWith (ExitFailure 1))
-             setWorkingDir dir
+             file $ setWorkingDir dir
              pkg <- parsePkgFile True filename
              whenJust (builddir pkg) setBuildDir
              setOutputDir (outputdir pkg)
@@ -1013,7 +1012,7 @@ findIpkg fname
    = do Just (dir, ipkgn, up) <- coreLift findIpkgFile
              | Nothing => pure fname
         coreLift_ $ changeDir dir
-        setWorkingDir dir
+        file $ setWorkingDir dir
         pkg <- parsePkgFile True ipkgn
         maybe (pure ()) setBuildDir (builddir pkg)
         setOutputDir (outputdir pkg)

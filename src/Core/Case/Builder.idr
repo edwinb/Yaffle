@@ -1263,9 +1263,16 @@ makePMDef fc phase fn ty clauses
          log "compile.casetree.clauses" 25 $
            "All RHSes: " ++ (show allRHS)
          extraDefaults <- findExtraDefaults t
+         log "compile.casetree.clauses" 25 $
+           "Extra defaults: " ++ (show extraDefaults)
+         log "compile.casetree.clauses" 25 $
+           "Clause FCs: " ++ show (map getClauseFC clauses)
          let unreachable = getUnreachable (allRHS \\ extraDefaults) clauses
-         pure (_ ** (t, unreachable))
+         pure (_ ** (t, [])) -- TODO! FIXME! unreachable))
   where
+    getClauseFC : Clause -> FC
+    getClauseFC (MkClause _ _ rhs) = getLoc rhs
+
     getUnreachable : List FC -> List Clause -> List Clause
     getUnreachable is [] = []
     getUnreachable is (c@(MkClause _ _ rhs) :: cs)

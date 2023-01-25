@@ -23,6 +23,12 @@ lengthNoLet [<] = 0
 lengthNoLet (xs :< Let _ _ _ _) = lengthNoLet xs
 lengthNoLet (xs :< _) = S (lengthNoLet xs)
 
+export
+lengthExplicitPi : Env tm xs -> Nat
+lengthExplicitPi [<] = 0
+lengthExplicitPi (rho :< Pi _ _ Explicit _) = S (lengthExplicitPi rho)
+lengthExplicitPi (rho :< _) = lengthExplicitPi rho
+
 -- Weaken by all the names at once at the end, to save multiple traversals
 -- in big environments
 -- Also reversing the names at the end saves significant time over concatenating

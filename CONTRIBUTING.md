@@ -44,12 +44,21 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
+* Plough through `Idris.*` hierarchy and get the compiler at least building
+* Work through:
+  - Tests that use --noprelude
+  - Building the prelude and base libraries
+  - Other tests, other libraries
+  - Final big boss level: Frex and Collie
+  - Bonus big boss level: Bootstrapping
+
+Other details that still need checking:
+
 * 'expand' needs to know whether the name it's expanding is usable in the
   current namespace. At the moment, it will expand everything.
   - So we'll also need an alternate 'expandAll' for elaborator reflection
 * Port the Compiler hierarchy
-  - To test, make a basic IO monad in Yaffle and try compiling and running
-    some simple programs
+  - All but JS done
 * More tests for Yaffle
 * Termination checker
   - Tests for basic operation of termination and coverage checking

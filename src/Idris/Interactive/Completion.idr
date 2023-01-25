@@ -1,12 +1,14 @@
-module TTImp.Interactive.Completion
+module Idris.Interactive.Completion
 
 import Core.Context
 import Core.Context.Log
 import Core.Core
 
+import Idris.Syntax
+import Idris.Parser
+
 import Data.String
 
-{-
 ||| Completion tasks are varied:
 ||| are we trying to fill in a name, a REPL command, a pragma?
 data Task

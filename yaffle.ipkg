@@ -92,6 +92,7 @@ modules
     Core.TT.Traversals,
     Core.TT.TT, -- typechecked core language lives here
     Core.TT.Universes,
+    Core.TT.Views,
     Core.TTC,
     Core.TTCFile,
     Core.Unify,
@@ -111,15 +112,17 @@ modules
     Idris.Doc.Keywords,
     Idris.Doc.HTML,
     Idris.Doc.String,
+    Idris.Driver,
 
     Idris.Elab.Interface,
     Idris.Elab.Implementation,
 
     Idris.Env,
     Idris.Error,
+    Idris.Interactive.Completion,
     Idris.ModTree,
 
---     Idris.Package,
+    Idris.Package,
     Idris.Package.Init,
     Idris.Package.Types,
 
@@ -132,11 +135,12 @@ modules
     Idris.Pretty.Render,
     Idris.Pretty.TT,
     Idris.ProcessIdr,
---     Idris.REPL,
+    Idris.REPL,
     Idris.REPL.Common,
     Idris.REPL.FuzzySearch,
     Idris.REPL.Opts,
     Idris.Resugar,
+    Idris.SetOptions,
     Idris.Syntax,
     Idris.Syntax.Builtin,
     Idris.Syntax.Pragmas,
@@ -152,8 +156,8 @@ modules
     Idris.IDEMode.MakeClause,
     Idris.IDEMode.Parser,
     Idris.IDEMode.Pretty,
---     Idris.IDEMode.REPL,
---     Idris.IDEMode.SyntaxHighlight,
+    Idris.IDEMode.REPL,
+    Idris.IDEMode.SyntaxHighlight,
     Idris.IDEMode.TokenLine,
 
     -- The language of TT with implicits
@@ -202,7 +206,6 @@ modules
 
     -- Interactive editing machinery
     TTImp.Interactive.CaseSplit,
-    TTImp.Interactive.Completion,
     TTImp.Interactive.ExprSearch,
     TTImp.Interactive.GenerateDef,
     TTImp.Interactive.Intro,
@@ -305,7 +308,9 @@ modules
 
     Yaffle.REPL
 
-main = TTMain.Main
+main = Idris.Main
 executable = yaffle
+
+depends = network
 
 -- opts = "--profile"

@@ -10,8 +10,6 @@ import Idris.Syntax
 import Idris.Pretty
 import Idris.Resugar
 
-import Core.Context
-
 import Libraries.Data.String.Extra
 
 %hide String.(::)

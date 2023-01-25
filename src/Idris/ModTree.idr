@@ -213,6 +213,7 @@ buildMod loc num len mod
         let sourceFile = buildFile mod
         let modNamespace = buildNS mod
         ttcFile <- getTTCFileName sourceFile "ttc"
+
         -- We'd expect any errors in nsToPath to have been caught by now
         -- since the imports have been built! But we still have to check.
         depFilesE <- traverse (nsToPath loc) (imports mod)

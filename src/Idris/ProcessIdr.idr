@@ -345,10 +345,14 @@ processMod sourceFileName ttcFileName msg sourcecode origin
         log "module.hash" 5 $ "Stored interface hashes of " ++ ttcFileName ++ ":\n" ++
           show (sort storedImportInterfaceHashes)
 
+        sourceUnchanged <- not <$> isTTCOutdated ttcFileName [sourceFileName]
+
         incrementalOK <- not <$> missingIncremental ttcFileName
 
         -- If neither the source nor the interface hashes of imports have changed then no rebuilding is needed
-        if (sort importInterfaceHashes == sort storedImportInterfaceHashes && incrementalOK)
+        if (sourceUnchanged &&
+            sort importInterfaceHashes == sort storedImportInterfaceHashes &&
+            incrementalOK)
            then -- Hashes the same, source up to date, just set the ns
                 -- for the REPL
                 do setNS (miAsNamespace ns)
