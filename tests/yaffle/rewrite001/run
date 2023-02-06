@@ -1,2 +1,2 @@
 rm -rf build
-$1 rewrite.yaff < input
+$1 --yaffle rewrite.yaff < input

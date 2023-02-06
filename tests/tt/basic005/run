@@ -1,1 +1,1 @@
-$1 -tt id_rename.tt < input
+$1 --tt id_rename.tt < input

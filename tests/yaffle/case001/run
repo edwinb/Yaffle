@@ -1,2 +1,2 @@
 rm -rf build
-$1 cinline.yaff < input
+$1 --yaffle cinline.yaff < input

@@ -1,1 +1,1 @@
-$1 -tt search.tt < input
+$1 --tt search.tt < input

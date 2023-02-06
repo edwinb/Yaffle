@@ -1,2 +1,2 @@
 rm -rf build
-$1 stlc.yaff < input
+$1 --yaffle stlc.yaff < input

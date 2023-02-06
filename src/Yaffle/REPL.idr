@@ -200,8 +200,6 @@ processCatch cmd
             (\err => do coreLift_ (putStrLn (show err))
                         pure True)
 
-
-export
 repl : {auto c : Ref Ctxt Defs} ->
        {auto m : Ref MD Metadata} ->
        {auto u : Ref UST UState} ->

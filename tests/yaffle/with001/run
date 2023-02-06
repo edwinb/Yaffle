@@ -1,2 +1,2 @@
 rm -rf build
-$1 With.yaff < input
+$1 --yaffle With.yaff < input

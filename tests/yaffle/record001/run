@@ -1,2 +1,2 @@
 rm -rf build
-$1 Record.yaff < input
+$1 --yaffle Record.yaff < input

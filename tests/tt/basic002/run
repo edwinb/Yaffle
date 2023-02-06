@@ -1,1 +1,1 @@
-$1 -tt testpair.tt < input
+$1 --tt testpair.tt < input

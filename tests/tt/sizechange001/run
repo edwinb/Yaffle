@@ -1,1 +1,1 @@
-$1 -tt patt.tt < input
+$1 --tt patt.tt < input

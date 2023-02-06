@@ -1,1 +1,1 @@
-$1 -tt lam_linear.tt < input
+$1 --tt lam_linear.tt < input

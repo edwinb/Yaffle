@@ -1,1 +1,1 @@
-$1 -tt unify.tt < input
+$1 --tt unify.tt < input

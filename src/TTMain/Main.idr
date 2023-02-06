@@ -20,6 +20,7 @@ import Yaffle.REPL
 import System
 import System.File
 
+export
 ttMain : String -> Core ()
 ttMain fname
     = do Right inp <- coreLift $ readFile fname
@@ -37,26 +38,3 @@ ttMain fname
                (\err => throw !(toFullNames err))
          -- ...and start the REPL
          repl
-
-usage : String
-usage = "Usage: yaffle [-tt] <input file>"
-
-runWith : List String -> IO ()
-runWith ["-tt", fname]
-    = coreRun (ttMain fname)
-              (\err : Error => putStrLn ("Uncaught error: " ++ show err))
-              (\res => pure ())
-runWith [fname]
-    = coreRun (ttImpMain fname)
-              (\err : Error => putStrLn ("Uncaught error: " ++ show err))
-              (\res => pure ())
-runWith _
-    = do putStrLn usage
-         exitWith (ExitFailure 1)
-
-main : IO ()
-main
-    = do (_ :: opts) <- getArgs
-             | _ => do putStrLn usage
-                       exitWith (ExitFailure 1)
-         runWith opts

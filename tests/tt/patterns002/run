@@ -1,1 +1,1 @@
-$1 -tt vect.tt < input
+$1 --tt vect.tt < input

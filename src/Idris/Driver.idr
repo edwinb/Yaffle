@@ -21,6 +21,8 @@ import Idris.Syntax
 import Idris.Version
 import Idris.Pretty
 import Idris.Error
+import TTMain.Main
+import Yaffle.REPL
 
 import IdrisPaths
 
@@ -100,12 +102,14 @@ showInfo : {auto c : Ref Ctxt Defs}
 showInfo Nil = pure False
 showInfo (_::rest) = showInfo rest
 
-tryYaffle : List CLOpt -> Core Bool
-tryYaffle [] = pure False
-tryYaffle (Yaffle f :: _) = do coreLift $ putStrLn "--yaffle not implemented"
-                               -- TODO: yaffleMain f []
-                               pure True
-tryYaffle (c :: cs) = tryYaffle cs
+-- Try to run as one of the lower level languages first
+tryTT : List CLOpt -> Core Bool
+tryTT [] = pure False
+tryTT (Yaffle f :: _) = do ttImpMain f
+                           pure True
+tryTT (TT f :: _) = do ttMain f
+                       pure True
+tryTT (c :: cs) = tryTT cs
 
 ignoreMissingIpkg : List CLOpt -> Bool
 ignoreMissingIpkg [] = False
@@ -137,7 +141,7 @@ checkVerbose (_ :: xs) = checkVerbose xs
 
 stMain : List (String, Codegen) -> List CLOpt -> Core ()
 stMain cgs opts
-    = do False <- tryYaffle opts
+    = do False <- tryTT opts
             | True => pure ()
          False <- tryTTM opts
             | True => pure ()

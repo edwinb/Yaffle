@@ -1,4 +1,4 @@
 rm -rf build
-$1 dup.yaff < input
-$1 dupbad.yaff < input
+$1 --yaffle dup.yaff < input
+$1 --yaffle dupbad.yaff < input
 

@@ -124,6 +124,8 @@ data CLOpt
   IdeModeSocket String |
    ||| Run as a checker for the core language TTImp
   Yaffle String |
+   ||| Run as a checker for the lowest level core language TT
+  TT String |
    ||| Dump metadata from a .ttm file
   Metadata String |
    ||| Dump cases before compiling
@@ -340,6 +342,8 @@ options = [MkOpt ["--check", "-c"] [] [CheckOnly]
 
            -- Internal debugging options
            MkOpt ["--yaffle", "--ttimp"] [Required "ttimp file"] (\f => [Yaffle f])
+              Nothing, -- run ttimp REPL rather than full Idris
+           MkOpt ["--tt"] [Required "tt file"] (\f => [TT f])
               Nothing, -- run ttimp REPL rather than full Idris
            MkOpt ["--ttm" ] [Required "ttimp file"] (\f => [Metadata f])
               Nothing, -- dump metadata information from the given ttm file
