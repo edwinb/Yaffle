@@ -44,7 +44,8 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
-* Plough through `Idris.*` hierarchy and get the compiler at least building
+* Fix 'expand' so that it knows about unreducible names
+* Finisher Compiler hierarchy
 * Work through:
   - Tests that use --noprelude
   - Building the prelude and base libraries
@@ -54,21 +55,15 @@ edwinb's next steps:
 
 Other details that still need checking:
 
-* 'expand' needs to know whether the name it's expanding is usable in the
-  current namespace. At the moment, it will expand everything.
-  - So we'll also need an alternate 'expandAll' for elaborator reflection
-* Port the Compiler hierarchy
-  - All but JS done
-* More tests for Yaffle
-* Termination checker
-  - Tests for basic operation of termination and coverage checking
-* Unification details (which will come up during elaboration...):
-  - Inlining things with linear quantities in the context
 * Coverage checking of case blocks
   - We used to do this by knowing that functions referred to a case function.
     Now we'll need to do something slightly different, so make sure it's
     tested properly, where there's a non-covering case block inside a function
     where the top level cases are covering..
+* Termination checker
+  - Tests for basic operation of termination and coverage checking
+* Unification details (which will come up during elaboration...):
+  - Inlining things with linear quantities in the context
 * Add universe constraints when adding data definitions
   - Find parameters + other properties we need to know elsewhere
 * Universe level solver

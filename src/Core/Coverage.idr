@@ -1,5 +1,6 @@
 module Core.Coverage
 
+import Core.Case.Tree
 import Core.Case.Util
 import Core.Context
 import Core.Context.Log
@@ -183,7 +184,7 @@ getMissingAlts fc defs nfty alts
     = do logNF "coverage.missing" 20 "Getting constructors for" (mkEnv fc _) nfty
          allCons <- getCons defs nfty
          pure (filter (noneOf alts)
-                 (map (mkAlt fc (Unmatched fc "Coverage check")) allCons))
+                 (map (mkAltTm fc (Unmatched fc "Coverage check")) allCons))
   where
     -- Return whether the alternative c matches none of the given cases in alts
     noneOf : List (CaseAlt vars) -> CaseAlt vars -> Bool
@@ -256,7 +257,7 @@ replaceDefaults fc defs nfty cs
     rep : CaseAlt vars -> Core (List (CaseAlt vars))
     rep (DefaultCase _ sc)
         = do allCons <- getCons defs nfty
-             pure (map (mkAlt fc sc) allCons)
+             pure (map (mkAltTm fc sc) allCons)
     rep c = pure [c]
 
     dropRep : List (CaseAlt vars) -> List (CaseAlt vars)
@@ -264,7 +265,7 @@ replaceDefaults fc defs nfty cs
     dropRep (c@(ConCase fc n t sc) :: rest)
           -- assumption is that there's no defaultcase in 'rest' because
           -- we've just removed it
-        = c :: dropRep (filter (not . tagIs t) rest)
+        = c :: dropRep (filter (not . tagIsTm t) rest)
     dropRep (c :: rest) = c :: dropRep rest
 
 -- Traverse a case tree and refine the arguments while matching, so that
@@ -296,7 +297,7 @@ buildArgs defs known not ps cs@(Case fc c (Local lfc idx el) ty altsIn)
          nfty <- expand !(nf fenv ty)
          alts <- replaceDefaults fc defs nfty altsIn
          let alts' = alts ++ !(getMissingAlts fc defs nfty alts)
-         let altsK = maybe alts' (\t => filter (tagIs t) alts')
+         let altsK = maybe alts' (\t => filter (tagIsTm t) alts')
                               (findTag el known)
          let altsN = maybe altsK (\ts => filter (tagIsNot ts) altsK)
                               (findTag el not)

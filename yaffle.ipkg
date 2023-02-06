@@ -51,6 +51,7 @@ modules
     Core.Binary,
     Core.Case.Builder,
     Core.Case.Patterns,
+    Core.Case.Tree,
     Core.Case.Util,
     Core.Check.Erase,
     Core.Check.Linear,
