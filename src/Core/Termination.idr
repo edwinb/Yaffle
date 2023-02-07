@@ -258,9 +258,7 @@ findSCcall g pats fc fn_in arity args
         -- Under 'assert_total' we assume that all calls are fine, so leave
         -- the size change list empty
       = do defs <- get Ctxt
-           Just gdef <- lookupCtxtExact fn_in (gamma defs)
-                | Nothing => undefinedName fc fn_in
-           let fn = fullname gdef
+           fn <- getFullName fn_in
            log "totality.termination.sizechange" 10 $ "Looking under " ++ show !(toFullNames fn)
            aSmaller <- resolved (gamma defs) (NS builtinNS (UN $ Basic "assert_smaller"))
            if fn == NS builtinNS (UN $ Basic "assert_total")
@@ -564,6 +562,11 @@ checkTerminating loc n
                     pure tot'
               t => pure t
 
+isAssertTotal : Ref Ctxt Defs => Name -> Core Bool
+isAssertTotal fn_in =
+  do fn <- getFullName fn_in
+     pure (fn == NS builtinNS (UN $ Basic "assert_total"))
+
 nameIn : {auto c : Ref Ctxt Defs} ->
          List Name -> NF [<] -> Core Bool
 nameIn tyns (VBind fc x b sc)
@@ -572,7 +575,9 @@ nameIn tyns (VBind fc x b sc)
          else do sc' <- sc (vRef fc Bound (MN ("NAMEIN_" ++ show x) 0))
                  nameIn tyns !(expand sc')
 nameIn tyns (VApp _ nt n args _)
-    = anyM (nameIn tyns) (cast !(traverseSnocList spineVal args))
+    = do False <- isAssertTotal n
+           | True => pure False
+         anyM (nameIn tyns) (cast !(traverseSnocList spineVal args))
 nameIn tyns (VTCon _ n _ args)
     = if n `elem` tyns
          then pure True
@@ -581,6 +586,7 @@ nameIn tyns (VTCon _ n _ args)
 nameIn tyns (VDCon _ n _ _ args)
     = anyM (nameIn tyns)
            (cast !(traverseSnocList spineVal args))
+nameIn tyns (VDelayed fc lr ty) = nameIn tyns !(expand ty)
 nameIn tyns _ = pure False
 
 -- Check an argument type doesn't contain a negative occurrence of any of
@@ -631,12 +637,16 @@ posArg tyns nf@(VBind fc x (Pi _ _ e ty) sc)
          then pure (NotTerminating NotStrictlyPositive)
          else do sc' <- sc (vRef fc Bound (MN ("POSCHECK_" ++ show x) 1))
                  posArg tyns !(expand sc')
-posArg tyns nf@(VApp _ _ _ args _)
-    = do logNF "totality.positivity" 50 "Found an application" [<] nf
+posArg tyns nf@(VApp _ _ n args _)
+    = do False <- isAssertTotal n
+           | True => do logNF "totality.positivity" 50 "Trusting an assertion" [<] nf
+                        pure IsTerminating
+         logNF "totality.positivity" 50 "Found an application" [<] nf
          args <- traverseSnocList spineVal args
          pure $ if !(anyM (nameIn tyns) (cast args))
            then NotTerminating NotStrictlyPositive
            else IsTerminating
+posArg tyn (VDelayed _ _ ty) = posArg tyn !(expand ty)
 posArg tyn nf
   = do logNF "totality.positivity" 50 "Reached the catchall" [<] nf
        pure IsTerminating
@@ -679,6 +689,17 @@ checkData tyns (c :: cs)
            IsTerminating => checkData tyns cs
            bad => pure bad
 
+blockingAssertTotal : {auto c : Ref Ctxt Defs} -> FC -> Core a -> Core a
+blockingAssertTotal loc ma
+  = do defs <- get Ctxt
+       let at = NS builtinNS (UN $ Basic "assert_total")
+       Just _ <- lookupCtxtExact at (gamma defs)
+         | Nothing => ma
+       setVisibility loc at Private
+       a <- ma
+       setVisibility loc at Public
+       pure a
+
 -- Calculate whether a type satisfies the strict positivity condition, and
 -- return whether it's terminating, along with its data constructors
 calcPositive : {auto c : Ref Ctxt Defs} ->
@@ -694,7 +715,7 @@ calcPositive loc n
                        IsTerminating =>
                             do log "totality.positivity" 30 $
                                  "Now checking constructors of " ++ show !(toFullNames n)
-                               t <- checkData (n :: tns) dcons
+                               t <- blockingAssertTotal loc $ checkData (n :: tns) dcons
                                pure (t , dcons)
                        bad => pure (bad, dcons)
               Just _ => throw (GenericMsg loc (show n ++ " not a data type"))
