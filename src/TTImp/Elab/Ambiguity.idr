@@ -160,7 +160,8 @@ expandAmbigName elabmode nest env orig args tm exp
     = do log "elab.ambiguous" 10 $ "No ambiguity " ++ show orig
          pure orig
 
-stripDelay : NF vars -> Core (NF vars)
+stripDelay : {auto c : Ref Ctxt Defs} ->
+             NF vars -> Core (NF vars)
 stripDelay (VDelayed fc r t) = stripDelay !(expand t)
 stripDelay tm = pure tm
 

@@ -302,7 +302,8 @@ mustBePoly fc env tm ty = update EST { polyMetavars $= ((fc, env, tm, ty) :: ) }
 -- type. If we know this, we can possibly infer some argument types before
 -- elaborating them, which might help us disambiguate things more easily.
 export
-concrete : Env Term vars -> NF vars -> Core Bool
+concrete : {auto c : Ref Ctxt Defs} ->
+           Env Term vars -> NF vars -> Core Bool
 concrete env (VBind fc _ (Pi _ _ _ _) sc)
     = do sc' <- sc (VErased fc Placeholder)
          concrete env !(expand sc')

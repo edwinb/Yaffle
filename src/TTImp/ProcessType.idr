@@ -22,7 +22,8 @@ import Libraries.Data.NameMap
 
 %default covering
 
-getRetTy : NF [<] -> Core Name
+getRetTy : {auto c : Ref Ctxt Defs} ->
+           NF [<] -> Core Name
 getRetTy (VBind fc _ (Pi _ _ _ _) sc)
     = getRetTy !(expand !(sc (VErased fc Placeholder)))
 getRetTy (VTCon _ n _ _) = pure n

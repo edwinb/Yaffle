@@ -106,16 +106,16 @@ mkEnv {vars} ext = rewrite sym (appendLinLeftNeutral ns) in go ext [<]
         = rewrite appendAssociative rest [<x] xs in
                   go ext (locs :< val)
 
-runOp : {ar, vars : _} ->
-        FC -> PrimFn ar -> Vect ar (Glued vars) -> Core (NF vars)
-runOp fc op args
-    = do args' <- traverseVect expand args
-         -- If it gets stuck, return the glued args, not the values
-         case getOp op args' of
-           Just res => pure res
-           Nothing => pure $ VPrimOp fc op args
-
 parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
+
+  runOp : {ar, vars : _} ->
+          FC -> PrimFn ar -> Vect ar (Glued vars) -> Core (NF vars)
+  runOp fc op args
+      = do args' <- traverseVect expand args
+           -- If it gets stuck, return the glued args, not the values
+           case getOp op args' of
+             Just res => pure res
+             Nothing => pure $ VPrimOp fc op args
 
   -- Forward declared since these are all mutual
   export

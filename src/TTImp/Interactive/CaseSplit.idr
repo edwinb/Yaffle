@@ -119,7 +119,8 @@ findAllVars (Bind _ x (PLet _ _ _ _) sc)
 findAllVars t = toList (dropNS <$> getDefining t)
 
 export
-explicitlyBound : Defs -> NF [<] -> Core (List Name)
+explicitlyBound : {auto c : Ref Ctxt Defs} ->
+                  Defs -> NF [<] -> Core (List Name)
 explicitlyBound defs (VBind fc x (Pi _ _ _ _) sc)
     = pure $ x :: !(explicitlyBound defs
                     !(expand !(sc (VErased fc Placeholder))))

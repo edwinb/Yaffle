@@ -1,5 +1,6 @@
 module Core.Evaluate.Value
 
+import Core.Context
 import Core.Core
 import Core.Error
 import Core.TT
@@ -110,13 +111,20 @@ getLoc (VType fc x) = fc
 -- The 'believe_me' are there to save us deconstructing and reconstructing
 -- just to change a compile-time only index
 export
-expand : Value f vars -> Core (NF vars)
+expand : {auto c : Ref Ctxt Defs} ->
+         Value f vars -> Core (NF vars)
 expand v@(VApp fc nt n sp val)
-    = do Just val' <- val
-              | Nothing => pure (believe_me v)
-         case val' of
-              VCase{} => pure (believe_me v)
-              _ => expand val'
+    = do vis <- getVisibility fc n
+         defs <- get Ctxt
+         let ns = currentNS defs :: nestedNS defs
+         if reducibleInAny ns n vis
+            then do
+               Just val' <- val
+                    | Nothing => pure (believe_me v)
+               case val' of
+                    VCase{} => pure (believe_me v)
+                    _ => expand val'
+            else pure (believe_me v)
 expand v@(VMeta fc n i args sp val)
     = do Just val' <- val
               | Nothing => pure (believe_me v)
@@ -146,7 +154,8 @@ spineArg : (FC, RigCount, Glued vars) -> Glued vars
 spineArg (_, _, val) = val
 
 export
-spineVal : (FC, RigCount, Glued vars) -> Core (NF vars)
+spineVal : {auto c : Ref Ctxt Defs} ->
+           (FC, RigCount, Glued vars) -> Core (NF vars)
 spineVal (_, _, val) = expand val
 
 public export

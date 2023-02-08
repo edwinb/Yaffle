@@ -44,7 +44,6 @@ TODOs throughout for which I would welcome some help. Currently these are:
 
 edwinb's next steps:
 
-* Fix 'expand' so that it knows about unreducible names
 * Finisher Compiler hierarchy
 * Work through:
   - Tests that use --noprelude
