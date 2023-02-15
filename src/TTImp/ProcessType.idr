@@ -204,7 +204,7 @@ getFnString tm
          gstr <- nf [<] (PrimVal fc $ PrT StringType)
          etm <- checkTerm inidx InExpr [] (MkNested []) [<] tm gstr
          defs <- get Ctxt
-         case !(nf [<] etm) of
+         case !(expand !(nf [<] etm)) of
               VPrimVal fc (Str st) => pure st
               _ => throw (GenericMsg fc "%foreign calling convention must evaluate to a String")
 

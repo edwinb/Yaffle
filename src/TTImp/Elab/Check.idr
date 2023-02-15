@@ -774,7 +774,10 @@ checkExp rig elabinfo env fc tm got (Just exp)
                        ctm <- newConstant fc rig env tm cty cs
                        case addLazy vs of
                             NoLazy => pure (ctm, got)
-                            AddForce r => pure (TForce fc r tm, exp)
+                            AddForce r => do logTerm "elab" 5 "Force (constraints)" tm
+                                             logNF "elab" 5 "Got" env got
+                                             logNF "elab" 5 "Exp" env exp
+                                             pure (TForce fc r tm, exp)
                             AddDelay r => do ty <- quote env got
                                              pure (TDelay fc r ty tm, exp)
 checkExp rig elabinfo env fc tm got Nothing = pure (tm, got)

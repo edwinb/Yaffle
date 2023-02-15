@@ -212,7 +212,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                  Maybe (SnocList (Glued vars)) -> Maybe (SnocList (Glued vars)) ->
                  Core Bool
   headsConvert mode fc env (Just vs) (Just ns)
-      = case (vs, ns) of
+      = case (reverse vs, ns) of
              (_ :< v, _ :< n) =>
                 do logNF "unify.head" 10 "Unifying head" env v
                    logNF "unify.head" 10 ".........with" env n
@@ -423,7 +423,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                      case shrinkTerm tm submv of
                           Just stm => solveOrElsePostpone stm
                           Nothing =>
-                            do tm' <- quote env tmnf
+                            do tm' <- quoteNF env tmnf
                                case shrinkTerm tm' submv of
                                     Nothing => postponeS {f=Normal} swap fc mode "Can't shrink" env
                                                  (VMeta fc mname mref args sp (pure Nothing))
@@ -659,10 +659,10 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   unifyLazy mode fc env (VDelayed _ _ x) (VDelayed _ _ y)
       = unifyWithEta (lower mode) fc env !(expand x) !(expand y)
   unifyLazy mode fc env x@(VDelayed _ r tmx) tmy
-        -- TODO: why 'isHoleApp'
       = if isHoleApp tmy && not (umode mode == InMatch)
            then postpone fc mode "Postponing in lazy" env x tmy
-           else do vs <- unify (lower mode) fc env tmx tmy
+           else do logNF "unify" 5 "Add force" env tmx
+                   vs <- unify (lower mode) fc env tmx tmy
                    pure ({ addLazy := AddForce r } vs)
   unifyLazy mode fc env tmx (VDelayed _ r tmy)
       = do vs <- unify (lower mode) fc env tmx tmy
@@ -758,6 +758,9 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                  => do defs <- get Ctxt
                        x <- nf env xold
                        y <- nf env yold
+                       logNF "unify" 5 "Retrying" env x
+                       logNF "unify" 5 "....with" env y
+
                        catch
                          (do cs <- ifThenElse withLazy
                                       (unifyWithLazy mode loc env x y)
@@ -855,7 +858,9 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                       case constraints cs of
                            [] => do tm' <- case addLazy cs of
                                              NoLazy => pure tm
-                                             AddForce r => pure $ forceMeta r envb tm
+                                             AddForce r =>
+                                                do logTerm "unify.retry" 5 "Force" tm
+                                                   pure $ forceMeta r envb tm
                                              AddDelay r =>
                                                 do logTerm "unify.retry" 5 "Retry Delay" tm
                                                    pure $ delayMeta r envb (type def) tm
@@ -866,7 +871,9 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                                     pure (holesSolved cs)
                            newcs => do tm' <- case addLazy cs of
                                              NoLazy => pure tm
-                                             AddForce r => pure $ forceMeta r envb tm
+                                             AddForce r =>
+                                                do logTerm "unify.retry" 5 "Retry Force (constrained)" tm
+                                                   pure $ forceMeta r envb tm
                                              AddDelay r =>
                                                 do logTerm "unify.retry" 5 "Retry Delay (constrained)" tm
                                                    pure $ delayMeta r envb (type def) tm

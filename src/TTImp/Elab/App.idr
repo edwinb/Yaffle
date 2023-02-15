@@ -179,6 +179,71 @@ checkAppWith' : {vars : _} ->
                 (expected : Maybe (Glued vars)) ->
                 Core (Term vars, Glued vars)
 
+export
+findBindAllExpPattern : List (Name, RawImp) -> Maybe RawImp
+findBindAllExpPattern = lookup (UN Underscore)
+
+isBindAllExpPattern : Name -> Bool
+isBindAllExpPattern (UN Underscore) = True
+isBindAllExpPattern _ = False
+
+isImplicitAs : RawImp -> Bool
+isImplicitAs (IAs _ _ UseLeft _ (Implicit _ _)) = True
+isImplicitAs _ = False
+
+checkAppNotFnType : {vars : _} ->
+                {auto c : Ref Ctxt Defs} ->
+                {auto m : Ref MD Metadata} ->
+                {auto u : Ref UST UState} ->
+                {auto e : Ref EST (EState vars)} ->
+                RigCount -> ElabInfo ->
+                NestedNames vars -> Env Term vars ->
+                FC -> (fntm : Term vars) -> (fnty : NF vars) ->
+                (argdata : (Maybe Name, Nat)) ->
+                     -- function we're applying, and argument position, for
+                     -- checking if it's okay to erase against 'safeErase'
+                (expargs : List RawImp) ->
+                (autoargs : List RawImp) ->
+                (namedargs : List (Name, RawImp)) ->
+                (knownret : Bool) -> -- Do we know what the return type is yet?
+                             -- if we do, we might be able to use it to work
+                             -- out the types of arguments before elaborating them
+                (expected : Maybe (Glued vars)) ->
+                Core (Term vars, Glued vars)
+-- Invent a function type if we have extra explicit arguments but type is further unknown
+checkAppNotFnType {vars} rig elabinfo nest env fc tm ty (n, argpos) (arg :: expargs) autoargs namedargs kr expty
+    = -- Invent a function type,  and hope that we'll know enough to solve it
+      -- later when we unify with expty
+      do logNF "elab.with" 10 "Function type" env ty
+         logTerm "elab.with" 10 "Function " tm
+         argn <- genName "argTy"
+         retn <- genName "retTy"
+         u <- uniVar fc
+         argTy <- metaVar fc erased env argn (TType fc u)
+         argTyG <- nf env argTy
+         retTy <- metaVar -- {vars = argn :: vars}
+                          fc erased env -- (Pi RigW Explicit argTy :: env)
+                          retn (TType fc u)
+         (argv, argt) <- check rig elabinfo
+                               nest env arg (Just argTyG)
+         let fntm = App fc tm top argv
+         fnty <- nf env retTy
+         expfnty <- nf env (Bind fc argn (Pi fc top Explicit argTy) (weaken retTy))
+         logNF "elab.with" 10 "Expected function type" env expfnty
+         whenJust expty (logNF "elab.with" 10 "Expected result type" env)
+         res <- checkAppWith' rig elabinfo nest env fc fntm !(expand fnty) (n, 1 + argpos) expargs autoargs namedargs kr expty
+         cres <- Check.convert fc elabinfo env (asGlued ty) expfnty
+         let [] = constraints cres
+            | cs => do cty <- quote env expfnty
+                       ctm <- newConstant fc rig env (fst res) cty cs
+                       pure (ctm, !(nf env retTy))
+         pure res
+-- Only non-user implicit `as` bindings are allowed to be present as arguments at this stage
+checkAppNotFnType rig elabinfo nest env fc tm ty argdata [] autoargs namedargs kr expty
+    = if all isImplicitAs (autoargs ++ map snd (filter (not . isBindAllExpPattern . fst) namedargs))
+         then checkExp rig elabinfo env fc tm (asGlued ty) expty
+         else throw (InvalidArgs fc env (map (const (UN $ Basic "<auto>")) autoargs ++ map fst namedargs) tm)
+
 ||| Entrypoint for checkAppWith: run the elaboration first and, if we're
 ||| on the LHS and the result is an under-applied constructor then insist
 ||| that it ought to be forced by another pattern somewhere else in the LHS.
@@ -589,18 +654,6 @@ findNamed n l = case partition ((== n) . fst) l of
                      (x :: xs, ys) => Just (x, (xs ++ ys))
                      _ => Nothing
 
-export
-findBindAllExpPattern : List (Name, RawImp) -> Maybe RawImp
-findBindAllExpPattern = lookup (UN Underscore)
-
-isImplicitAs : RawImp -> Bool
-isImplicitAs (IAs _ _ UseLeft _ (Implicit _ _)) = True
-isImplicitAs _ = False
-
-isBindAllExpPattern : Name -> Bool
-isBindAllExpPattern (UN Underscore) = True
-isBindAllExpPattern _ = False
-
  -- Explicit Pi, we use provided unnamed explicit argument
 checkAppWith' rig elabinfo nest env fc tm ty@(VBind tfc x (Pi _ rigb Explicit aty) sc)
              argdata (arg :: expargs') autoargs namedargs kr expty
@@ -631,9 +684,13 @@ checkAppWith' rig elabinfo nest env fc tm ty@(VBind tfc x (Pi _ rigb Explicit at
                  else -- Some user defined binding is present while we are out of explicit arguments, that's an error
                       throw (InvalidArgs fc env (map (const (UN $ Basic "<auto>")) autoargs ++ map fst namedargs) tm)
 -- Function type is delayed, so force the term and continue
-checkAppWith' rig elabinfo nest env fc tm (VDelayed dfc r ty) argdata expargs autoargs namedargs kr expty
-    = checkAppWith' rig elabinfo nest env fc (TForce dfc r tm) !(expand ty)
-                    argdata expargs autoargs namedargs kr expty
+checkAppWith' rig elabinfo nest env fc tm dty@(VDelayed dfc r ty) argdata expargs autoargs namedargs kr expty
+    = do ty' <- expand ty
+         case ty' of
+              VBind _ _ (Pi _ _ _ _) sc =>
+                checkAppWith' rig elabinfo nest env fc (TForce dfc r tm) !(expand ty)
+                      argdata expargs autoargs namedargs kr expty
+              _ => checkAppNotFnType rig elabinfo nest env fc tm dty argdata expargs autoargs namedargs kr expty
 -- If there's no more arguments given, and the plicities of the type and
 -- the expected type line up, stop
 checkAppWith' rig elabinfo nest env fc tm ty@(VBind tfc x (Pi _ rigb Implicit aty) sc)
@@ -702,38 +759,8 @@ checkAppWith' rig elabinfo nest env fc tm (VBind tfc x (Pi _ rigb (DefImplicit a
                    checkRestApp rig argRig elabinfo nest env fc
                                 tm x rigb aty sc argdata arg expargs autoargs namedargs' kr expty
 -- Invent a function type if we have extra explicit arguments but type is further unknown
-checkAppWith' {vars} rig elabinfo nest env fc tm ty (n, argpos) (arg :: expargs) autoargs namedargs kr expty
-    = -- Invent a function type,  and hope that we'll know enough to solve it
-      -- later when we unify with expty
-      do logNF "elab.with" 10 "Function type" env ty
-         logTerm "elab.with" 10 "Function " tm
-         argn <- genName "argTy"
-         retn <- genName "retTy"
-         u <- uniVar fc
-         argTy <- metaVar fc erased env argn (TType fc u)
-         argTyG <- nf env argTy
-         retTy <- metaVar -- {vars = argn :: vars}
-                          fc erased env -- (Pi RigW Explicit argTy :: env)
-                          retn (TType fc u)
-         (argv, argt) <- check rig elabinfo
-                               nest env arg (Just argTyG)
-         let fntm = App fc tm top argv
-         fnty <- nf env retTy
-         expfnty <- nf env (Bind fc argn (Pi fc top Explicit argTy) (weaken retTy))
-         logNF "elab.with" 10 "Expected function type" env expfnty
-         whenJust expty (logNF "elab.with" 10 "Expected result type" env)
-         res <- checkAppWith' rig elabinfo nest env fc fntm !(expand fnty) (n, 1 + argpos) expargs autoargs namedargs kr expty
-         cres <- Check.convert fc elabinfo env (asGlued ty) expfnty
-         let [] = constraints cres
-            | cs => do cty <- quote env expfnty
-                       ctm <- newConstant fc rig env (fst res) cty cs
-                       pure (ctm, !(nf env retTy))
-         pure res
--- Only non-user implicit `as` bindings are allowed to be present as arguments at this stage
-checkAppWith' rig elabinfo nest env fc tm ty argdata [] autoargs namedargs kr expty
-    = if all isImplicitAs (autoargs ++ map snd (filter (not . isBindAllExpPattern . fst) namedargs))
-         then checkExp rig elabinfo env fc tm (asGlued ty) expty
-         else throw (InvalidArgs fc env (map (const (UN $ Basic "<auto>")) autoargs ++ map fst namedargs) tm)
+checkAppWith' rig elabinfo nest env fc tm ty argdata expargs autoargs namedargs kr expty
+    = checkAppNotFnType rig elabinfo nest env fc tm ty argdata expargs autoargs namedargs kr expty
 
 export
 checkApp : {vars : _} ->
