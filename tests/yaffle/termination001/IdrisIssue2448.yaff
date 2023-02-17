@@ -1,0 +1,11 @@
+-- https://github.com/idris-lang/Idris2/issues/2448#issuecomment-1117103496
+
+data Void : Type where
+
+data Nat : Type where
+     Z : Nat
+     S : Nat -> Nat
+
+boom : Nat -> Nat
+boom (S x) = boom x
+boom x = boom x
