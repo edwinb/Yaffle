@@ -633,7 +633,8 @@ export
 TTC PartialReason where
   toBuf NotStrictlyPositive = tag 0
   toBuf (BadCall xs) = do tag 1; toBuf xs
-  toBuf (RecPath xs) = do tag 2; toBuf xs
+  toBuf (BadPath xs n) = do tag 2; toBuf xs; toBuf n
+  toBuf (RecPath xs) = do tag 3; toBuf xs
 
   fromBuf
       = case !getTag of
@@ -641,6 +642,9 @@ TTC PartialReason where
              1 => do xs <- fromBuf
                      pure (BadCall xs)
              2 => do xs <- fromBuf
+                     n <- fromBuf
+                     pure (BadPath xs n)
+             3 => do xs <- fromBuf
                      pure (RecPath xs)
              _ => corrupt "PartialReason"
 
@@ -1056,11 +1060,12 @@ TTC SizeChange where
 
 export
 TTC SCCall where
-  toBuf c = do toBuf (fnCall c); toBuf (fnArgs c)
+  toBuf c = do toBuf (fnCall c); toBuf (fnArgs c); toBuf (fnLoc c)
   fromBuf
       = do fn <- fromBuf
            args <- fromBuf
-           pure (MkSCCall fn args)
+           loc <- fromBuf
+           pure (MkSCCall fn args loc)
 
 export
 TTC Transform where

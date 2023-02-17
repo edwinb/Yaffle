@@ -127,6 +127,19 @@ Ord SizeChange where
   compare _ Same = GT
   compare Unknown Unknown = EQ
 
+export
+Semigroup SizeChange where
+  -- Unknown is a 0
+  -- Same is a neutral
+  _ <+> Unknown = Unknown
+  Unknown <+> _ = Unknown
+  c <+> Same = c
+  _ <+> Smaller = Smaller
+
+export
+Monoid SizeChange where
+  neutral = Same
+
 public export
 record SCCall where
      constructor MkSCCall
@@ -136,6 +149,7 @@ record SCCall where
         -- (in the calling function), and how its size changed in the call.
         -- 'Nothing' if it's not related to any of the calling function's
         -- arguments
+     fnLoc : FC
 
 export
 Show SCCall where

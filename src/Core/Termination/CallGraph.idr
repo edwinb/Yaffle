@@ -244,7 +244,8 @@ findSCcall g eqs pats fc fn_in arity args
                do scs <- traverse (findSC g eqs pats) args
                   pure ([MkSCCall fn
                            (expandToArity arity
-                                !(traverse (mkChange eqs aSmaller pats) args))]
+                                !(traverse (mkChange eqs aSmaller pats) args))
+                           fc]
                            ++ concat scs)
 
 -- Substitute a name with what we know about it.
