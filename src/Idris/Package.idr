@@ -593,7 +593,7 @@ install : {auto c : Ref Ctxt Defs} ->
           Core ()
 install pkg opts installSrc -- not used but might be in the future
     = do defs <- get Ctxt
-         build <- ttcBuildDirectory
+         build <- file ttcBuildDirectory
          let lib = installDir pkg
          libTargetDir <- libInstallDirectory version lib
          ttcTargetDir <- ttcInstallDirectory version lib
@@ -802,7 +802,7 @@ clean pkg opts -- `opts` is not used but might be in the future
                           pkgmods
          srcdir <- file getWorkingDir
          let d = dirs (options defs)
-         bdir <- ttcBuildDirectory
+         bdir <- file ttcBuildDirectory
          let builddir = srcdir </> bdir </> "ttc"
          let outputdir = srcdir </> outputDirWithDefault d
          -- the usual pair syntax breaks with `No such variable a` here for some reason

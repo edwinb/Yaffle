@@ -217,7 +217,7 @@ loadSO : {auto c : Ref Ctxt Defs} ->
 loadSO appdir "" = pure ""
 loadSO appdir mod
     = do d <- getDirs
-         bdir <- ttcBuildDirectory
+         bdir <- file ttcBuildDirectory
          allDirs <- extraSearchDirectories
          let fs = map (\p => p </> mod) (bdir :: allDirs)
          Just fname <- firstAvailable fs
@@ -624,7 +624,7 @@ incCompile c sourceFile
          cdata <- getIncCompileData False Cases
 
          d <- getDirs
-         outputDir <- ttcBuildDirectory
+         outputDir <- file ttcBuildDirectory
 
          let ndefs = namedDefs cdata
          if isNil ndefs

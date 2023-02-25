@@ -1,7 +1,6 @@
-# The Idris2 version with s/idris2/yaffle/
 include ../../config.mk
 
-TARGET = libyaffle_support
+TARGET = libidris2_support
 
 LIBTARGET = $(TARGET).a
 DYLIBTARGET = $(TARGET)$(SHLIB_SUFFIX)
