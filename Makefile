@@ -1,10 +1,10 @@
-# This is (mostly) the Idris2 Makefile with s/IDRIS2/YAFFLE/ and the
+# This is (mostly) the Idris2 Makefile with s/idris2/yaffle/ and the
 # library building removed. Not all of it makes sense yet; it will be
 # reinstated gradually
 include config.mk
 
 # Idris 2 executable used to bootstrap
-export YAFFLE_BOOT ?= idris2
+export IDRIS2_BOOT ?= idris2
 
 # Idris 2 executable we're building
 NAME = yaffle
@@ -13,7 +13,7 @@ TARGET = ${TARGETDIR}/${NAME}
 
 # Default code generator. This is passed to the libraries for incremental
 # builds, but overridable via environment variables or arguments to make
-YAFFLE_CG ?= chez
+IDRIS2_CG ?= chez
 
 MAJOR=0
 MINOR=8
@@ -29,34 +29,34 @@ ifeq ($(shell git status >/dev/null 2>&1; echo $$?), 0)
 endif
 VERSION_TAG ?= $(GIT_SHA1)
 
-export YAFFLE_VERSION := ${MAJOR}.${MINOR}.${PATCH}
-export NAME_VERSION := ${NAME}-${YAFFLE_VERSION}
-YAFFLE_SUPPORT := libyaffle_support${SHLIB_SUFFIX}
-YAFFLE_APP_IPKG := yaffle.ipkg
-YAFFLE_LIB_IPKG := yaffleapi.ipkg
+export IDRIS2_VERSION := ${MAJOR}.${MINOR}.${PATCH}
+export NAME_VERSION := ${NAME}-${IDRIS2_VERSION}
+IDRIS2_SUPPORT := libyaffle_support${SHLIB_SUFFIX}
+IDRIS2_APP_IPKG := yaffle.ipkg
+IDRIS2_LIB_IPKG := yaffleapi.ipkg
 
 ifeq ($(OS), windows)
 	# This produces D:/../.. style paths
-	YAFFLE_PREFIX := $(shell cygpath -m ${PREFIX})
-	YAFFLE_CURDIR := $(shell cygpath -m ${CURDIR})
+	IDRIS2_PREFIX := $(shell cygpath -m ${PREFIX})
+	IDRIS2_CURDIR := $(shell cygpath -m ${CURDIR})
 	SEP := ;
 else
-	YAFFLE_PREFIX := ${PREFIX}
-	YAFFLE_CURDIR := ${CURDIR}
+	IDRIS2_PREFIX := ${PREFIX}
+	IDRIS2_CURDIR := ${CURDIR}
 	SEP := :
 endif
 
-TEST_PREFIX ?= ${YAFFLE_CURDIR}/build/env
+TEST_PREFIX ?= ${IDRIS2_CURDIR}/build/env
 
 # Library and data paths for bootstrap-test
-YAFFLE_BOOT_PREFIX := ${YAFFLE_CURDIR}/bootstrap-build
+IDRIS2_BOOT_PREFIX := ${IDRIS2_CURDIR}/bootstrap-build
 
 # These are the library path in the build dir to be used during build
-YAFFLE_LIBRARIES = prelude base linear network contrib test
+IDRIS2_LIBRARIES = prelude base linear network contrib test
 
-YAFFLE_BOOT_PATH =
-$(foreach library,$(YAFFLE_LIBRARIES),$(eval YAFFLE_BOOT_PATH := $(YAFFLE_BOOT_PATH)$(YAFFLE_CURDIR)/libs/$(library)/build/ttc$(SEP)))
-export YAFFLE_BOOT_PATH := "$(YAFFLE_BOOT_PATH)"
+IDRIS2_BOOT_PATH =
+$(foreach library,$(IDRIS2_LIBRARIES),$(eval IDRIS2_BOOT_PATH := $(IDRIS2_BOOT_PATH)$(IDRIS2_CURDIR)/libs/$(library)/build/ttc$(SEP)))
+export IDRIS2_BOOT_PATH := "$(IDRIS2_BOOT_PATH)"
 
 export SCHEME
 
@@ -67,78 +67,79 @@ all: support ${TARGET} libs
 yaffle-exec: ${TARGET}
 
 ${TARGET}: src/IdrisPaths.idr
-	${YAFFLE_BOOT} --build ${YAFFLE_APP_IPKG}
+	${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
 
 # We use FORCE to always rebuild IdrisPath so that the git SHA1 info is always up to date
 src/IdrisPaths.idr: FORCE
 	echo "-- @""generated" > src/IdrisPaths.idr
 	echo 'module IdrisPaths' >> src/IdrisPaths.idr
 	echo 'export idrisVersion : ((Nat,Nat,Nat), String); idrisVersion = ((${MAJOR},${MINOR},${PATCH}), "${VERSION_TAG}")' >> src/IdrisPaths.idr
-	echo 'export yprefix : String; yprefix="${YAFFLE_PREFIX}"' >> src/IdrisPaths.idr
+	echo 'export yprefix : String; yprefix="${IDRIS2_PREFIX}"' >> src/IdrisPaths.idr
 
 FORCE:
 
 prelude:
-	${MAKE} -C libs/prelude YAFFLE=${TARGET} YAFFLE_INC_CGS=${YAFFLE_CG} YAFFLE_PATH=${YAFFLE_BOOT_PATH}
+	${MAKE} -C libs/prelude IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 base: prelude
-	${MAKE} -C libs/base YAFFLE=${TARGET} YAFFLE_INC_CGS=${YAFFLE_CG} YAFFLE_PATH=${YAFFLE_BOOT_PATH}
+	${MAKE} -C libs/base IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 network: prelude linear
-	${MAKE} -C libs/network YAFFLE=${TARGET} YAFFLE_INC_CGS=${YAFFLE_CG} YAFFLE_PATH=${YAFFLE_BOOT_PATH}
+	${MAKE} -C libs/network IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 contrib: base
-	${MAKE} -C libs/contrib YAFFLE=${TARGET} YAFFLE_INC_CGS=${YAFFLE_CG} YAFFLE_PATH=${YAFFLE_BOOT_PATH}
+	${MAKE} -C libs/contrib IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 test-lib: contrib
-	${MAKE} -C libs/test YAFFLE=${TARGET} YAFFLE_INC_CGS=${YAFFLE_CG} YAFFLE_PATH=${YAFFLE_BOOT_PATH}
+	${MAKE} -C libs/test IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 linear: prelude
-	${MAKE} -C libs/linear YAFFLE=${TARGET} YAFFLE_INC_CGS=${YAFFLE_CG} YAFFLE_PATH=${YAFFLE_BOOT_PATH}
+	${MAKE} -C libs/linear IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 papers: contrib linear
-	${MAKE} -C libs/papers YAFFLE=${TARGET} YAFFLE_INC_CGS=${YAFFLE_CG} YAFFLE_PATH=${YAFFLE_BOOT_PATH}
+	${MAKE} -C libs/papers IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 bootstrap-libs : prelude base linear network
+libs : prelude base
 #libs : prelude base contrib network test-lib linear papers
 # TODO: no libs yet! Put clean-libs and install-libs back too
 # (or maybe placeholder libs directories?)
 libs : 
 
 libdocs:
-	${MAKE} -C libs/prelude docs YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH}
-	${MAKE} -C libs/base docs YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH}
-	${MAKE} -C libs/contrib docs YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH}
-	${MAKE} -C libs/network docs YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH}
-	${MAKE} -C libs/test docs YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH}
-	${MAKE} -C libs/linear docs YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH}
+	${MAKE} -C libs/prelude docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+	${MAKE} -C libs/base docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+	${MAKE} -C libs/contrib docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+	${MAKE} -C libs/network docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+	${MAKE} -C libs/test docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+	${MAKE} -C libs/linear docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 
 ifeq ($(OS), windows)
 ${TEST_PREFIX}/${NAME_VERSION} :
 	${MAKE} install-support PREFIX=${TEST_PREFIX}
-	cp -rf ${YAFFLE_CURDIR}/libs/prelude/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/prelude-${YAFFLE_VERSION}
-	cp -rf ${YAFFLE_CURDIR}/libs/base/build/ttc    ${TEST_PREFIX}/${NAME_VERSION}/base-${YAFFLE_VERSION}
-	cp -rf ${YAFFLE_CURDIR}/libs/linear/build/ttc  ${TEST_PREFIX}/${NAME_VERSION}/linear-${YAFFLE_VERSION}
-	cp -rf ${YAFFLE_CURDIR}/libs/network/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/network-${YAFFLE_VERSION}
-	cp -rf ${YAFFLE_CURDIR}/libs/contrib/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/contrib-${YAFFLE_VERSION}
-	cp -rf ${YAFFLE_CURDIR}/libs/test/build/ttc    ${TEST_PREFIX}/${NAME_VERSION}/test-${YAFFLE_VERSION}
+	cp -rf ${IDRIS2_CURDIR}/libs/prelude/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/prelude-${IDRIS2_VERSION}
+	cp -rf ${IDRIS2_CURDIR}/libs/base/build/ttc    ${TEST_PREFIX}/${NAME_VERSION}/base-${IDRIS2_VERSION}
+	cp -rf ${IDRIS2_CURDIR}/libs/linear/build/ttc  ${TEST_PREFIX}/${NAME_VERSION}/linear-${IDRIS2_VERSION}
+	cp -rf ${IDRIS2_CURDIR}/libs/network/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/network-${IDRIS2_VERSION}
+	cp -rf ${IDRIS2_CURDIR}/libs/contrib/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/contrib-${IDRIS2_VERSION}
+	cp -rf ${IDRIS2_CURDIR}/libs/test/build/ttc    ${TEST_PREFIX}/${NAME_VERSION}/test-${IDRIS2_VERSION}
 else
 ${TEST_PREFIX}/${NAME_VERSION} :
 	${MAKE} install-support PREFIX=${TEST_PREFIX}
-	ln -sf ${YAFFLE_CURDIR}/libs/prelude/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/prelude-${YAFFLE_VERSION}
-	ln -sf ${YAFFLE_CURDIR}/libs/base/build/ttc    ${TEST_PREFIX}/${NAME_VERSION}/base-${YAFFLE_VERSION}
-	ln -sf ${YAFFLE_CURDIR}/libs/linear/build/ttc  ${TEST_PREFIX}/${NAME_VERSION}/linear-${YAFFLE_VERSION}
-	ln -sf ${YAFFLE_CURDIR}/libs/network/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/network-${YAFFLE_VERSION}
-	ln -sf ${YAFFLE_CURDIR}/libs/contrib/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/contrib-${YAFFLE_VERSION}
-	ln -sf ${YAFFLE_CURDIR}/libs/test/build/ttc    ${TEST_PREFIX}/${NAME_VERSION}/test-${YAFFLE_VERSION}
+	ln -sf ${IDRIS2_CURDIR}/libs/prelude/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/prelude-${IDRIS2_VERSION}
+	ln -sf ${IDRIS2_CURDIR}/libs/base/build/ttc    ${TEST_PREFIX}/${NAME_VERSION}/base-${IDRIS2_VERSION}
+	ln -sf ${IDRIS2_CURDIR}/libs/linear/build/ttc  ${TEST_PREFIX}/${NAME_VERSION}/linear-${IDRIS2_VERSION}
+	ln -sf ${IDRIS2_CURDIR}/libs/network/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/network-${IDRIS2_VERSION}
+	ln -sf ${IDRIS2_CURDIR}/libs/contrib/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/contrib-${IDRIS2_VERSION}
+	ln -sf ${IDRIS2_CURDIR}/libs/test/build/ttc    ${TEST_PREFIX}/${NAME_VERSION}/test-${IDRIS2_VERSION}
 endif
 
 .PHONY: ${TEST_PREFIX}/${NAME_VERSION}
 
 testenv:
 	@${MAKE} ${TEST_PREFIX}/${NAME_VERSION}
-	@${MAKE} -C tests testbin YAFFLE=${TARGET} YAFFLE_PREFIX=${TEST_PREFIX}
+	@${MAKE} -C tests testbin IDRIS2=${TARGET} IDRIS2_PREFIX=${TEST_PREFIX}
 
 testenv-clean:
 	$(RM) -r ${TEST_PREFIX}/${NAME_VERSION}
@@ -151,21 +152,21 @@ ci-windows-test:
 test: testenv
 	@echo
 	@echo "NOTE: \`${MAKE} test\` does not rebuild Idris or the libraries packaged with it; to do that run \`${MAKE}\`"
-	@if [ ! -x "${TARGET}" ]; then echo "ERROR: Missing YAFFLE executable. Cannot run tests!\n"; exit 1; fi
+	@if [ ! -x "${TARGET}" ]; then echo "ERROR: Missing IDRIS2 executable. Cannot run tests!\n"; exit 1; fi
 	@echo
-	@${MAKE} -C tests only=$(only) except=$(except) YAFFLE=${TARGET} YAFFLE_PREFIX=${TEST_PREFIX}
+	@${MAKE} -C tests only=$(only) except=$(except) IDRIS2=${TARGET} IDRIS2_PREFIX=${TEST_PREFIX}
 
 
 retest: testenv
 	@echo
 	@echo "NOTE: \`${MAKE} retest\` does not rebuild Idris or the libraries packaged with it; to do that run \`${MAKE}\`"
-	@if [ ! -x "${TARGET}" ]; then echo "ERROR: Missing YAFFLE executable. Cannot run tests!\n"; exit 1; fi
+	@if [ ! -x "${TARGET}" ]; then echo "ERROR: Missing IDRIS2 executable. Cannot run tests!\n"; exit 1; fi
 	@echo
-	@${MAKE} -C tests retest only=$(only) YAFFLE=${TARGET} YAFFLE_PREFIX=${TEST_PREFIX}
+	@${MAKE} -C tests retest only=$(only) IDRIS2=${TARGET} IDRIS2_PREFIX=${TEST_PREFIX}
 
 test-installed:
-	@${MAKE} -C tests testbin      YAFFLE=$(YAFFLE_PREFIX)/bin/yaffle YAFFLE_PREFIX=${YAFFLE_PREFIX}
-	@${MAKE} -C tests only=$(only) YAFFLE=$(YAFFLE_PREFIX)/bin/yaffle YAFFLE_PREFIX=${YAFFLE_PREFIX}
+	@${MAKE} -C tests testbin      IDRIS2=$(IDRIS2_PREFIX)/bin/yaffle IDRIS2_PREFIX=${IDRIS2_PREFIX}
+	@${MAKE} -C tests only=$(only) IDRIS2=$(IDRIS2_PREFIX)/bin/yaffle IDRIS2_PREFIX=${IDRIS2_PREFIX}
 
 support:
 	@${MAKE} -C support/c
@@ -189,7 +190,7 @@ clean-libs:
 # No libs yet! clean: clean-libs support-clean testenv-clean
 # clean: clean-libs support-clean testenv-clean
 clean: support-clean testenv-clean
-	-${YAFFLE_BOOT} --clean ${YAFFLE_APP_IPKG}
+	-${IDRIS2_BOOT} --clean ${IDRIS2_APP_IPKG}
 	$(RM) src/IdrisPaths.idr
 	${MAKE} -C tests clean
 	$(RM) -r build
@@ -198,10 +199,10 @@ install: install-yaffle install-support install-libs
 bootstrap-install: install-yaffle install-support install-bootstrap-libs
 
 install-api: src/IdrisPaths.idr
-	${YAFFLE_BOOT} --install ${YAFFLE_LIB_IPKG}
+	${IDRIS2_BOOT} --install ${IDRIS2_LIB_IPKG}
 
 install-with-src-api: src/IdrisPaths.idr
-	${YAFFLE_BOOT} --install-with-src ${YAFFLE_LIB_IPKG}
+	${IDRIS2_BOOT} --install-with-src ${IDRIS2_LIB_IPKG}
 
 install-yaffle:
 	mkdir -p ${PREFIX}/bin/
@@ -210,7 +211,7 @@ ifeq ($(OS), windows)
 	-install ${TARGET}.cmd ${PREFIX}/bin
 endif
 	mkdir -p ${PREFIX}/lib/
-	install support/c/${YAFFLE_SUPPORT} ${PREFIX}/lib
+	install support/c/${IDRIS2_SUPPORT} ${PREFIX}/lib
 	mkdir -p ${PREFIX}/bin/${NAME}_app
 	install ${TARGETDIR}/${NAME}_app/* ${PREFIX}/bin/${NAME}_app
 
@@ -226,24 +227,24 @@ install-support:
 	@${MAKE} -C support/chez install
 
 install-bootstrap-libs:
-	${MAKE} -C libs/prelude install YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
-	${MAKE} -C libs/base install    YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
-	${MAKE} -C libs/linear install  YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
-	${MAKE} -C libs/network install YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
+	${MAKE} -C libs/prelude install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
+	${MAKE} -C libs/base install    IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
+	${MAKE} -C libs/linear install  IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
+	${MAKE} -C libs/network install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
 
 # Nothing to do yet!
 install-libs: 
 #install-libs: install-bootstrap-libs
-#	${MAKE} -C libs/contrib install YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
-#	${MAKE} -C libs/test install YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
+#	${MAKE} -C libs/contrib install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
+#	${MAKE} -C libs/test install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
 
 install-with-src-libs:
-	${MAKE} -C libs/prelude install-with-src YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
-	${MAKE} -C libs/base install-with-src    YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
-	${MAKE} -C libs/contrib install-with-src YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
-	${MAKE} -C libs/network install-with-src YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
-	${MAKE} -C libs/test install-with-src    YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
-	${MAKE} -C libs/linear install-with-src  YAFFLE=${TARGET} YAFFLE_PATH=${YAFFLE_BOOT_PATH} YAFFLE_INC_CGS=${YAFFLE_CG}
+	${MAKE} -C libs/prelude install-with-src IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
+	${MAKE} -C libs/base install-with-src    IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
+	${MAKE} -C libs/contrib install-with-src IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
+	${MAKE} -C libs/network install-with-src IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
+	${MAKE} -C libs/test install-with-src    IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
+	${MAKE} -C libs/linear install-with-src  IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
 
 install-libdocs: libdocs
 	mkdir -p ${PREFIX}/${NAME_VERSION}/docs/prelude
@@ -268,28 +269,28 @@ bootstrap: support
 	@if [ "$$(echo '(threaded?)' | $(SCHEME) --quiet)" = "#f" ] ; then \
 		echo "ERROR: Chez is missing threading support" ; exit 1 ; fi
 	mkdir -p bootstrap-build/yaffle_app
-	cp support/c/${YAFFLE_SUPPORT} bootstrap-build/yaffle_app/
-	sed 's/libyaffle_support.so/${YAFFLE_SUPPORT}/g; s|__PREFIX__|${YAFFLE_BOOT_PREFIX}|g' \
+	cp support/c/${IDRIS2_SUPPORT} bootstrap-build/yaffle_app/
+	sed 's/libyaffle_support.so/${IDRIS2_SUPPORT}/g; s|__PREFIX__|${IDRIS2_BOOT_PREFIX}|g' \
 		bootstrap/yaffle_app/yaffle.ss \
 		> bootstrap-build/yaffle_app/yaffle-boot.ss
 	$(SHELL) ./bootstrap-stage1-chez.sh
-	YAFFLE_CG="chez" $(SHELL) ./bootstrap-stage2.sh
+	IDRIS2_CG="chez" $(SHELL) ./bootstrap-stage2.sh
 
 # Bootstrapping using racket
 bootstrap-racket: support
 	mkdir -p bootstrap-build/yaffle_app
-	cp support/c/${YAFFLE_SUPPORT} bootstrap-build/yaffle_app/
-	sed 's|__PREFIX__|${YAFFLE_BOOT_PREFIX}|g' \
+	cp support/c/${IDRIS2_SUPPORT} bootstrap-build/yaffle_app/
+	sed 's|__PREFIX__|${IDRIS2_BOOT_PREFIX}|g' \
 		bootstrap/yaffle_app/yaffle.rkt \
 		> bootstrap-build/yaffle_app/yaffle-boot.rkt
 	$(SHELL) ./bootstrap-stage1-racket.sh
-	YAFFLE_CG="racket" $(SHELL) ./bootstrap-stage2.sh
+	IDRIS2_CG="racket" $(SHELL) ./bootstrap-stage2.sh
 
 bootstrap-test:
-	$(MAKE) test INTERACTIVE='' YAFFLE_PREFIX=${YAFFLE_BOOT_PREFIX}
+	$(MAKE) test INTERACTIVE='' IDRIS2_PREFIX=${IDRIS2_BOOT_PREFIX}
 
 ci-windows-bootstrap-test:
-	$(MAKE) test except="yaffle/repl005" INTERACTIVE='' YAFFLE_PREFIX=${YAFFLE_BOOT_PREFIX}
+	$(MAKE) test except="yaffle/repl005" INTERACTIVE='' IDRIS2_PREFIX=${IDRIS2_BOOT_PREFIX}
 
 bootstrap-clean:
 	$(RM) -r bootstrap-build
