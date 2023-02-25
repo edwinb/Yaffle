@@ -1108,8 +1108,8 @@ mutual
               " => " ++ show sc
         showApp (App _ _ _ _) [] = "[can't happen]"
         showApp (As _ _ n tm) [] = show n ++ "@" ++ show tm
-        showApp (Case _ r sc _ alts) []
-            = "case " ++ show r ++ " " ++ show sc ++ " of " ++ show alts
+        showApp (Case _ r sc scty alts) []
+            = "case " ++ show r ++ " " ++ show sc ++ " : " ++ show scty ++ " of " ++ show alts
         showApp (TDelayed _ _ tm) [] = "%Delayed " ++ show tm
         showApp (TDelay _ _ _ tm) [] = "%Delay " ++ show tm
         showApp (TForce _ _ tm) [] = "%Force " ++ show tm

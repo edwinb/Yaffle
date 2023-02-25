@@ -21,12 +21,14 @@ export
 getCons : {auto c : Ref Ctxt Defs} ->
           {vars : _} ->
           Defs -> NF vars -> Core (List DataCon)
-getCons defs (VTCon _ tn _ _)
+getCons defs (VTCon fc tn _ _)
     = case !(lookupDefExact tn (gamma defs)) of
            Just (TCon ti _) =>
                 do cs' <- traverse addTy (datacons ti)
                    pure (catMaybes cs')
-           _ => throw (InternalError "Called `getCons` on something that is not a Type constructor")
+           _ => -- This will be a primitive type, so nothing to add (we
+                -- can't generate all the possibilities after all!)
+                pure []
   where
     addTy : Name -> Core (Maybe DataCon)
     addTy cn

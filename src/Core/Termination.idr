@@ -52,14 +52,14 @@ checkIfGuarded fc n
          defs <- get Ctxt
          Just (Function _ tm _ _) <- lookupDefExact n (gamma defs)
               | _ => pure ()
-         t <- guardedDef !(expand !(nf [<] tm))
+         t <- guardedDef !(nf [<] tm)
          if t then do Just gdef <- lookupCtxtExact n (gamma defs)
                            | Nothing => pure ()
                       g <- allM (checkNotFn defs) (keys (refersTo gdef))
                       when g $ setFlag fc n AllGuarded
               else pure ()
   where
-    guardedNF : {vars : _} -> NF vars -> Core Bool
+    guardedNF : {vars : _} -> Glued vars -> Core Bool
     guardedNF (VDCon{}) = pure True
     guardedNF (VApp _ _ n _ _)
         = do defs <- get Ctxt
@@ -69,24 +69,24 @@ checkIfGuarded fc n
     guardedNF _ = pure False
 
     guardedScope : {vars : _} -> (args : _) -> VCaseScope args vars -> Core Bool
-    guardedScope [<] sc = guardedNF !(expand !sc)
+    guardedScope [<] sc = guardedNF !sc
     guardedScope (sx :< y) sc = guardedScope sx (sc (VErased fc Placeholder))
 
     guardedAlt : {vars : _} -> VCaseAlt vars -> Core Bool
     guardedAlt (VConCase _ _ _ args sc) = guardedScope _ sc
     guardedAlt (VDelayCase fc ty arg sc)
         = guardedScope [< (top, arg), (top, ty) ] sc
-    guardedAlt (VConstCase _ _ sc) = guardedNF !(expand sc)
-    guardedAlt (VDefaultCase _ sc) = guardedNF !(expand sc)
+    guardedAlt (VConstCase _ _ sc) = guardedNF sc
+    guardedAlt (VDefaultCase _ sc) = guardedNF sc
 
     guardedAlts : {vars : _} -> List (VCaseAlt vars) -> Core Bool
     guardedAlts [] = pure True
     guardedAlts (x :: xs)
         = if !(guardedAlt x) then guardedAlts xs else pure False
 
-    guardedDef : {vars : _} -> NF vars -> Core Bool
+    guardedDef : {vars : _} -> Glued vars -> Core Bool
     guardedDef (VLam fc _ _ _ _ sc)
-        = guardedDef !(expand !(sc (VErased fc Placeholder)))
+        = guardedDef !(sc (VErased fc Placeholder))
     guardedDef (VCase fc c _ _ alts)
         = guardedAlts alts
     guardedDef nf = guardedNF nf

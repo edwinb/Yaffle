@@ -216,10 +216,10 @@ mutual
            -- a name from another module where the job is already done
            defs <- get Ctxt
            Just gdef <- lookupCtxtExact n (gamma defs)
-                | Nothing => do args' <- traverse (eval rec env []) args
+                | Nothing => do args' <- traverse (eval (n :: rec) env []) args
                                 pure (unload stk
                                           (CApp fc (CRef nfc n) args'))
-           eval rec env (!(traverse (eval rec env []) args) ++ stk) f
+           eval rec env (!(traverse (eval (n :: rec) env []) args) ++ stk) f
   eval rec env stk (CApp fc f args)
       = eval rec env (!(traverse (eval rec env []) args) ++ stk) f
   eval rec env stk (CCon fc n ci t args)

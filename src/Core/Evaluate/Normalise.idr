@@ -106,7 +106,7 @@ mkEnv {vars} ext = rewrite sym (appendLinLeftNeutral ns) in go ext [<]
         = rewrite appendAssociative rest [<x] xs in
                   go ext (locs :< val)
 
-parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
+parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
 
   runOp : {ar, vars : _} ->
           FC -> PrimFn ar -> Vect ar (Glued vars) -> Core (NF vars)
@@ -274,7 +274,7 @@ parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
                 | Nothing => pure (VApp fc nt n [<] (pure Nothing))
            let Function fi fn _ _ = definition def
                 | _ => pure (VApp fc nt n [<] (pure Nothing))
-           if alwaysReduce fi
+           if alwaysReduce fi || (elem TCInline (flags def))
               then eval locs env (embed fn)
               else pure $ VApp fc nt n [<] $
                           do res <- eval locs env (embed fn)
@@ -299,7 +299,7 @@ parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
       = pure $ VLam fc x r !(evalPiInfo locs env p) !(eval locs env ty)
                     (\arg => eval (locs :< arg) env sc)
   eval locs env (Bind fc x b@(Let bfc c val ty) sc)
-      = case flags of
+      = case eflags of
              KeepLet =>
                   pure $ VBind fc x !(evalBinder locs env b)
                                (\arg => eval (locs :< arg) env sc)
@@ -311,7 +311,7 @@ parameters {auto c : Ref Ctxt Defs} (flags : EvalFlags)
   eval locs env (App fc fn q arg)
       = apply fc !(eval locs env fn) q !(eval locs env arg)
   eval locs env (As fc use as pat)
-      = case flags of
+      = case eflags of
              KeepAs => pure $ VAs fc use !(eval locs env as)
                                          !(eval locs env pat)
              _ => eval locs env pat

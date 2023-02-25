@@ -313,15 +313,15 @@ searchLocalWith {vars} fc rigc defaults trying depth def top env (prf, ty) targe
                             [(do xtynf <- expand xty
                                  findPos p
                                      (\arg => apply fc (Ref fc Func fname)
-                                                        [(xc, xtytm),
-                                                         (yc, ytytm),
+                                                        [(RigCount.erased, xtytm),
+                                                         (RigCount.erased, ytytm),
                                                          (RigCount.top, f arg)])
                                      xtynf target),
                              (do ytynf <- expand yty
                                  findPos p
                                      (\arg => apply fc (Ref fc Func sname)
-                                                        [(xc, xtytm),
-                                                         (yc, ytytm),
+                                                        [(RigCount.erased, xtytm),
+                                                         (RigCount.erased, ytytm),
                                                          (RigCount.top, f arg)])
                                      ytynf target)]
                    else throw (CantSolveGoal fc defs [<] top Nothing))
