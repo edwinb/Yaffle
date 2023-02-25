@@ -643,6 +643,7 @@ incCompile c sourceFile
                   | Left err => throw (FileErr (SystemFileErr ssFile err))
 
                -- Compile to .so
+               coreLift_ $ mkdirAll outputDir
                let tmpFileAbs = outputDir </> "compileChez"
                let build = "(parameterize ([optimize-level 3] " ++
                            "[compile-file-message #f]) (compile-file " ++

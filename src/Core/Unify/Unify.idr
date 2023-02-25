@@ -212,7 +212,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                  Maybe (SnocList (Glued vars)) -> Maybe (SnocList (Glued vars)) ->
                  Core Bool
   headsConvert mode fc env (Just vs) (Just ns)
-      = case (reverse vs, ns) of
+      = case (reverse vs, reverse ns) of
              (_ :< v, _ :< n) =>
                 do logNF "unify.head" 10 "Unifying head" env v
                    logNF "unify.head" 10 ".........with" env n
@@ -252,10 +252,10 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            Just vty <- lookupTyExact (Resolved mref) (gamma defs)
                 | Nothing => ufail fc ("No such metavariable " ++ show mname)
            vargTys <- getArgTypes !(expand !(nf env (embed vty)))
-                                  (cast (map snd args) ++ map third sp) --  ++ sp)
+                                  (reverse (cast (map snd args) ++ map third sp)) --  ++ sp)
            nargTys <- maybe (pure Nothing)
                             (\ty => getArgTypes !(expand !(nf env (embed ty)))
-                                                $ map third args')
+                                                $ reverse (map third args'))
                             nty
 --            -- If the rightmost arguments have the same type, or we don't
 --            -- know the types of the arguments, we'll get on with it.
@@ -267,7 +267,9 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                      (hargs :< h, fargs :< f) =>
                         tryUnify
                           (if not swap then
-                              do ures <- unify mode fc env (third h) (third f)
+                              do logNF "unify.invertible" 10 "Unifying rightmost" env (third h)
+                                 logNF "unify.invertible" 10 "With rightmost...." env (third f)
+                                 ures <- unify mode fc env (third h) (third f)
                                  log "unify.invertible" 10 $ "Constraints " ++ show (constraints ures)
                                  uargs <- unify {f=Normal} mode fc env
                                                 (VMeta fc mname mref args hargs (pure Nothing))
