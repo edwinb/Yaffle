@@ -42,7 +42,7 @@ pkgLocalDirectory =
 -- TTC directories
 
 export
-ttcBuildDirectory : {auto c : Ref Ctxt Defs} -> Core String
+ttcBuildDirectory : {auto c : Ref Ctxt Defs} -> CoreFile String
 ttcBuildDirectory =
   do d <- getDirs
      pure (build_dir d </> "ttc" </> show ttcVersion)
@@ -103,6 +103,10 @@ listOfExtensions = [E_idr, E_lidr, E_yaff, E_org, E_md]
 public export
 listOfExtensionsStr : List String
 listOfExtensionsStr = listOfExtensionsLiterate ++ [".yaff", ".idr"]
+
+||| Given a path, removes trailing separators and current directory identifiers, '.'.
+cleanPath : String -> String
+cleanPath = show . the (Path -> Path) { hasTrailSep := False, body $= filter (/= CurDir) } . parse
 
 ||| Return the basename and extension used *if* given filename is a valid idris filename.
 |||
@@ -173,12 +177,12 @@ findLibraryFile fname
 -- looking first in the build directory then in the extra_dirs
 export
 nsToPath : {auto c : Ref Ctxt Defs} ->
-           FC -> ModuleIdent -> CoreE err (Either Error String)
+           FC -> ModuleIdent -> Core (Either Error String)
 nsToPath loc ns
-    = do d <- getDirs
+    = do bdir <- file ttcBuildDirectory
+         ttcs <- extraSearchDirectories
          let fnameBase = ModuleIdent.toPath ns
-         let fs = map (\p => p </> fnameBase <.> "ttc")
-                      ((build_dir d </> "ttc") :: extra_dirs d)
+         let fs = map (\p => cleanPath $ p </> fnameBase <.> "ttc") (bdir :: ttcs)
          Just f <- firstAvailable fs
             | Nothing => pure (Left (ModuleNotFound loc ns))
          pure (Right f)
@@ -259,12 +263,11 @@ covering
 makeBuildDirectory : {auto c : Ref Ctxt Defs} ->
                      ModuleIdent -> CoreFile ()
 makeBuildDirectory ns
-    = do d <- getDirs
-         let bdir = build_dir d </> "ttc"
+    = do bdir <- ttcBuildDirectory
          let ns = reverse $ fromMaybe [] $ tail' $ unsafeUnfoldModuleIdent ns -- first item is file name
          let ndir = joinPath ns
          Right _ <- coreLift $ mkdirAll (bdir </> ndir)
-            | Left err => throw (SystemFileErr (build_dir d </> ndir) err)
+            | Left err => throw (SystemFileErr (bdir </> ndir) err)
          pure ()
 
 export
@@ -284,9 +287,8 @@ getTTCFileName inp ext
          -- and generate the ttc file from that
          ns <- ctxtPathToNS inp
          let fname = ModuleIdent.toPath ns <.> ext
-         d <- getDirs
-         let bdir = build_dir d
-         pure $ bdir </> "ttc" </> fname
+         bdir <- file ttcBuildDirectory
+         pure $ bdir </> fname
 
 -- Given a source file, return the name of the corresponding object file.
 -- As above, but without the build directory
