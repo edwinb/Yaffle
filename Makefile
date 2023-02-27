@@ -100,7 +100,7 @@ papers: contrib linear
 	${MAKE} -C libs/papers IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 bootstrap-libs : prelude base linear network
-libs : prelude base
+libs : prelude
 #libs : prelude base contrib network test-lib linear papers
 # TODO: no libs yet! Put clean-libs and install-libs back too
 # (or maybe placeholder libs directories?)
