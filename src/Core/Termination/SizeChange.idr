@@ -217,7 +217,7 @@ findLoops s
          -- sense if the position for we can say something are stable under γ.
          -- Hence the following filter:
          let loops = filterEndos (\a => composeChange a.change a.change == a.change) s
-         log "totality.termination.calc" 7 $ "Loops: " ++ show loops
+         logC "totality.termination.calc" 7 $ do pure "Loops: \{show loops}"
          let terms = map (foldMap (\a => checkDesc a.change a.path)) loops
          pure terms
     where
@@ -255,12 +255,12 @@ addFunctions : {auto c : Ref Ctxt Defs} ->
 addFunctions defs [] pred work
     = pure $ Right (work, pred)
 addFunctions defs (d1 :: ds) pred work
-    = do log "totality.termination.calc" 8 $ "Adding function: " ++ show d1.fullname
+    = do logC "totality.termination.calc" 8 $ do pure "Adding function: \{show d1.fullname}"
          calls <- foldlC resolveCall [] d1.sizeChange
          let Nothing = find isNonTerminating calls
             | Just (d2, l, _) =>
               do let g = d2.fullname
-                 log "totality.termination.calc" 7 $ "Non-terminating function call: " ++ show g
+                 logC "totality.termination.calc" 7 $ do pure "Non-terminating function call: \{show g}"
                  let init = prefixPath pred d1.fullname ++ [(l, g)]
                  setPrefixTerminating init g
                  pure $ Left (NotTerminating (BadPath init g))
@@ -272,7 +272,7 @@ addFunctions defs (d1 :: ds) pred work
                   Core (List (GlobalDef, FC, (Name, Name, ArgChange)))
     resolveCall calls (MkSCCall g ch l)
         = do Just d2 <- lookupCtxtExact g (gamma defs)
-                | Nothing => do log "totality.termination.calc" 7 $ "Not found: " ++ show g
+                | Nothing => do logC "totality.termination.calc" 7 $ do pure "Not found: \{show g}"
                                 pure calls
              pure ((d2, l, (d1.fullname, d2.fullname, MkArgChange ch [(l, d2.fullname)])) :: calls)
 
@@ -310,7 +310,7 @@ calcTerminating : {auto c : Ref Ctxt Defs} ->
                   FC -> Name -> Core Terminating
 calcTerminating loc n
     = do defs <- get Ctxt
-         log "totality.termination.calc" 7 $ "Calculating termination: " ++ show !(toFullNames n)
+         logC "totality.termination.calc" 7 $ do pure "Calculating termination: \{show !(toFullNames n)}"
          Just def <- lookupCtxtExact n (gamma defs)
             | Nothing => undefinedName loc n
          IsTerminating <- totRefs defs (keys (refersTo def))

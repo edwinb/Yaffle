@@ -19,7 +19,7 @@ totRefs defs (n :: ns)
          case isTerminating (totality d) of
               IsTerminating => pure rest
               Unchecked => do
-                log "totality" 20 $ "Totality unchecked for " ++ show !(toFullNames n)
+                logC "totality" 20 $ do pure "Totality unchecked for \{show !(toFullNames n)}"
                 pure rest
               _ => case rest of
                           NotTerminating (BadCall ns)

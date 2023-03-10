@@ -62,8 +62,8 @@ posArg tyns nf@(VTCon loc tc _ args) =
      testargs <- case !(lookupDefExact tc (gamma defs)) of
                     Just (TCon ti _) => do
                          let params = paramPos ti
-                         log "totality.positivity" 50 $
-                           unwords [show tc, "has", show (length params), "parameters"]
+                         logC "totality.positivity" 50 $
+                           do pure $ unwords [show tc, "has", show (length params), "parameters"]
                          pure $ splitParams 0 params !(traverseSnocList value args)
                     _ => throw (GenericMsg loc (show tc ++ " not a data type"))
      let (params, indices) = testargs
@@ -157,15 +157,15 @@ calcPositive : {auto c : Ref Ctxt Defs} ->
                FC -> Name -> Core (Terminating, List Name)
 calcPositive loc n
     = do defs <- get Ctxt
-         log "totality.positivity" 6 $ "Calculating positivity: " ++ show !(toFullNames n)
+         logC "totality.positivity" 6 $ do pure $ "Calculating positivity: \{show !(toFullNames n)}"
          case !(lookupDefTyExact n (gamma defs)) of
               Just (TCon ti _, ty) =>
                 let tns = mutWith ti
                     dcons = datacons ti in
                   case !(totRefsIn defs ty) of
                        IsTerminating =>
-                            do log "totality.positivity" 30 $
-                                 "Now checking constructors of " ++ show !(toFullNames n)
+                            do logC "totality.positivity" 30 $
+                                 do pure $ "Now checking constructors of \{show !(toFullNames n)}"
                                t <- blockingAssertTotal loc $ checkData (n :: tns) dcons
                                pure (t , dcons)
                        bad => pure (bad, dcons)

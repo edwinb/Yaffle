@@ -230,8 +230,7 @@ findSCcall g eqs pats fc fn_in arity args
       = do args <- traverse (canonicalise eqs) args
            defs <- get Ctxt
            fn <- getFullName fn_in
-           log "totality.termination.sizechange" 10 $ "Looking under "
-                  ++ show fn
+           logC "totality.termination.sizechange" 10 $ do pure "Looking under \{show fn}"
            aSmaller <- resolved (gamma defs) (NS builtinNS (UN $ Basic "assert_smaller"))
            logC "totality.termination.sizechange" 10 $
                do under <- traverse (\ (n, t) =>
@@ -455,7 +454,7 @@ export
 calculateSizeChange : {auto c : Ref Ctxt Defs} ->
                       FC -> Name -> Core (List SCCall)
 calculateSizeChange loc n
-    = do log "totality.termination.sizechange" 5 $ "Calculating Size Change: " ++ show !(toFullNames n)
+    = do logC "totality.termination.sizechange" 5 $ do pure "Calculating Size Change: \{show !(toFullNames n)}"
          defs <- get Ctxt
          Just def <- lookupCtxtExact n (gamma defs)
               | Nothing => undefinedName loc n
