@@ -1,4 +1,4 @@
 Processing as TTImp
-Written "build/ttc/IO.ttc"
+Written TTC
 Yaffle> Main.io_bind = [< {ext:2}, {ext:3}]: (%let {eff:0} !{ext:2} (%lam w (%let {sc:0} (!{eff:0} [!w]) (%let {eff:1} !{sc:0} (%let {sc:1} (!{ext:3} [!{eff:1}]) (%let {eff:2} !{sc:1} (!{eff:2} [___])))))))
 Yaffle> Bye for now!

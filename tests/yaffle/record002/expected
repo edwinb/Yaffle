@@ -1,5 +1,5 @@
 Processing as TTImp
-Written "build/ttc/Record.ttc"
+Written TTC
 Yaffle> ((((Main.MkPerson "Fred") 1337) 10) ((Main.MkStats 11) 10))
 Yaffle> ((Main.MkMyDPair (Main.S (Main.S (Main.S (Main.S Main.Z))))) ((Main.Cons 10) ((Main.Cons 1) ((Main.Cons 2) ((Main.Cons 3) Main.Nil)))))
 Yaffle> ((Main.MkMyDPair (Main.S (Main.S (Main.S (Main.S Main.Z))))) ((Main.Cons 10) ((Main.Cons 1) ((Main.Cons 2) ((Main.Cons 3) Main.Nil)))))

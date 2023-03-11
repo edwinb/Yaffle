@@ -1,5 +1,5 @@
 Processing as TTImp
-Written "build/ttc/Vect.ttc"
+Written TTC
 Yaffle> Main.Cons : (%pi 0 Implicit (Just k) Main.Nat (%pi 0 Implicit (Just a) %type (%pi  Explicit Nothing a (%pi  Explicit Nothing ((Main.Vect k) a) ((Main.Vect (Main.S k)) a)))))
 Yaffle> Main.append : (%pi 0 Implicit (Just m) Main.Nat (%pi 0 Implicit (Just a) %type (%pi 0 Implicit (Just n) Main.Nat (%pi  Explicit Nothing ((Main.Vect n) a) (%pi  Explicit Nothing ((Main.Vect m) a) ((Main.Vect ((Main.plus n) m)) a))))))
 Yaffle> ((Main.Cons 1) ((Main.Cons 2) ((Main.Cons 2) ((Main.Cons 4) Main.Nil))))

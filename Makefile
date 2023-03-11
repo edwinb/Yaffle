@@ -139,7 +139,7 @@ endif
 
 testenv:
 	@${MAKE} ${TEST_PREFIX}/${NAME_VERSION}
-	@${MAKE} -C tests testbin IDRIS2=${TARGET} IDRIS2_PREFIX=${TEST_PREFIX}
+	@${MAKE} -C tests testbin IDRIS2=${TARGET} #IDRIS2_PREFIX=${TEST_PREFIX}
 
 testenv-clean:
 	$(RM) -r ${TEST_PREFIX}/${NAME_VERSION}

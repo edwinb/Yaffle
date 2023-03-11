@@ -262,5 +262,5 @@ ttImpMain fname
                          do file $ makeBuildDirectory modIdent
                             ttcFileName <- getTTCFileName fname "ttc"
                             writeToTTC () fname ttcFileName
-                            coreLift_ $ putStrLn $ "Written " ++ show ttcFileName
+                            coreLift_ $ putStrLn $ "Written TTC"
          repl

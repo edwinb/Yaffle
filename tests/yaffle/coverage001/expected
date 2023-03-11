@@ -1,5 +1,5 @@
 Processing as TTImp
-Written "build/ttc/Vect.ttc"
+Written TTC
 Yaffle> Main.append: All cases covered
 Yaffle> Main.append':
 (Main.append' [__] [__] [__] (Main.Nil [__]) {_:103})
