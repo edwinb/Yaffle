@@ -63,11 +63,49 @@ parameters {auto c : Ref Ctxt Defs}
            convSpine s env xs ys
   convSpine s env _ _ = pure False
 
+  -- Applications which have been expanded, but not as far as 'case'
+  convertAppsNF : {vars :_} ->
+        Ref QVar Int =>
+        Strategy -> Env Term vars ->
+        NF vars -> NF vars ->
+        Core Bool
+  -- If they're both still applications, see if they convert.
+  -- If they don't, see if they expand into Cases and continue if so
+  convertAppsNF s env x@(VApp _ nt n args _) y@(VApp _ nt' n' args' _)
+      = if n == n'
+           then convSpine s env args args'
+           else do x'@(VCase{}) <- expandFull x | _ => pure False
+                   y'@(VCase{}) <- expandFull y | _ => pure False
+                   -- See if the case blocks convert
+                   convGen s env x' y'
+  -- Expanded into something else, so we've made progress, so back to the top
+  -- level converstion
+  convertAppsNF s env x y = convGen s env x y
+
+  convertApps : {vars :_} ->
+        Ref QVar Int =>
+        Strategy -> Env Term vars ->
+        FC -> NameType -> Name -> Spine vars -> Value f vars ->
+        FC -> NameType -> Name -> Spine vars -> Value f' vars ->
+        Core Bool
+  convertApps BlockApp env _ _ n args _ _ _ n' args' _
+      = if n == n'
+           then convSpine BlockApp env args args'
+           else pure False
+  convertApps s env fc nt n args x fn' nt' n' args' y
+      = -- If n == n' we can try to save work by just checking arguments
+        if n == n'
+           -- Otherwise, convert the values (val and val')
+           then do False <- convSpine BlockApp env args args'
+                       | True => pure True
+                   convertAppsNF s env !(expand x) !(expand y)
+           else convertAppsNF s env !(expand x) !(expand y)
+
   -- Declared above
   -- convGen : {vars : _} ->
   --           Ref QVar Int =>
   --           Strategy -> Env Term vars ->
-  --           Value vars -> Value f vars -> Core Bool
+  --           Value f vars -> Value f' vars -> Core Bool
   convGen s env (VLam fc x r p ty sc) (VLam fc' x' r' p' ty' sc')
       = do True <- convGen s env ty ty' | False => pure False
            var <- genVar fc "conv"
@@ -93,17 +131,8 @@ parameters {auto c : Ref Ctxt Defs}
                then pure False
                else convGen s env tx ty
       convBinders _ _ = pure False
-  convGen BlockApp env (VApp _ nt n args _) (VApp _ nt' n' args' _)
-      = if n == n'
-           then convSpine BlockApp env args args'
-           else pure False
-  convGen s@(Reduce ns) env x@(VApp fc _ n args val) y@(VApp fc' _ n' args' val')
-      = do -- Check without reducing first since it might save a lot of work
-           -- on success
-           False <- convGen BlockApp env x y | True => pure True
-           Just x' <- tryReduce s fc n val  | Nothing => pure False
-           Just y' <- tryReduce s fc' n' val' | Nothing => pure False
-           convGen (Reduce ns) env x' y'
+  convGen s env x@(VApp fc nt n args val) y@(VApp fc' nt' n' args' val')
+      = convertApps s env fc nt n args x fc' nt' n' args' y
   -- If one is an App and the other isn't, try to reduce the App first
   convGen s env (VApp fc _ n _ val) y
       = do Just x <- tryReduce s fc n val | Nothing => pure False
@@ -223,7 +252,7 @@ parameters {auto c : Ref Ctxt Defs}
   convGen s env (VType fc n) (VType fc' n')
       = do addConstraint (ULE fc n fc' n')
            pure True
-  convGen s env _ _ = pure False
+  convGen s env x y = pure False
 
   namespace Value
     export

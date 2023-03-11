@@ -43,7 +43,7 @@ getRewriteTerms loc defs ty err
 
 rewriteErr : Error -> Bool
 rewriteErr (NotRewriteRule _ _ _) = True
-rewriteErr (RewriteNoChange _ _ _ _) = True
+rewriteErr (RewriteNoChange _ _ _ _ _) = True
 rewriteErr (InType _ _ err) = rewriteErr err
 rewriteErr (InCon _ _ err) = rewriteErr err
 rewriteErr (InLHS _ _ err) = rewriteErr err
@@ -91,8 +91,9 @@ elabRewrite loc env expected rulety
 
          -- if the rewritten expected type converts with the original,
          -- then the rewrite did nothing, which is an error
+         defs <- get Ctxt
          when !(convert env rwexp_sc expected) $
-             throw (RewriteNoChange loc env rulety expected)
+             throw (RewriteNoChange loc defs env rulety expected)
          pure (MkLemma lemn pred predty)
 
 export

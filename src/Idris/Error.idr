@@ -463,10 +463,16 @@ perrorRaw (NotFunctionType fc gam env tm)
                     <+> line <+> !(ploc fc)
          put Ctxt defs
          pure res
-perrorRaw (RewriteNoChange fc env rule ty)
-    = pure $ errorDesc (reflow "Rewriting by" <++> code !(pshow env rule)
-        <++> reflow "did not change type" <++> code !(pshow env ty) <+> dot)
-        <+> line <+> !(ploc fc)
+perrorRaw (RewriteNoChange fc gam env rule ty)
+    = do defs <- get Ctxt
+         put Ctxt gam
+         let res = errorDesc (reflow "Rewriting by"
+                      <++> code !(pshow env rule)
+                      <++> reflow "did not change type"
+                      <++> code !(pshow env ty) <+> dot)
+                      <+> line <+> !(ploc fc)
+         put Ctxt defs
+         pure res
 perrorRaw (NotRewriteRule fc env rule)
     = pure $ errorDesc (code !(pshow env rule) <++> reflow "is not a rewrite rule type.")
         <+> line <+> !(ploc fc)

@@ -395,7 +395,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            pure (idx, Meta fc n idx envArgs)
     where
       envArgs : List (RigCount, Term vars)
-      envArgs = let args = reverse (mkConstantAppArgs {done = [<]} True fc env [<]) in
+      envArgs = let args = reverse (mkConstantAppArgs {done = [<]} False fc env [<]) in
                     rewrite sym (appendLinLeftNeutral vars) in args
 
   -- Add a hole which stands for a delayed elaborator

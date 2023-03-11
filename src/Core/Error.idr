@@ -70,7 +70,8 @@ data Error : Type where
                    FC -> Defs -> Env Term vars ->
                    Term vars -> Error
      RewriteNoChange : {vars : _} ->
-                       FC -> Env Term vars -> Term vars -> Term vars -> Error
+                       FC -> Defs ->
+                       Env Term vars -> Term vars -> Term vars -> Error
      NotRewriteRule : {vars : _} ->
                       FC -> Env Term vars -> Term vars -> Error
 
@@ -207,7 +208,7 @@ getErrorLoc (BadPattern loc _) = Just loc
 getErrorLoc (NoDeclaration loc _) = Just loc
 getErrorLoc (AlreadyDefined loc _) = Just loc
 getErrorLoc (NotFunctionType loc _ _ _) = Just loc
-getErrorLoc (RewriteNoChange loc _ _ _) = Just loc
+getErrorLoc (RewriteNoChange loc _ _ _ _) = Just loc
 getErrorLoc (NotRewriteRule loc _ _) = Just loc
 getErrorLoc (CaseCompile loc _ _) = Just loc
 getErrorLoc (MatchTooSpecific loc _ _) = Just loc
@@ -292,7 +293,7 @@ killErrorLoc (BadPattern fc x) = BadPattern emptyFC x
 killErrorLoc (NoDeclaration fc x) = NoDeclaration emptyFC x
 killErrorLoc (AlreadyDefined fc x) = AlreadyDefined emptyFC x
 killErrorLoc (NotFunctionType fc x y z) = NotFunctionType emptyFC x y z
-killErrorLoc (RewriteNoChange fc x y z) = RewriteNoChange emptyFC x y z
+killErrorLoc (RewriteNoChange fc d x y z) = RewriteNoChange emptyFC d x y z
 killErrorLoc (NotRewriteRule fc x y) = NotRewriteRule emptyFC x y
 killErrorLoc (CaseCompile fc x y) = CaseCompile emptyFC x y
 killErrorLoc (MatchTooSpecific fc x y) = MatchTooSpecific emptyFC x y
@@ -402,7 +403,7 @@ Show Error where
   show (AlreadyDefined fc n) = show fc ++ ":" ++ show n ++ " is already defined"
   show (NotFunctionType fc defs env t)
       = show fc ++ ":" ++ show t ++ " is not a function type"
-  show (RewriteNoChange fc env rule ty)
+  show (RewriteNoChange fc defs env rule ty)
       = show fc ++ ":Rewriting by " ++ show rule ++ " did not change type " ++ show ty
   show (NotRewriteRule fc env rule)
       = show fc ++ ":" ++ show rule ++ " is not a rewrite rule type"
@@ -623,7 +624,7 @@ Eq Error where
   NoDeclaration fc1 n1 == NoDeclaration fc2 n2 = fc1 == fc2 && n1 == n2
   AlreadyDefined fc1 n1 == AlreadyDefined fc2 n2 = fc1 == fc2 && n1 == n2
   NotFunctionType fc1 rho1 s1 t1 == NotFunctionType fc2 rho2 s2 t2 = fc1 == fc2
-  RewriteNoChange fc1 rho1 s1 t1 == RewriteNoChange fc2 rho2 s2 t2 = fc1 == fc2
+  RewriteNoChange fc1 gam1 rho1 s1 t1 == RewriteNoChange fc2 gam2 rho2 s2 t2 = fc1 == fc2
   NotRewriteRule fc1 rho1 s1 == NotRewriteRule fc2 rho2 s2 = fc1 == fc2
   CaseCompile fc1 n1 x1 == CaseCompile fc2 n2 x2 = fc1 == fc2 && n1 == n2
   MatchTooSpecific fc1 rho1 s1 == MatchTooSpecific fc2 rho2 s2 = fc1 == fc2

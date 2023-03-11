@@ -107,13 +107,12 @@ getLoc (VType fc x) = fc
 
 -- If a value is an App or Meta node, then it might be reducible. Expand it
 -- just enough that we have the right top level node.
--- Don't expand Apps to a blocked top level cases
+-- Don't expand Apps to a blocked top level cases, unless 'cases' is set.
 -- The 'believe_me' are there to save us deconstructing and reconstructing
 -- just to change a compile-time only index
-export
-expand : {auto c : Ref Ctxt Defs} ->
-         Value f vars -> Core (NF vars)
-expand v@(VApp fc nt n sp val)
+expand' : {auto c : Ref Ctxt Defs} ->
+          Bool -> Value f vars -> Core (NF vars)
+expand' cases v@(VApp fc nt n sp val)
     = do vis <- getVisibility fc n
          defs <- get Ctxt
          let ns = currentNS defs :: nestedNS defs
@@ -122,27 +121,26 @@ expand v@(VApp fc nt n sp val)
                Just val' <- val
                     | Nothing => pure (believe_me v)
                case val' of
-                    VCase{} => pure (believe_me v)
-                    _ => expand val'
+                    VCase{} => if cases
+                                  then expand' cases val'
+                                  else pure (believe_me v)
+                    _ => expand' cases val'
             else pure (believe_me v)
-expand v@(VMeta fc n i args sp val)
+expand' cases v@(VMeta fc n i args sp val)
     = do Just val' <- val
               | Nothing => pure (believe_me v)
-         expand val'
-expand val = pure (believe_me val)
+         expand' cases val'
+expand' cases val = pure (believe_me val)
 
--- As above, but expand cases too
 export
-expandFull : Value f vars -> Core (NF vars)
-expandFull v@(VApp fc nt n sp val)
-    = do Just val' <- val
-              | Nothing => pure (believe_me v)
-         expandFull val'
-expandFull v@(VMeta fc n i args sp val)
-    = do Just val' <- val
-              | Nothing => pure (believe_me v)
-         expandFull val'
-expandFull val = pure (believe_me val)
+expand : {auto c : Ref Ctxt Defs} ->
+         Value f vars -> Core (NF vars)
+expand = expand' False
+
+export
+expandFull : {auto c : Ref Ctxt Defs} ->
+             Value f vars -> Core (NF vars)
+expandFull = expand' True
 
 -- It's safe to pretend an NF is Glued, if we need it
 export
