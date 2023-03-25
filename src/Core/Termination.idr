@@ -303,7 +303,7 @@ findSCalt g args var (ConCase fc n t sc)
     arity (RHS _) = 0
     arity (Arg _ _ sc) = S (arity sc)
 findSCalt g args var (DelayCase fc ty arg tm)
-    = let s = mkSizeOf [< arg, ty]
+    = let s = mkSizeOf [< ty, arg]
           args' = map (\ (i, tm) => (i, weakenNs s tm)) args
           var' = map (weakenNs s) var
           pat = TDelay fc LUnknown (Local fc _ (Later First))

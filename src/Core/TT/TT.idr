@@ -747,7 +747,7 @@ data CaseAlt : SnocList Name -> Type where
      ConCase : FC -> Name -> (tag : Int) -> CaseScope vars -> CaseAlt vars
      ||| Lazy match for the Delay type use for codata types
      DelayCase : FC -> (ty : Name) -> (arg : Name) ->
-                 Term (vars :< arg :< ty) -> CaseAlt vars
+                 Term (vars :< ty :< arg) -> CaseAlt vars
      ||| Match against a literal
      ConstCase : FC -> Constant -> Term vars -> CaseAlt vars
      ||| Catch-all case

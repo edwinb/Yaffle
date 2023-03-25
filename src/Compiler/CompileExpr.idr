@@ -476,8 +476,8 @@ toCExpCase : {vars : _} ->
              Core (CExp vars)
 toCExpCase n fc x (DelayCase _ ty arg sc :: rest)
     = pure $
-          CLet fc arg True (CForce fc LInf x) $
-          CLet fc ty True (CErased fc)
+          CLet fc ty True (CErased fc) $
+          CLet fc arg True (CForce fc LInf (weaken x)) $
                !(toCExp n sc)
 toCExpCase n fc sc alts@(ConCase _ _ _ _ :: _)
     = do Nothing <- getNewType fc sc n alts

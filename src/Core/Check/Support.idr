@@ -76,7 +76,7 @@ matchVars = go []
     goCaseAlt acc (ConCase _ _ _ sc) (ConCase _ _ _ sc')
         = goCaseScope acc sc sc'
     goCaseAlt acc (DelayCase _ n a tm) (DelayCase _ n' a' tm')
-        = let tm' = renameNTop {ns = [<a', n']} [<a, n] (SnocMatch (SnocMatch LinMatch)) tm'
+        = let tm' = renameNTop {ns = [<n', a']} [<n, a] (SnocMatch (SnocMatch LinMatch)) tm'
               scMatch = mapMaybe (dropVar <=< dropVar) (go [] tm tm') in
               scMatch ++ acc
     goCaseAlt acc (ConstCase _ _ tm) (ConstCase _ _ tm') = go acc tm tm'

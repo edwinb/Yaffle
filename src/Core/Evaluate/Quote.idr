@@ -95,7 +95,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteAlt s bounds env (VDelayCase fc ty arg sc)
       = do tyn <- genName "ty"
            argn <- genName "arg"
-           sc' <- quoteGen (Add ty tyn (Add arg argn bounds)) env
+           sc' <- quoteGen (Add arg argn (Add ty tyn bounds)) env
                            !(sc (mkTmpVar fc tyn) (mkTmpVar fc argn)) s
            pure (DelayCase fc ty arg sc')
   quoteAlt s bounds env (VConstCase fc c sc)

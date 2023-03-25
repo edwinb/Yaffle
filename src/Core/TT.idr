@@ -658,7 +658,7 @@ resolveNames vars (Case fc c sc scty alts)
     resolveAlt vars (ConCase fc x tag sc)
         = ConCase fc x tag (resolveScope vars sc)
     resolveAlt vars (DelayCase fc ty arg tm)
-        = DelayCase fc ty arg (resolveNames (vars :< arg :< ty) tm)
+        = DelayCase fc ty arg (resolveNames (vars :< ty :< arg) tm)
     resolveAlt vars (ConstCase fc x tm) = ConstCase fc x (resolveNames vars tm)
     resolveAlt vars (DefaultCase fc tm) = DefaultCase fc (resolveNames vars tm)
 

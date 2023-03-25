@@ -941,7 +941,7 @@ processDef opts nest env fc n_in cs_in
          logC "declare.def" 2 $
                  do t <- toFullNames !(normaliseHoles [<] tree_ct)
                     pure ("Case tree for " ++ show n ++ ": " ++ show t)
-         log "declare.def" 10 $ "Patterns: " ++ show pats
+         log "declare.def" 10 $ "Patterns: " ++ show !(toFullNames pats)
 
          -- check whether the name was declared in a different source file
          defs <- get Ctxt

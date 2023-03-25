@@ -273,7 +273,7 @@ parameters {auto c : Ref Ctxt Defs}
                let argv = VApp fc Bound argn [<] (pure Nothing)
                -- Stop expanding or recursive functions will go forever
                (scope', u) <- replace' False (tmpi + 2) env orig parg !(scope tyv argv)
-               let rhs = refsToLocals (Add ty tyn (Add arg argn None)) scope'
+               let rhs = refsToLocals (Add arg argn (Add ty tyn None)) scope'
                pure (DelayCase fc ty arg rhs, u)
       repAlt (VConstCase fc c rhs)
           = do (rhs', u) <- repArg rhs

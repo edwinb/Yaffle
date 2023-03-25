@@ -47,7 +47,7 @@ data TCaseAlt : SnocList Name -> Type where
      TConCase : FC -> Name -> (tag : Int) -> TCaseScope vars -> TCaseAlt vars
      ||| Lazy match for the Delay type use for codata typesT
      TDelayCase : FC -> (ty : Name) -> (arg : Name) ->
-                 CaseTree (vars :< arg :< ty) -> TCaseAlt vars
+                 CaseTree (vars :< ty :< arg) -> TCaseAlt vars
      ||| Match against a literal
      TConstCase : FC -> Constant -> CaseTree vars -> TCaseAlt vars
      ||| Catch-all case

@@ -323,7 +323,7 @@ buildArgs defs known not ps cs@(Case fc c (Local lfc idx el) ty altsIn)
     buildArgAlt var not' (ConCase cfc n t sc)
         = buildArgSc cfc var known not' n t [<] sc
     buildArgAlt var not' (DelayCase cfc t a sc)
-        = let l = mkSizeOf [< a, t]
+        = let l = mkSizeOf [< t, a]
               ps' = map (\ (c, tm) =>
                             (c, substName var (TDelay fc LUnknown
                                              (Ref fc Bound t)
