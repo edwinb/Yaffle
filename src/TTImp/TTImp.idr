@@ -747,13 +747,13 @@ implicitsAs n defs ns tm
         -- So we first peel off all of the explicit quantifiers corresponding
         -- to these variables.
         findImps ns es (_ :: locals) (VBind fc x (Pi _ _ Explicit _) sc)
-          = do body <- sc (VErased fc Placeholder)
+          = do body <- sc (pure (VErased fc Placeholder))
                body <- expand body
                findImps ns es locals body
                -- ^ TODO? check that name of the pi matches name of local?
         -- don't add implicits coming after explicits that aren't given
         findImps ns es [] (VBind fc x (Pi _ _ Explicit _) sc)
-            = do body <- sc (VErased fc Placeholder)
+            = do body <- sc (pure (VErased fc Placeholder))
                  body <- expand body
                  case es of
                    -- Explicits were skipped, therefore all explicits are given anyway
@@ -764,14 +764,14 @@ implicitsAs n defs ns tm
                           Just es' => findImps ns es' [] body
         -- if the implicit was given, skip it
         findImps ns es [] (VBind fc x (Pi _ _ AutoImplicit _) sc)
-            = do body <- sc (VErased fc Placeholder)
+            = do body <- sc (pure (VErased fc Placeholder))
                  body <- expand body
                  case updateNs x ns of
                    Nothing => -- didn't find explicit call
                       pure $ (x, AutoImplicit) :: !(findImps ns es [] body)
                    Just ns' => findImps ns' es [] body
         findImps ns es [] (VBind fc x (Pi _ _ p _) sc)
-            = do body <- sc (VErased fc Placeholder)
+            = do body <- sc (pure (VErased fc Placeholder))
                  body <- expand body
                  if Just x `elem` ns
                    then findImps ns es [] body

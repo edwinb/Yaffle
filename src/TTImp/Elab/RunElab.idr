@@ -57,7 +57,7 @@ elabScript rig fc nest env script@(VDCon nfc nm t ar args) exp
          case fnm of
               NS ns (UN (Basic n))
                  => if ns == reflectionNS
-                      then elabCon defs n (cast (map spineArg args))
+                      then elabCon defs n (cast !(traverseSnocList spineArg args))
                              `catch` \case -- wrap into `RunElabFail` any non-elab error
                                e@(BadRunElab _ _ _ _) => throw e
                                e@(RunElabFail _)      => throw e
@@ -84,7 +84,7 @@ elabScript rig fc nest env script@(VDCon nfc nm t ar args) exp
         -- 3) apply k to the result of (2)
         -- 4) Run elabScript on the result stripping off Elab
         = do act <- elabScript rig fc nest env !(expand act) exp
-             r <- apply fc k top act
+             r <- apply fc k top (pure act)
              elabScript rig fc nest env !(expand r) exp
     elabCon defs "Fail" [_, mbfc, msg]
         = do msg' <- expand msg
@@ -133,7 +133,7 @@ elabScript rig fc nest env script@(VDCon nfc nm t ar args) exp
         = do VBind bfc x (Lam fc' c p ty) sc <- expand scope
                    | _ => failWith "Not a lambda"
              n <- genVarName "x"
-             sc' <- sc (vRef bfc Bound n)
+             sc' <- sc (pure (vRef bfc Bound n))
              qsc <- quote env sc'
              let lamsc = refToLocal n x qsc
              qp <- quotePi p

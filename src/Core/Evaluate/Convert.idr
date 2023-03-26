@@ -59,7 +59,7 @@ parameters {auto c : Ref Ctxt Defs}
               Spine vars -> Spine vars -> Core Bool
   convSpine s env [<] [<] = pure True
   convSpine s env (xs :< (_, _, x)) (ys :< (_, _, y))
-      = do True <- convGen s env x y | False => pure False
+      = do True <- convGen s env !x !y | False => pure False
            convSpine s env xs ys
   convSpine s env _ _ = pure False
 
@@ -109,17 +109,17 @@ parameters {auto c : Ref Ctxt Defs}
   convGen s env (VLam fc x r p ty sc) (VLam fc' x' r' p' ty' sc')
       = do True <- convGen s env ty ty' | False => pure False
            var <- genVar fc "conv"
-           convGen s env !(sc var) !(sc' var)
+           convGen s env !(sc (pure var)) !(sc' (pure var))
   convGen {vars} s env tmx@(VLam fc x r p ty sc) tmy
-      = do let etay = VLam fc x r p ty (apply fc tmy r)
+      = do let etay = VLam fc x r p ty (\x => apply fc tmy r x)
            convGen {f'=Normal} s env tmx etay
   convGen {vars} s env tmx tmy@(VLam fc x r p ty sc)
-      = do let etax = VLam fc x r p ty (apply fc tmx r)
+      = do let etax = VLam fc x r p ty (\x => apply fc tmx r x)
            convGen {f=Normal} s env etax tmy
   convGen {vars} s env (VBind fc x b sc) (VBind fc' x' b' sc')
       = do True <- convBinders b b' | False => pure False
            var <- genVar fc "conv"
-           convGen s env !(sc var) !(sc' var)
+           convGen s env !(sc (pure var)) !(sc' (pure var))
     where
       convBinders : Binder (Value f vars) -> Binder (Value f' vars) -> Core Bool
       convBinders (Lam _ cx _ tx) (Lam _ cy _ ty)
@@ -149,11 +149,11 @@ parameters {auto c : Ref Ctxt Defs}
            Just y <- val' | Nothing => convMeta
            convGen s env x y
     where
-      convScope : List (RigCount, Glued vars) ->
-                  List (RigCount, Glued vars) -> Core Bool
+      convScope : List (RigCount, Core (Glued vars)) ->
+                  List (RigCount, Core (Glued vars)) -> Core Bool
       convScope [] [] = pure True
       convScope ((_, x) :: xs) ((_, y) :: ys)
-          = do True <- convGen s env x y | False => pure False
+          = do True <- convGen s env !x !y | False => pure False
                convScope xs ys
       convScope _ _ = pure False
 
@@ -192,7 +192,7 @@ parameters {auto c : Ref Ctxt Defs}
      convScope [<] sc [<] sc' = convGen BlockApp env !sc !sc'
      convScope (xs :< x) sc (ys :< y) sc'
          = do xn <- genVar fc "arg"
-              convScope xs (sc xn) ys (sc' xn)
+              convScope xs (sc (pure xn)) ys (sc' (pure xn))
      convScope _ _ _ _ = pure False
 
      convAlt : VCaseAlt vars -> VCaseAlt vars -> Core Bool
@@ -203,7 +203,8 @@ parameters {auto c : Ref Ctxt Defs}
      convAlt (VDelayCase _ t a sc) (VDelayCase _ t' a' sc')
          = do tn <- genVar fc "t"
               an <- genVar fc "a"
-              convGen BlockApp env !(sc tn an) !(sc' tn an)
+              convGen BlockApp env !(sc (pure tn) (pure an))
+                                   !(sc' (pure tn) (pure an))
      convAlt (VConstCase _ c x) (VConstCase _ c' y)
          = if c == c'
               then convGen BlockApp env x y

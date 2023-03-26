@@ -70,7 +70,7 @@ checkIfGuarded fc n
 
     guardedScope : {vars : _} -> (args : _) -> VCaseScope args vars -> Core Bool
     guardedScope [<] sc = guardedNF !sc
-    guardedScope (sx :< y) sc = guardedScope sx (sc (VErased fc Placeholder))
+    guardedScope (sx :< y) sc = guardedScope sx (sc (pure (VErased fc Placeholder)))
 
     guardedAlt : {vars : _} -> VCaseAlt vars -> Core Bool
     guardedAlt (VConCase _ _ _ args sc) = guardedScope _ sc
@@ -86,7 +86,7 @@ checkIfGuarded fc n
 
     guardedDef : {vars : _} -> Glued vars -> Core Bool
     guardedDef (VLam fc _ _ _ _ sc)
-        = guardedDef !(sc (VErased fc Placeholder))
+        = guardedDef !(sc (pure (VErased fc Placeholder)))
     guardedDef (VCase fc c _ _ alts)
         = guardedAlts alts
     guardedDef nf = guardedNF nf
@@ -572,7 +572,7 @@ nameIn : {auto c : Ref Ctxt Defs} ->
 nameIn tyns (VBind fc x b sc)
     = if !(nameIn tyns !(expand (binderType b)))
          then pure True
-         else do sc' <- sc (vRef fc Bound (MN ("NAMEIN_" ++ show x) 0))
+         else do sc' <- sc (pure (vRef fc Bound (MN ("NAMEIN_" ++ show x) 0)))
                  nameIn tyns !(expand sc')
 nameIn tyns (VApp _ nt n args _)
     = do False <- isAssertTotal n
@@ -614,7 +614,7 @@ posArg tyns nf@(VTCon loc tc _ args) =
                          let params = paramPos ti
                          log "totality.positivity" 50 $
                            unwords [show tc, "has", show (length params), "parameters"]
-                         pure $ splitParams 0 params (map spineArg args)
+                         pure $ splitParams 0 params !(traverseSnocList spineArg args)
                     _ => throw (GenericMsg loc (show tc ++ " not a data type"))
      let (params, indices) = testargs
      False <- anyM (nameIn tyns) (cast !(traverseSnocList expand indices))
@@ -635,7 +635,7 @@ posArg tyns nf@(VBind fc x (Pi _ _ e ty) sc)
   = do logNF "totality.positivity" 50 "Found a Pi-type" [<] nf
        if !(nameIn tyns !(expand ty))
          then pure (NotTerminating NotStrictlyPositive)
-         else do sc' <- sc (vRef fc Bound (MN ("POSCHECK_" ++ show x) 1))
+         else do sc' <- sc (pure (vRef fc Bound (MN ("POSCHECK_" ++ show x) 1)))
                  posArg tyns !(expand sc')
 posArg tyns nf@(VApp _ _ n args _)
     = do False <- isAssertTotal n
@@ -657,7 +657,7 @@ checkPosArgs tyns (VBind fc x (Pi _ _ e ty) sc)
     = case !(posArg tyns !(expand ty)) of
            IsTerminating =>
                do let nm = vRef fc Bound (MN ("POSCHECK_" ++ show x) 0)
-                  checkPosArgs tyns !(expand !(sc nm))
+                  checkPosArgs tyns !(expand !(sc (pure nm)))
            bad => pure bad
 checkPosArgs tyns nf
   = do logNF "totality.positivity" 50 "Giving up on non-Pi type" [<] nf

@@ -35,7 +35,7 @@ getRewriteTerms loc defs (VTCon nfc eq a args) err
     = if !(isEqualTy eq)
          then case map spineArg args of
                    (_ :< lhsty :< rhsty :< lhs :< rhs) =>
-                        pure (lhs, rhs, lhsty)
+                        pure (!lhs, !rhs, !lhsty)
                    _ => throw err
          else throw err
 getRewriteTerms loc defs ty err

@@ -25,7 +25,7 @@ import Libraries.Data.NameMap
 getRetTy : {auto c : Ref Ctxt Defs} ->
            NF [<] -> Core Name
 getRetTy (VBind fc _ (Pi _ _ _ _) sc)
-    = getRetTy !(expand !(sc (VErased fc Placeholder)))
+    = getRetTy !(expand !(sc (pure (VErased fc Placeholder))))
 getRetTy (VTCon _ n _ _) = pure n
 getRetTy ty
     = throw (GenericMsg (getLoc ty)
@@ -96,7 +96,7 @@ processFnOpt fc _ ndef (SpecArgs ns)
     collectDDeps : NF [<] -> Core (List Name)
     collectDDeps (VBind tfc x (Pi _ _ _ nty) sc)
         = do defs <- get Ctxt
-             sc' <- expand !(sc (VApp tfc Bound x [<] (pure Nothing)))
+             sc' <- expand !(sc (pure (VApp tfc Bound x [<] (pure Nothing))))
              if x `elem` ns
                 then collectDDeps sc'
                 else do aty <- quote [<] nty
@@ -120,17 +120,17 @@ processFnOpt fc _ ndef (SpecArgs ns)
       getDeps inparam (VLam _ x _ _ ty sc) ns
           = do defs <- get Ctxt
                ns' <- getDeps False !(expand ty) ns
-               sc' <- expand !(sc (VErased fc Placeholder))
+               sc' <- expand !(sc (pure (VErased fc Placeholder)))
                getDeps False sc' ns
       getDeps inparam (VBind _ x (Pi _ _ _ pty) sc) ns
           = do defs <- get Ctxt
                ns' <- getDeps inparam !(expand pty) ns
-               sc' <- expand !(sc (VErased fc Placeholder))
+               sc' <- expand !(sc (pure (VErased fc Placeholder)))
                getDeps inparam sc' ns'
       getDeps inparam (VBind _ x b sc) ns
           = do defs <- get Ctxt
                ns' <- getDeps False !(expand (binderType b)) ns
-               sc' <- expand !(sc (VErased fc Placeholder))
+               sc' <- expand !(sc (pure (VErased fc Placeholder)))
                getDeps False sc' ns
       getDeps inparam (VApp _ Bound n args _) ns
           = do defs <- get Ctxt
@@ -171,7 +171,7 @@ processFnOpt fc _ ndef (SpecArgs ns)
                   List (Name, Nat) -> NF [<] -> Core (List Nat)
     collectSpec acc ddeps ps (VBind tfc x (Pi _ _ _ nty) sc)
         = do defs <- get Ctxt
-             sc' <- expand !(sc (VApp tfc Bound x [<] (pure Nothing)))
+             sc' <- expand !(sc (pure (VApp tfc Bound x [<] (pure Nothing))))
              if x `elem` ns
                 then do deps <- getDeps True !(expand nty) NameMap.empty
                         -- Get names depended on by nty
@@ -189,7 +189,7 @@ processFnOpt fc _ ndef (SpecArgs ns)
     getNamePos : Nat -> NF [<] -> Core (List (Name, Nat))
     getNamePos i (VBind tfc x (Pi _ _ _ _) sc)
         = do defs <- get Ctxt
-             ns' <- getNamePos (1 + i) !(expand !(sc (VErased tfc Placeholder)))
+             ns' <- getNamePos (1 + i) !(expand !(sc (pure (VErased tfc Placeholder))))
              pure ((x, i) :: ns')
     getNamePos _ _ = pure []
 
@@ -279,7 +279,7 @@ findInferrable ty = fi 0 0 [] [] ty
     fi : Nat -> Int -> List (Name, Nat) -> List Nat -> NF [<] -> Core (List Nat)
     fi pos i args acc (VBind fc x (Pi _ _ _ aty) sc)
         = do let argn = MN "inf" i
-             sc' <- expand !(sc (VApp fc Bound argn [<] (pure Nothing)))
+             sc' <- expand !(sc (pure (VApp fc Bound argn [<] (pure Nothing))))
              acc' <- findInf acc args !(expand aty)
              rest <- fi (1 + pos) (1 + i) ((argn, pos) :: args) acc' sc'
              pure rest

@@ -195,10 +195,10 @@ unelabTy' umode nest env tm@(App fc fn c arg)
          fnty <- expand gfnty
          case fnty of
               VBind _ x (Pi _ rig Explicit ty) sc
-                => do sc' <- sc !(nf env arg)
+                => do sc' <- sc (nf env arg)
                       pure (IApp fc fn' arg', sc')
               VBind _ x (Pi _ rig p ty) sc
-                => do sc' <- sc !(nf env arg)
+                => do sc' <- sc (nf env arg)
                       case umode of
                            NoImplicits => pure (fn', sc')
                            _ => pure (INamedApp fc fn' x arg', sc')
@@ -248,7 +248,7 @@ unelabTy' umode nest env (Case fc c sc scty alts)
              let env' = env :< PVar fc rig (map embed p') (embed vty)
              -- We only need the type to make sure we're getting the plicities
              -- right, so use an explicit name to feed to the scope type
-             tsc' <- expand !(tsc (vRef fc Bound n))
+             tsc' <- expand !(tsc (pure (vRef fc Bound n)))
              let xn = case p' of
                            Explicit => Nothing
                            _ => Just v

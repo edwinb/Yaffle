@@ -13,7 +13,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
 
   readQs : NF [<] -> Core (List RigCount)
   readQs (VBind fc x (Pi _ c _ _) sc)
-      = do rest <- readQs !(expand !(sc (VErased fc Placeholder)))
+      = do rest <- readQs !(expand !(sc (pure (VErased fc Placeholder))))
            pure (c :: rest)
   readQs _ = pure []
 
@@ -31,7 +31,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
     where
       checkIsTy : NF [<] -> Core ()
       checkIsTy (VBind fc _ (Pi _ _ _ _) sc)
-          = checkIsTy !(expand !(sc (VErased fc Placeholder)))
+          = checkIsTy !(expand !(sc (pure (VErased fc Placeholder))))
       checkIsTy (VTCon fc cn _ _)
           = when (!(toResolvedNames cn) /= !(toResolvedNames tycon)) $
                throw (BadDataConType fc n tycon)

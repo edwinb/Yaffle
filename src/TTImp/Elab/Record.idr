@@ -74,7 +74,7 @@ findFields defs con
   where
     getExpNames : NF [<] -> Core (List (String, Maybe Name, Maybe Name))
     getExpNames (VBind fc x (Pi _ _ p ty) sc)
-        = do rest <- getExpNames !(expand !(sc (VErased fc Placeholder)))
+        = do rest <- getExpNames !(expand !(sc (pure (VErased fc Placeholder))))
              let imp = case p of
                             Explicit => Nothing
                             _ => Just x

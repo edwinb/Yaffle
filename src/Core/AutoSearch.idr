@@ -51,7 +51,7 @@ mkArgs fc rigc env (VBind nfc x (Pi fc' c p ty) sc)
                                (Hole (length env) (holeInit False))
          argVal <- nf env arg
          setInvertible fc (Resolved idx)
-         (rest, restTy) <- mkArgs fc rigc env !(expand !(sc argVal))
+         (rest, restTy) <- mkArgs fc rigc env !(expand !(sc (pure argVal)))
          pure (MkArgInfo idx argRig p (c, arg) argTy :: rest, restTy)
 mkArgs fc rigc env ty = pure ([], ty)
 
@@ -205,7 +205,7 @@ usableLocal loc defaults env (VMeta{})
     = pure False
 usableLocal {vars} loc defaults env (VTCon _ n _ args)
     = do sd <- getSearchData loc (not defaults) n
-         usableLocalArg 0 (detArgs sd) (cast (map spineArg args))
+         usableLocalArg 0 (detArgs sd) (cast !(traverseSnocList spineArg args))
   -- usable if none of the determining arguments of the local's type are
   -- holes
   where
@@ -228,7 +228,7 @@ usableLocal loc defaults env (VLocal _ _ _ args)
                         !(traverseSnocList spineVal args)
          pure (all id us)
 usableLocal loc defaults env (VBind fc x (Pi _ _ _ _) sc)
-    = usableLocal loc defaults env !(expand !(sc (VErased fc Placeholder)))
+    = usableLocal loc defaults env !(expand !(sc (pure (VErased fc Placeholder))))
 usableLocal loc defaults env (VErased _ _) = pure False
 usableLocal loc _ _ _ = pure True
 
@@ -307,17 +307,19 @@ searchLocalWith {vars} fc rigc defaults trying depth def top env (prf, ty) targe
                                pure
                                !sndName
                 if !(isPairType pn)
-                   then do xtytm <- quote env xty
-                           ytytm <- quote env yty
+                   then do xty' <- xty
+                           yty' <- yty
+                           xtytm <- quote env xty'
+                           ytytm <- quote env yty'
                            exactlyOne fc env top target
-                            [(do xtynf <- expand xty
+                            [(do xtynf <- expand xty'
                                  findPos p
                                      (\arg => apply fc (Ref fc Func fname)
                                                         [(RigCount.erased, xtytm),
                                                          (RigCount.erased, ytytm),
                                                          (RigCount.top, f arg)])
                                      xtynf target),
-                             (do ytynf <- expand yty
+                             (do ytynf <- expand yty'
                                  findPos p
                                      (\arg => apply fc (Ref fc Func sname)
                                                         [(RigCount.erased, xtytm),
@@ -348,7 +350,7 @@ isPairNF : {auto c : Ref Ctxt Defs} ->
 isPairNF env (VTCon _ n _ _)
     = isPairType n
 isPairNF env (VBind fc b (Pi _ _ _ _) sc)
-    = isPairNF env !(expand !(sc (VErased fc Placeholder)))
+    = isPairNF env !(expand !(sc (pure (VErased fc Placeholder))))
 isPairNF _ _ = pure False
 
 searchName : {vars : _} ->
@@ -448,17 +450,17 @@ concreteDets {vars} fc defaults env top pos dets (arg :: args)
 
     concrete : NF vars -> (atTop : Bool) -> Core ()
     concrete (VBind nfc x b sc) atTop
-        = do scnf <- expand !(sc (VErased nfc Placeholder))
+        = do scnf <- expand !(sc (pure (VErased nfc Placeholder)))
              concrete scnf False
     concrete (VTCon nfc n a args) atTop
         = do sd <- getSearchData nfc False n
              let args' = drop 0 (detArgs sd) (cast args)
              traverse_ (\ parg => do argnf <- expand parg
-                                     concrete argnf False) (map spineArg args')
+                                     concrete argnf False) !(traverse spineArg args')
     concrete (VDCon nfc n t a args) atTop
         = do traverse_ (\ parg => do argnf <- expand parg
                                      concrete argnf False)
-                       (map spineArg (cast args))
+                       !(traverse spineArg (cast args))
     concrete (VMeta _ n i _ _ _) True
         = do defs <- get Ctxt
              Just (Hole _ b) <- lookupDefExact n (gamma defs)
@@ -485,18 +487,20 @@ checkConcreteDets fc defaults env top (VTCon tfc tyn t args)
          if !(isPairType tyn)
             then case args of
                       [< (_, (_, aty)), (_, (_, bty))] =>
-                          do anf <- expand aty
-                             bnf <- expand bty
+                          do anf <- expand !aty
+                             bnf <- expand !bty
                              checkConcreteDets fc defaults env top anf
                              checkConcreteDets fc defaults env top bnf
                       _ => do sd <- getSearchData fc defaults tyn
-                              concreteDets fc defaults env top 0 (detArgs sd) (cast (map spineArg args))
+                              concreteDets fc defaults env top 0 (detArgs sd)
+                                  (cast !(traverseSnocList spineArg args))
             else
               do sd <- getSearchData fc defaults tyn
                  log "auto.determining" 10 $
                    "Determining arguments for " ++ show !(toFullNames tyn)
                    ++ " " ++ show (detArgs sd)
-                 concreteDets fc defaults env top 0 (detArgs sd) (cast (map spineArg args))
+                 concreteDets fc defaults env top 0 (detArgs sd)
+                     (cast !(traverseSnocList spineArg args))
 checkConcreteDets fc defaults env top _
     = pure ()
 

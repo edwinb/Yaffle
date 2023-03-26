@@ -139,7 +139,7 @@ updatePats env nf [] = pure []
 updatePats {todo = ns :< pvar} env (VBind fc _ (Pi _ c _ farg) fsc) (p :: ps)
   = case argType p of
          Unknown =>
-            do fsc' <- expand !(fsc (vRef fc Bound pvar))
+            do fsc' <- expand !(fsc (pure (vRef fc Bound pvar)))
                pure ({ argType := Known c !(quote env farg) } p
                           :: !(updatePats env fsc' ps))
          _ => pure (p :: ps)
@@ -170,7 +170,7 @@ substInPatInfo {pvar} {vars} fc n tm p ps
              do let env = mkEnv fc vars
                 case !(expand !(nf env (substName n tm fty))) of
                      VBind pfc _ (Pi _ c _ farg) fsc =>
-                       do fsc' <- expand !(fsc (vRef pfc Bound pvar))
+                       do fsc' <- expand !(fsc (pure (vRef pfc Bound pvar)))
                           pure ({ argType := Known c !(quote env farg) } p,
                                     !(updatePats env fsc' ps))
                      _ => pure (p, ps)
@@ -470,7 +470,7 @@ getArgTys : {vars : _} ->
             {auto c : Ref Ctxt Defs} ->
             Env Term vars -> List Name -> NF vars -> Core (List (ArgType vars))
 getArgTys env (n :: ns) (VBind pfc _ (Pi _ c _ farg) fsc)
-    = do rest <- getArgTys env ns !(expand !(fsc (vRef pfc Bound n)))
+    = do rest <- getArgTys env ns !(expand !(fsc (pure (vRef pfc Bound n))))
          pure (Known c !(quote env farg) :: rest)
 getArgTys env (n :: ns) t
     = pure [Stuck !(quote env t)]
@@ -653,9 +653,9 @@ groupCons fc fn pvars cs
                 Core (List (Group vars' todo'))
     addDelayG {vars'} {todo'} pty parg pats pid rhs []
         = do let dty = VBind fc (MN "a" 0) (Pi fc erased Explicit (VType fc (MN "top" 0))) $
-                        (\a =>
-                            pure (VBind fc (MN "x" 0) (Pi fc top Explicit a)
-                                     (\av => pure (VDelayed fc LUnknown a))))
+                        (\a => do a'<- a
+                                  pure (VBind fc (MN "x" 0) (Pi fc top Explicit a')
+                                           (\av => pure (VDelayed fc LUnknown a'))))
              ([< tyname, argname] ** (l, newargs)) <-
                   nextNames {vars=vars'} top fc "e" [< (top, pty), (top, parg)] dty
                 | _ => throw (InternalError "Error compiling Delay pattern match")
@@ -1311,7 +1311,7 @@ makePMDef fc phase fn ty []
     getArgs : Int -> NF [<] -> Core (SnocList Name)
     getArgs i (VBind fc x (Pi _ _ _ _) sc)
         = do defs <- get Ctxt
-             sc' <- expand !(sc (VErased fc Placeholder))
+             sc' <- expand !(sc (pure (VErased fc Placeholder)))
              pure (!(getArgs i sc') :< MN "arg" i)
     getArgs i _ = pure [<]
 makePMDef fc phase fn ty clauses

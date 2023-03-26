@@ -583,7 +583,7 @@ getPArgs : {auto c : Ref Ctxt Defs} ->
 getPArgs defs cl
     = do VDCon fc _ _ _ args <- expand cl
              | nf => throw (GenericMsg (getLoc nf) "Badly formed struct type")
-         case map spineArg args of
+         case !(traverseSnocList spineArg args) of
               (_ :< n :< tydesc) =>
                   do VPrimVal _ (Str n') <- expand n
                          | nf => throw (GenericMsg (getLoc nf) "Unknown field name")
@@ -595,7 +595,7 @@ getFieldArgs : {auto c : Ref Ctxt Defs} ->
 getFieldArgs defs cl
     = do VDCon fc _ _ _ args <- expand cl
              | nf => throw (GenericMsg (getLoc nf) "Badly formed struct type")
-         case map spineArg args of
+         case !(traverseSnocList spineArg args) of
               -- cons
               [< _, t, rest] =>
                   do rest' <- getFieldArgs defs rest
@@ -641,7 +641,7 @@ nfToCFType _ _ (VPrimVal _ $ PrT WorldType) = pure CFWorld
 nfToCFType _ False (VBind fc _ (Pi _ _ _ ty) sc)
     = do defs <- get Ctxt
          sty <- nfToCFType fc False !(expand ty)
-         sc' <- expand !(sc (VErased fc Placeholder))
+         sc' <- expand !(sc (pure (VErased fc Placeholder)))
          tty <- nfToCFType fc False sc'
          pure (CFFun sty tty)
 nfToCFType _ True (VBind fc _ _ _)
@@ -649,7 +649,7 @@ nfToCFType _ True (VBind fc _ _ _)
 nfToCFType _ s (VTCon fc n_in _ args)
     = do defs <- get Ctxt
          n <- toFullNames n_in
-         case !(getNArgs defs n $ cast (map spineArg args)) of
+         case !(getNArgs defs n $ cast !(traverseSnocList spineArg args)) of
               User un uargs =>
                 do nargs <- traverse expand uargs
                    cargs <- traverse (nfToCFType fc s) nargs
@@ -687,7 +687,7 @@ getCFTypes : {auto c : Ref Ctxt Defs} ->
 getCFTypes args (VBind fc _ (Pi _ _ _ ty) sc)
     = do defs <- get Ctxt
          aty <- nfToCFType fc False !(expand ty)
-         sc' <- expand !(sc (VErased fc Placeholder))
+         sc' <- expand !(sc (pure (VErased fc Placeholder)))
          getCFTypes (aty :: args) sc'
 getCFTypes args t
     = pure (reverse args, !(nfToCFType (getLoc t) False t))

@@ -134,7 +134,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                    (swaporder : Bool) ->
                    UnifyInfo -> FC -> Env Term vars ->
                    (metaname : Name) -> (metaref : Int) ->
-                   (margs : List (RigCount, Glued vars)) ->
+                   (margs : List (RigCount, Core (Glued vars))) ->
                    (margs' : Spine vars) ->
                    (soln : Glued vars) ->
                    Core UnifyResult
@@ -148,7 +148,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
 
   unifyArgs : {vars : _} ->
               UnifyInfo -> FC -> Env Term vars ->
-              List (Glued vars) -> List (Glued vars) ->
+              List (Core (Glued vars)) -> List (Core (Glued vars)) ->
               Core UnifyResult
   unifyArgs mode loc env [] [] = pure success
   unifyArgs mode loc env (cx :: cxs) (cy :: cys)
@@ -157,8 +157,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            cs <- unifyArgs mode loc env cxs cys
            -- We might know more about cx and cy now, so normalise again to
            -- reduce any newly solved holes
-           cx' <- nf env !(quote env cx)
-           cy' <- nf env !(quote env cy)
+           cx' <- nf env !(quote env !cx)
+           cy' <- nf env !(quote env !cy)
            res <- unify (lower mode) loc env cx' cy'
            pure (union res cs)
   unifyArgs mode loc env _ _ = ufail loc ""
@@ -171,8 +171,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   unifySpine mode fc env (cxs :< (_, _, cx)) (cys :< (_, _, cy))
       = do -- We might know more about cx and cy now, so normalise again to
            -- reduce any newly solved holes
-           cx' <- nf env !(quote env cx)
-           cy' <- nf env !(quote env cy)
+           cx' <- nf env !(quote env !cx)
+           cy' <- nf env !(quote env !cy)
            cs <- unify (lower mode) fc env cx' cy'
            res <- unifySpine mode fc env cxs cys
            pure (union cs res)
@@ -184,7 +184,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
               Core Bool
   convertSpine fc env [<] [<] = pure True
   convertSpine fc env (cxs :< (_, _, cx)) (cys :< (_, _, cy))
-      = if !(convert env cx cy)
+      = if !(convert env !cx !cy)
            then convertSpine fc env cxs cys
            else pure False
   convertSpine fc env _ _ = pure False
@@ -203,7 +203,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                              logNF "unify" 10 ".........with" env y
                              convertError loc env x y
 
-  spineToValues : Spine vars -> List (Glued vars)
+  spineToValues : Spine vars -> List (Core (Glued vars))
   spineToValues sp = toList (map third sp)
 
   headsConvert : {vars : _} ->
@@ -226,7 +226,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            pure True
 
   getArgTypes : {vars : _} ->
-                (fnType : NF vars) -> SnocList (Glued vars) ->
+                (fnType : NF vars) -> SnocList (Core (Glued vars)) ->
                 Core (Maybe (SnocList (Glued vars)))
   getArgTypes (VBind _ n (Pi _ _ _ ty) sc) (as :< a)
      = do Just scTys <- getArgTypes !(expand !(sc a)) as
@@ -239,7 +239,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                     (swaporder : Bool) ->
                     UnifyInfo -> FC -> Env Term vars ->
                     (metaname : Name) -> (metaref : Int) ->
-                    (args : List (RigCount, Glued vars)) ->
+                    (args : List (RigCount, Core (Glued vars))) ->
                     (sp : Spine vars) ->
                     Maybe (Term [<]) ->
                     (Spine vars -> Glued vars) ->
@@ -267,9 +267,11 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                      (hargs :< h, fargs :< f) =>
                         tryUnify
                           (if not swap then
-                              do logNF "unify.invertible" 10 "Unifying rightmost" env (third h)
-                                 logNF "unify.invertible" 10 "With rightmost...." env (third f)
-                                 ures <- unify mode fc env (third h) (third f)
+                              do hv <- third h
+                                 fv <- third f
+                                 logNF "unify.invertible" 10 "Unifying rightmost" env hv
+                                 logNF "unify.invertible" 10 "With rightmost...." env fv
+                                 ures <- unify mode fc env hv fv
                                  log "unify.invertible" 10 $ "Constraints " ++ show (constraints ures)
                                  uargs <- unify {f=Normal} mode fc env
                                                 (VMeta fc mname mref args hargs (pure Nothing))
@@ -277,7 +279,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                                  pure (union ures uargs)
                              else
                               do log "unify.invertible" 10 "Unifying invertible"
-                                 ures <- unify mode fc env (third f) (third h)
+                                 ures <- unify mode fc env !(third f) !(third h)
                                  log "unify.invertible" 10 $ "Constraints " ++ show (constraints ures)
                                  uargs <- unify {f'=Normal} mode fc env
                                                 (con fargs)
@@ -300,7 +302,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                  (swaporder : Bool) ->
                  UnifyInfo -> FC -> Env Term vars ->
                  (metaname : Name) -> (metaref : Int) ->
-                 (args : List (RigCount, Glued vars)) ->
+                 (args : List (RigCount, Core (Glued vars))) ->
                  (sp : Spine vars) ->
                  NF vars ->
                  Core UnifyResult
@@ -344,7 +346,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   solveHole : {newvars, vars : _} ->
               FC -> UnifyInfo -> Env Term vars ->
               (metaname : Name) -> (metaref : Int) ->
-              (args : List (RigCount, Glued vars)) ->
+              (args : List (RigCount, Core (Glued vars))) ->
               (sp : Spine vars) ->
               SnocList (Var newvars) ->
               SubVars newvars vars ->
@@ -382,13 +384,13 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
               (swaporder : Bool) ->
               UnifyInfo -> FC -> Env Term vars ->
               FC -> (metaname : Name) -> (metaref : Int) ->
-              (args : List (RigCount, Glued vars)) ->
+              (args : List (RigCount, Core (Glued vars))) ->
               (sp : Spine vars) ->
               (soln : Glued vars) ->
               Core UnifyResult
   unifyHole swap mode fc env nfc mname mref args sp tmnf
-      = do let margs = cast (map snd args)
-           let margs' = map third sp
+      = do let margs = cast !(traverse snd args)
+           margs' <- traverseSnocList third sp
            let pargs = if isLin margs' then margs else margs ++ margs'
            defs <- get Ctxt
            logNF "elab" 10 ("Trying to solve " ++ show mname ++ " with") env tmnf
@@ -454,8 +456,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
               then unifyArgs mode fc env
                              (map snd margsx ++ spineToValues argsx)
                              (map snd margsy ++ spineToValues argsy)
-              else do xvs <- traverse (\ (c, t) => pure (c, asGlued !(expand t))) margsx
-                      yvs <- traverse (\ (c, t) => pure (c, asGlued !(expand t))) margsy
+              else do xvs <- traverse (\ (c, t) => pure (c, asGlued !(expand !t))) margsx
+                      yvs <- traverse (\ (c, t) => pure (c, asGlued !(expand !t))) margsy
                       let xlocs = localsIn (map snd xvs)
                       let ylocs = localsIn (map snd yvs)
                       -- Solve the one with the bigger context, and if they're
@@ -465,9 +467,12 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                                       || (xlocs == ylocs &&
                                            length argsx <= length argsy)
                       if (xbigger || umode mode == InMatch) && not (pv nx)
-                         then unifyHole False mode fc env fcx nx ix xvs argsx (asGlued y)
-                         else unifyHole True mode fc env fcy ny iy yvs argsy (asGlued x)
+                         then unifyHole False mode fc env fcx nx ix (map toCore xvs) argsx (asGlued y)
+                         else unifyHole True mode fc env fcy ny iy (map toCore yvs) argsy (asGlued x)
     where
+      toCore : (a, b) -> (a, Core b)
+      toCore (x, y) = (x, pure y)
+
       pv : Name -> Bool
       pv (PV _ _) = True
       pv _ = False
@@ -519,7 +524,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   unifyNoEta mode fc env (VDelayed _ _ x) (VDelayed _ _ y)
       = unify (lower mode) fc env x y
   unifyNoEta mode fc env (VDelay _ _ tx ax) (VDelay _ _ ty ay)
-      = unifyArgs (lower mode) fc env [tx,ax] [ty,ay]
+      = unifyArgs (lower mode) fc env [pure tx,pure ax] [pure ty,pure ay]
   unifyNoEta mode fc env (VForce _ _ vx spx) (VForce _ _ vy spy)
       = do cs <- unify (lower mode) fc env vx vy
            cs' <- unifySpine (lower mode) fc env spx spy
@@ -539,14 +544,14 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       isPostponable (VCase{}) = True
       isPostponable _ = False
 
-  mkArg : FC -> Name -> Glued vars
-  mkArg fc var = VApp fc Bound var [<] (pure Nothing)
+  mkArg : FC -> Name -> Core (Glued vars)
+  mkArg fc var = pure $ VApp fc Bound var [<] (pure Nothing)
 
   -- In practice, just Pi
   unifyBothBinders : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
-          FC -> Name -> Binder (Glued vars) -> (Glued vars -> Core (Glued vars)) ->
-          FC -> Name -> Binder (Glued vars) -> (Glued vars -> Core (Glued vars)) ->
+          FC -> Name -> Binder (Glued vars) -> (Core (Glued vars) -> Core (Glued vars)) ->
+          FC -> Name -> Binder (Glued vars) -> (Core (Glued vars) -> Core (Glued vars)) ->
           Core UnifyResult
   unifyBothBinders mode fc env fcx nx bx@(Pi bfcx cx ix tx) scx fcy ny by@(Pi bfcy cy iy ty) scy
       = if cx /= cy
@@ -779,7 +784,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                     => do defs <- get Ctxt
                           xs <- traverse (nf env) xsold
                           ys <- traverse (nf env) ysold
-                          cs <- unifyArgs mode loc env xs ys
+                          cs <- unifyArgs mode loc env (map pure xs) (map pure ys)
                           case constraints cs of
                                [] => do deleteConstraint c
                                         pure cs

@@ -27,7 +27,7 @@ data VCaseAlt : SnocList Name -> Type
 
 public export
 0 Spine : SnocList Name -> Type
-Spine vars = SnocList (FC, RigCount, Glued vars)
+Spine vars = SnocList (FC, RigCount, Core (Glued vars))
 
 -- The 'Form' is a phantom type index that says whether we know the value is
 -- in normal form, or whether it might be 'Glued'
@@ -43,10 +43,10 @@ data Value : Form -> SnocList Name -> Type where
      -- lambdas are the most common, so save the pattern match/indirection
      VLam : FC -> (x : Name) -> RigCount -> PiInfo (Glued vars) ->
             (ty : Glued vars) ->
-            (sc : Glued vars -> Core (Glued vars)) ->
+            (sc : Core (Glued vars) -> Core (Glued vars)) ->
             Value f vars
      VBind : FC -> (x : Name) -> Binder (Glued vars) ->
-             (sc : Glued vars -> Core (Glued vars)) ->
+             (sc : Core (Glued vars) -> Core (Glued vars)) ->
              Value f vars
      -- A 'glued' application. This includes the original application
      -- (for quoting back HNFs) and what it reduces to (if the name is
@@ -59,7 +59,7 @@ data Value : Form -> SnocList Name -> Type where
                 Spine vars ->
                 Value f vars
      VMeta  : FC -> Name -> Int -> -- Name and resolved name of metavar
-              List (RigCount, Glued vars) -> -- Scope of metavar
+              List (RigCount, Core (Glued vars)) -> -- Scope of metavar
               Spine vars ->
               Core (Maybe (Glued vars)) -> -- the normal form, if solved
               Value f vars
@@ -148,18 +148,18 @@ asGlued : Value f vars -> Glued vars
 asGlued = believe_me -- justification as above
 
 export
-spineArg : (FC, RigCount, Glued vars) -> Glued vars
+spineArg : (FC, RigCount, Core (Glued vars)) -> Core (Glued vars)
 spineArg (_, _, val) = val
 
 export
 spineVal : {auto c : Ref Ctxt Defs} ->
-           (FC, RigCount, Glued vars) -> Core (NF vars)
-spineVal (_, _, val) = expand val
+           (FC, RigCount, Core (Glued vars)) -> Core (NF vars)
+spineVal (_, _, val) = expand !val
 
 public export
 0 VCaseScope : SnocList (RigCount, Name) -> SnocList Name -> Type
 VCaseScope [<] vars = Core (Glued vars)
-VCaseScope (xs :< x) vars = Glued vars -> VCaseScope xs vars
+VCaseScope (xs :< x) vars = Core (Glued vars) -> VCaseScope xs vars
 
 public export
 data VCaseAlt : SnocList Name -> Type where

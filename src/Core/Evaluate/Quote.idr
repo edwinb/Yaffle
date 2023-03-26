@@ -66,10 +66,10 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteSpine s bounds env [<] = pure [<]
   quoteSpine s bounds env (args :< (fc, q, arg))
       = pure $ !(quoteSpine s bounds env args) :<
-               (fc, q, !(quoteGen bounds env arg s))
+               (fc, q, !(quoteGen bounds env !arg s))
 
-  mkTmpVar : FC -> Name -> Glued vars
-  mkTmpVar fc n = VApp fc Bound n [<] (pure Nothing)
+  mkTmpVar : FC -> Name -> Core (Glued vars)
+  mkTmpVar fc n = pure $ VApp fc Bound n [<] (pure Nothing)
 
   quoteAlt : {bound, vars : _} ->
              Strategy -> Bounds bound -> Env Term vars ->
@@ -226,7 +226,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 
       blockedApp : Value f vars -> Core Bool
       blockedApp (VLam fc _ _ _ _ sc)
-          = blockedApp !(sc (VErased fc Placeholder))
+          = blockedApp !(sc (pure (VErased fc Placeholder)))
       blockedApp (VCase{}) = pure True
       blockedApp _ = pure False
   quoteGen {bound} bounds env (VLocal fc idx p sp) s
@@ -244,7 +244,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteGen bounds env (VMeta fc n i args sp val) BlockApp
       = do sp' <- quoteSpine BlockApp bounds env sp
            args' <- traverse (\ (q, val) =>
-                                do val' <- quoteGen bounds env val BlockApp
+                                do val' <- quoteGen bounds env !val BlockApp
                                    pure (q, val')) args
            pure $ applySpine (Meta fc n i args') sp'
   quoteGen bounds env (VMeta fc n i args sp val) s
@@ -252,7 +252,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
               | Nothing =>
                   do sp' <- quoteSpine s bounds env sp
                      args' <- traverse (\ (q, val) =>
-                                          do val' <- quoteGen bounds env val s
+                                          do val' <- quoteGen bounds env !val s
                                              pure (q, val')) args
                      pure $ applySpine (Meta fc n i args') sp'
            quoteGen bounds env v s

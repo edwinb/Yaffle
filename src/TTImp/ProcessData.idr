@@ -42,7 +42,7 @@ checkRetType : {auto c : Ref Ctxt Defs} ->
                (NF vars -> Core ()) -> Core ()
 checkRetType env (VBind fc x (Pi _ _ _ ty) sc) chk
     = do defs <- get Ctxt
-         checkRetType env !(expand !(sc (VErased fc Placeholder))) chk
+         checkRetType env !(expand !(sc (pure (VErased fc Placeholder)))) chk
 checkRetType env nf chk = chk nf
 
 checkIsType : {auto c : Ref Ctxt Defs} ->
@@ -130,7 +130,7 @@ getIndexPats tm
   where
     getRetType : Defs -> NF [<] -> Core (NF [<])
     getRetType defs (VBind fc _ (Pi _ _ _ _) sc)
-        = do sc' <- sc (VErased fc Placeholder)
+        = do sc' <- sc (pure (VErased fc Placeholder))
              getRetType defs !(expand sc')
     getRetType defs t = pure t
 
@@ -208,19 +208,19 @@ getRelevantArg : {auto c : Ref Ctxt Defs} ->
                  Core (Maybe (Bool, Nat))
 getRelevantArg defs i rel world (VBind fc _ (Pi _ rig _ val) sc)
     = branchZero (getRelevantArg defs (1 + i) rel world
-                      !(expand !(sc (VErased fc Placeholder))))
+                      !(expand !(sc (pure (VErased fc Placeholder)))))
                  (case !(expand val) of
                        -- %World is never inspected, so might as well be deleted from data types,
                        -- although it needs care when compiling to ensure that the function that
                        -- returns the IO/%World type isn't erased
                        (VPrimVal _ $ PrT WorldType) =>
                            getRelevantArg defs (1 + i) rel False
-                               !(expand !(sc (VErased fc Placeholder)))
+                               !(expand !(sc (pure (VErased fc Placeholder))))
                        _ =>
                        -- if we haven't found a relevant argument yet, make
                        -- a note of this one and keep going. Otherwise, we
                        -- have more than one, so give up.
-                           maybe (do sc' <- expand !(sc (VErased fc Placeholder))
+                           maybe (do sc' <- expand !(sc (pure (VErased fc Placeholder)))
                                      getRelevantArg defs (1 + i) (Just i) False sc')
                                  (const (pure Nothing))
                                  rel)

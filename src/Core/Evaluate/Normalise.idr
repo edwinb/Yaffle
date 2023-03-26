@@ -16,7 +16,7 @@ import Data.Vect
 data EvalFlags = Full | KeepAs | KeepLet
 
 export
-apply : FC -> Value f vars -> RigCount -> Glued vars -> Core (Glued vars)
+apply : FC -> Value f vars -> RigCount -> Core (Glued vars) -> Core (Glued vars)
 apply fc (VLam _ _ _ _ _ sc) _ arg = sc arg
 apply fc (VApp afc nt n spine go) q arg
     = pure $ VApp afc nt n (spine :< (fc, q, arg)) $
@@ -43,7 +43,7 @@ apply fc (VForce ffc r v spine) q arg
 apply fc (VCase cfc r sc ty alts) q arg
     = pure $ VCase cfc r sc ty !(traverse (applyAlt arg) alts)
   where
-    applyConCase : Glued vars ->
+    applyConCase : Core (Glued vars) ->
                    Name -> Int ->
                    (args : SnocList (RigCount, Name)) ->
                    VCaseScope args vars ->
@@ -55,7 +55,7 @@ apply fc (VCase cfc r sc ty alts) q arg
         = \a' => applyConCase arg n t args (sc a')
 
     -- Need to apply the argument to the rhs of every case branch
-    applyAlt : Glued vars -> VCaseAlt vars -> Core (VCaseAlt vars)
+    applyAlt : Core (Glued vars) -> VCaseAlt vars -> Core (VCaseAlt vars)
     applyAlt arg (VConCase fc n t args rhs)
         = pure $ VConCase fc n t args (applyConCase arg n t args rhs)
     applyAlt arg (VDelayCase fc t a rhs)
@@ -68,7 +68,7 @@ apply fc (VCase cfc r sc ty alts) q arg
 -- Remaining cases would be ill-typed
 apply _ arg _ _ = pure (believe_me arg)
 
-applyAll : FC -> Glued vars -> List (RigCount, Glued vars) -> Core (Glued vars)
+applyAll : FC -> Glued vars -> List (RigCount, Core (Glued vars)) -> Core (Glued vars)
 applyAll fc f [] = pure f
 applyAll fc f ((q, x) :: xs)
     = do f' <- apply fc f q x
@@ -76,7 +76,7 @@ applyAll fc f ((q, x) :: xs)
 
 data LocalEnv : SnocList Name -> SnocList Name -> Type where
      Lin : LocalEnv [<] vars
-     (:<) : LocalEnv free vars -> Glued vars -> LocalEnv (free :< x) vars
+     (:<) : LocalEnv free vars -> Core (Glued vars) -> LocalEnv (free :< x) vars
 
 extend : LocalEnv ns vars -> LocalEnv ms vars -> LocalEnv (ms ++ ns) vars
 extend [<] env = env
@@ -84,7 +84,7 @@ extend (vars :< x) env = extend vars env :< x
 
 updateEnv : {idx : _} ->
             LocalEnv free vars ->
-            (0 _ : IsVar n idx (vars ++ free)) -> Glued vars ->
+            (0 _ : IsVar n idx (vars ++ free)) -> Core (Glued vars) ->
             LocalEnv free vars
 updateEnv (env :< b) First new = env :< new
 updateEnv (env :< b) (Later p) new = updateEnv env p new :< b
@@ -94,7 +94,7 @@ namespace ExtendLocs
   public export
   data ExtendLocs : SnocList Name -> SnocList Name -> Type where
        Lin : ExtendLocs vars [<]
-       (:<) : ExtendLocs vars xs -> Glued vars -> ExtendLocs vars (cons x xs)
+       (:<) : ExtendLocs vars xs -> Core (Glued vars) -> ExtendLocs vars (cons x xs)
 
 mkEnv : ExtendLocs vars ns -> LocalEnv ns vars
 mkEnv {vars} ext = rewrite sym (appendLinLeftNeutral ns) in go ext [<]
@@ -163,7 +163,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
   -- correspond when going through the CaseScope
   evalCaseScope : {vars : _} ->
                   LocalEnv free vars -> Env Term vars ->
-                  List (FC, RigCount, Glued vars) -> CaseScope (vars ++ free) ->
+                  List (FC, RigCount, Core (Glued vars)) -> CaseScope (vars ++ free) ->
                   Core (Glued vars) -> -- what to do if stuck
                   Core (Glued vars)
   evalCaseScope locs env [] (RHS tm) stuck = eval locs env tm
@@ -187,7 +187,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
       = if n == n' then evalCaseScope locs env (cast sp) cscope stuck
            else tryAlts locs env sc as stuck
   tryAlts locs env sc@(VDelay _ _ ty arg) (DelayCase _ ty' arg' rhs :: as) stuck
-      = eval (locs :< ty :< arg) env rhs
+      = eval (locs :< pure ty :< pure arg) env rhs
   tryAlts locs env sc@(VPrimVal _ c) (ConstCase _ c' rhs :: as) stuck
       = if c == c'
            then eval locs env rhs
@@ -225,7 +225,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
       = case getLet p env of
              Just val => eval [<] env val
              _ => pure $ VLocal fc _ p [<]
-  evalLocal env fc First (locs :< x) = pure x
+  evalLocal env fc First (locs :< x) = x
   evalLocal env fc (Later p) (locs :< x) = evalLocal env fc p locs
 
   evalPiInfo : {vars : _} ->
@@ -281,7 +281,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
                              pure (Just res)
   eval locs env (Meta fc n i scope)
        = do scope' <- traverse (\ (q, val) =>
-                                     do val' <- eval locs env val
+                                     do let val' = eval locs env val
                                         pure (q, val')) scope
             defs <- get Ctxt
             Just def <- lookupCtxtExact n (gamma defs)
@@ -304,12 +304,12 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
                   pure $ VBind fc x !(evalBinder locs env b)
                                (\arg => eval (locs :< arg) env sc)
              _ => do val' <- eval locs env val
-                     eval (locs :< val') env sc
+                     eval (locs :< pure val') env sc
   eval locs env (Bind fc x b sc)
       = pure $ VBind fc x !(evalBinder locs env b)
                      (\arg => eval (locs :< arg) env sc)
   eval locs env (App fc fn q arg)
-      = apply fc !(eval locs env fn) q !(eval locs env arg)
+      = apply fc !(eval locs env fn) q (eval locs env arg)
   eval locs env (As fc use as pat)
       = case eflags of
              KeepAs => pure $ VAs fc use !(eval locs env as)
@@ -318,7 +318,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
   eval locs env (Case fc r sc ty alts)
       = do sc' <- expand !(eval locs env sc)
            locs' <- case sc of
-                         Local _ _ p => pure $ updateEnv locs p (asGlued sc')
+                         Local _ _ p => pure $ updateEnv locs p (pure (asGlued sc'))
                          _ => pure locs
            evalCase fc locs' env r (stripAs sc') ty alts
     where

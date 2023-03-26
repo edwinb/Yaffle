@@ -495,17 +495,19 @@ searchLocalWith {vars} fc nofn rig opts hints env ((p, pty) :: rest) ty topty
                                     pure
                                     !sndName
                      if !(isPairType pn)
-                        then do xtytm <- quote env xty
-                                ytytm <- quote env yty
+                        then do xty' <- xty
+                                yty' <- yty
+                                xtytm <- quote env xty'
+                                ytytm <- quote env yty'
                                 getSuccessful fc rig opts False env ty topty
-                                  [(do xtynf <- expand xty
+                                  [(do xtynf <- expand xty'
                                        findPos defs prf
                                          (\arg => applyWithFC (Ref fc Func fname)
                                                           [(fc1, xc, xtytm),
                                                            (fc2, yc, ytytm),
                                                            (fc, top, f arg)])
                                          xtynf target),
-                                   (do ytynf <- expand yty
+                                   (do ytynf <- expand yty'
                                        findPos defs prf
                                            (\arg => applyWithFC (Ref fc Func sname)
                                                           [(fc1, xc, xtytm),
@@ -609,7 +611,7 @@ tryIntermediateWith fc rig opts hints env ((p, pty) :: rest) ty topty
   where
     matchable : Defs -> NF vars -> Core Bool
     matchable defs (VBind fc x (Pi _ _ _ _) sc)
-        = matchable defs !(expand !(sc (VErased fc Placeholder)))
+        = matchable defs !(expand !(sc (pure (VErased fc Placeholder))))
     matchable defs (VTCon{}) = pure True
     matchable _ _ = pure False
 
@@ -620,7 +622,7 @@ tryIntermediateWith fc rig opts hints env ((p, pty) :: rest) ty topty
           -- something we can pattern match on (so, NTCon) then apply it,
           -- let bind the result, and try to generate a definition for
           -- the scope of the let binding
-          do True <- matchable defs !(expand !(sc (VErased fc Placeholder)))
+          do True <- matchable defs !(expand !(sc (pure (VErased fc Placeholder))))
                  | False => noResult
              intnty <- genVarName "cty"
              u <- uniVar fc
@@ -677,7 +679,7 @@ tryIntermediateRec fc rig opts hints env ty topty (Just rd)
   where
     isSingleCon : Defs -> NF [<] -> Core Bool
     isSingleCon defs (VBind fc x (Pi _ _ _ _) sc)
-        = isSingleCon defs !(expand !(sc (VErased fc Placeholder)))
+        = isSingleCon defs !(expand !(sc (pure (VErased fc Placeholder))))
     isSingleCon defs (VTCon _ n _ _)
         = do Just (TCon ti _) <- lookupDefExact n (gamma defs)
                   | _ => pure False

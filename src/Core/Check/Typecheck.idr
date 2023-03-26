@@ -96,8 +96,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
              VBind fc x (Pi _ rigf _ ty) sc =>
                do let checkRig = rigMult rigf rig
                   arg' <- check checkRig env arg !(quote env ty)
-                  argnf <- nf env arg'
-                  pure (App fc fn' rigf arg', !(quote env !(sc argnf)))
+                  pure (App fc fn' rigf arg', !(quote env !(sc (nf env arg'))))
              t => throw (NotFunctionType fc !(get Ctxt) env !(quote env t))
   infer rig env (RLet fc rigl n val ty sc)
       = do ty' <- check erased env ty (topType fc)
@@ -170,7 +169,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            casesc <- checkCon (i + 1) (Add arg argn bs) fc rig valenv
                               env' cname args
                               (App fc (weaken app) rigp (Local fc _ First))
-                              !(sc (VApp fc Bound argn [<] (pure Nothing)))
+                              !(sc (pure (VApp fc Bound argn [<] (pure Nothing))))
                               rhs scrig (weaken scr) (weaken scrTy) (weaken rhsTy)
            pure (Arg rigp arg casesc)
   -- I wouldn't expect to see this happen since we've done an arity check, but

@@ -305,7 +305,7 @@ export
 concrete : {auto c : Ref Ctxt Defs} ->
            Env Term vars -> NF vars -> Core Bool
 concrete env (VBind fc _ (Pi _ _ _ _) sc)
-    = do sc' <- sc (VErased fc Placeholder)
+    = do sc' <- sc (pure (VErased fc Placeholder))
          concrete env !(expand sc')
 concrete env (VDCon _ _ _ _ _) = pure True
 concrete env (VTCon _ _ _ _) = pure True

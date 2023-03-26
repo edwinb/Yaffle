@@ -193,18 +193,18 @@ mightMatchArg l r
 
 mightMatchArgs : {auto c : Ref Ctxt Defs} ->
                  {vars : _} ->
-                 SnocList (Glued vars) -> SnocList (Glued [<]) ->
+                 SnocList (Core (Glued vars)) -> SnocList (Core (Glued [<])) ->
                  Core Bool
 mightMatchArgs [<] [<] = pure True
 mightMatchArgs (xs :< x) (ys :< y)
-    = do amatch <- mightMatchArg x y
+    = do amatch <- mightMatchArg !x !y
          if amatch
             then mightMatchArgs xs ys
             else pure False
 mightMatchArgs _ _ = pure False
 
 mightMatch target (VBind fc n (Pi _ _ _ _) sc)
-    = mightMatchD target !(expand !(sc (VErased fc Placeholder)))
+    = mightMatchD target !(expand !(sc (pure (VErased fc Placeholder))))
 mightMatch (VBind{}) (VBind{}) = pure Poly -- lambdas might match
 mightMatch (VLam{}) (VLam{}) = pure Poly -- lambdas might match
 mightMatch (VTCon _ n a args) (VTCon _ n' a' args')

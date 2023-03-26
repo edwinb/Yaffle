@@ -292,7 +292,7 @@ makeImplicit : {vars : _} ->
                RigCount -> RigCount -> ElabInfo ->
                NestedNames vars -> Env Term vars ->
                FC -> (fntm : Term vars) -> RigCount ->
-               Name -> Glued vars -> (Glued vars -> Core (Glued vars)) ->
+               Name -> Glued vars -> (Core (Glued vars) -> Core (Glued vars)) ->
                (argdata : (Maybe Name, Nat)) ->
                (expargs : List RawImp) ->
                (autoargs : List RawImp) ->
@@ -305,7 +305,7 @@ makeImplicit rig argRig elabinfo nest env fc tm tmrig x aty sc (n, argpos) expar
          metaty <- quote env aty
          metaval <- metaVar fc argRig env nm metaty
          let fntm = App fc tm tmrig metaval
-         fnty <- expand !(sc !(nf env metaval))
+         fnty <- expand !(sc (nf env metaval))
          when (bindingVars elabinfo) $ update EST $ addBindIfUnsolved nm argRig Implicit env metaval metaty
          checkAppWith rig elabinfo nest env fc
                       fntm fnty (n, 1 + argpos) expargs autoargs namedargs kr expty
@@ -318,7 +318,7 @@ makeAutoImplicit : {vars : _} ->
                    RigCount -> RigCount -> ElabInfo ->
                    NestedNames vars -> Env Term vars ->
                    FC -> (fntm : Term vars) -> RigCount ->
-                   Name -> Glued vars -> (Glued vars -> Core (Glued vars)) ->
+                   Name -> Glued vars -> (Core (Glued vars) -> Core (Glued vars)) ->
                    (argpos : (Maybe Name, Nat)) ->
                    (expargs : List RawImp) ->
                    (autoargs : List RawImp) ->
@@ -334,7 +334,7 @@ makeAutoImplicit rig argRig elabinfo nest env fc tm tmrig x aty sc (n, argpos) e
                  metaty <- quote env aty
                  metaval <- metaVar fc argRig env nm metaty
                  let fntm = App fc tm tmrig metaval
-                 fnty <- expand !(sc !(nf env metaval))
+                 fnty <- expand !(sc (nf env metaval))
                  update EST $ addBindIfUnsolved nm argRig AutoImplicit env metaval metaty
                  checkAppWith rig elabinfo nest env fc
                               fntm fnty (n, 1 + argpos) expargs autoargs namedargs kr expty
@@ -345,7 +345,7 @@ makeAutoImplicit rig argRig elabinfo nest env fc tm tmrig x aty sc (n, argpos) e
                  metaval <- searchVar fc argRig lim (Resolved (defining est))
                                       env nest nm metaty
                  let fntm = App fc tm tmrig metaval
-                 fnty <- expand !(sc !(nf env metaval))
+                 fnty <- expand !(sc (nf env metaval))
                  checkAppWith rig elabinfo nest env fc
                               fntm fnty (n, 1 + argpos) expargs autoargs namedargs kr expty
   where
@@ -362,7 +362,7 @@ makeDefImplicit : {vars : _} ->
                   RigCount -> RigCount -> ElabInfo ->
                   NestedNames vars -> Env Term vars ->
                   FC -> (fntm : Term vars) -> RigCount ->
-                  Name -> Glued vars -> Glued vars -> (Glued vars -> Core (Glued vars)) ->
+                  Name -> Glued vars -> Glued vars -> (Core (Glued vars) -> Core (Glued vars)) ->
                   (argpos : (Maybe Name, Nat)) ->
                   (expargs : List RawImp) ->
                   (autoargs : List RawImp) ->
@@ -378,13 +378,13 @@ makeDefImplicit rig argRig elabinfo nest env fc tm tmrig x arg aty sc (n, argpos
                  metaty <- quote env aty
                  metaval <- metaVar fc argRig env nm metaty
                  let fntm = App fc tm tmrig metaval
-                 fnty <- expand !(sc !(nf env metaval))
+                 fnty <- expand !(sc (nf env metaval))
                  update EST $ addBindIfUnsolved nm argRig AutoImplicit env metaval metaty
                  checkAppWith rig elabinfo nest env fc
                               fntm fnty (n, 1 + argpos) expargs autoargs namedargs kr expty
          else do aval <- quote env arg
                  let fntm = App fc tm tmrig aval
-                 fnty <- expand !(sc arg)
+                 fnty <- expand !(sc (pure arg))
                  checkAppWith rig elabinfo nest env fc
                               fntm fnty (n, 1 + argpos) expargs autoargs namedargs kr expty
   where
@@ -523,7 +523,7 @@ checkRestApp : {vars : _} ->
                RigCount -> RigCount -> ElabInfo ->
                NestedNames vars -> Env Term vars ->
                FC -> (fntm : Term vars) -> Name ->
-               RigCount -> (aty : Glued vars) -> (sc : Glued vars -> Core (Glued vars)) ->
+               RigCount -> (aty : Glued vars) -> (sc : Core (Glued vars) -> Core (Glued vars)) ->
                (argdata : (Maybe Name, Nat)) ->
                (arg : RawImp) ->
                (expargs : List RawImp) ->
@@ -538,7 +538,7 @@ checkRestApp rig argRig elabinfo nest env fc tm x rigb aty sc
         arg <- dotErased aty n argpos (elabMode elabinfo) argRig arg_in
         kr <- if knownret
                  then pure True
-                 else do sc' <- sc (VErased fc Placeholder)
+                 else do sc' <- sc (pure (VErased fc Placeholder))
                          concrete env !(expand sc')
         -- In theory we can check the arguments in any order. But it turns
         -- out that it's sometimes better to do the rightmost arguments
@@ -568,7 +568,7 @@ checkRestApp rig argRig elabinfo nest env fc tm x rigb aty sc
            (idx, metaval) <- argVar (getFC arg) argRig env nm metaty
            let fntm = App fc tm rigb metaval
            logTerm "elab" 10 "...as" metaval
-           fnty <- expand !(sc !(nf env metaval))
+           fnty <- expand !(sc (nf env metaval))
            (tm, gty) <- checkAppWith rig elabinfo nest env fc
                                      fntm fnty (n, 1 + argpos) expargs autoargs namedargs kr expty
            aty' <- nf env metaty
@@ -644,7 +644,7 @@ checkRestApp rig argRig elabinfo nest env fc tm x rigb aty sc
 
            logNF "elab" 10 "Got arg type" env argt
            let fntm = App fc tm rigb argv
-           fnty <- expand !(sc !(nf env argv))
+           fnty <- expand !(sc (nf env argv))
            checkAppWith rig elabinfo nest env fc
                         fntm fnty (n, 1 + argpos) expargs autoargs namedargs kr expty
 

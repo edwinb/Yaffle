@@ -100,7 +100,7 @@ parameters {auto c : Ref Ctxt Defs}
   export
   getArityVal : NF vars -> Core Nat
   getArityVal (VBind fc _ (Pi _ _ _ _) sc)
-      = pure $ 1 + !(getArityVal !(expand !(sc (VErased fc Placeholder))))
+      = pure $ 1 + !(getArityVal !(expand !(sc (pure (VErased fc Placeholder)))))
   getArityVal _ = pure 0
 
   export
@@ -247,7 +247,7 @@ parameters {auto c : Ref Ctxt Defs}
       repArgAll [<] = pure ([<], False)
       repArgAll (xs :< (f, r, tm))
           = do (xs', upd) <- repArgAll xs
-               (tm', upd') <- repArg tm
+               (tm', upd') <- repArg !tm
                pure (xs' :< (f, r, tm'), upd || upd')
 
       repScope : FC -> Int -> (args : SnocList (RigCount, Name)) ->
@@ -259,7 +259,7 @@ parameters {auto c : Ref Ctxt Defs}
       repScope fc tmpi (xs :< (r, x)) scope
           = do let xn = MN "tmp" tmpi
                let xv = VApp fc Bound xn [<] (pure Nothing)
-               (scope', u) <- repScope fc (tmpi + 1) xs (scope xv)
+               (scope', u) <- repScope fc (tmpi + 1) xs (scope (pure xv))
                pure (Arg r x (refsToLocalsCaseScope (Add x xn None) scope'), u)
 
       repAlt : VCaseAlt vars -> Core (CaseAlt vars, Bool)
@@ -272,7 +272,8 @@ parameters {auto c : Ref Ctxt Defs}
                let tyv = VApp fc Bound tyn [<] (pure Nothing)
                let argv = VApp fc Bound argn [<] (pure Nothing)
                -- Stop expanding or recursive functions will go forever
-               (scope', u) <- replace' False (tmpi + 2) env orig parg !(scope tyv argv)
+               (scope', u) <- replace' False (tmpi + 2) env orig parg
+                                       !(scope (pure tyv) (pure argv))
                let rhs = refsToLocals (Add arg argn (Add ty tyn None)) scope'
                pure (DelayCase fc ty arg rhs, u)
       repAlt (VConstCase fc c rhs)
@@ -321,13 +322,13 @@ parameters {auto c : Ref Ctxt Defs}
           = do (b', u) <- repBinder (Lam fc c p ty)
                let x' = MN "tmp" tmpi
                let var = VApp fc Bound x' [<] (pure Nothing)
-               (sc', u') <- replace' expand (tmpi + 1) env orig parg !(scfn var)
+               (sc', u') <- replace' expand (tmpi + 1) env orig parg !(scfn (pure var))
                pure (Bind fc x b' (refsToLocals (Add x x' None) sc'), u || u')
       repSub (VBind fc x b scfn)
           = do (b', u) <- repBinder b
                let x' = MN "tmp" tmpi
                let var = VApp fc Bound x' [<] (pure Nothing)
-               (sc', u') <- replace' expand (tmpi + 1) env orig parg !(scfn var)
+               (sc', u') <- replace' expand (tmpi + 1) env orig parg !(scfn (pure var))
                pure (Bind fc x b' (refsToLocals (Add x x' None) sc'), u || u')
       repSub (VApp fc nt fn args val')
           = if expand
@@ -354,7 +355,7 @@ parameters {auto c : Ref Ctxt Defs}
       repSub (VMeta fc n i scope args val)
           = do Nothing <- val
                    | Just val' => repSub val'
-               sc' <- traverse (\ (q, tm) => do (tm', u) <- repArg tm
+               sc' <- traverse (\ (q, tm) => do (tm', u) <- repArg !tm
                                                 pure ((q, tm'), u)) scope
                (args', u) <- repArgAll args
                let u' = or (map (\x => Delay x) (map snd sc'))

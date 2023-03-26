@@ -47,14 +47,14 @@ mismatchNF : {auto c : Ref Ctxt Defs} ->
 mismatchNF (VTCon _ xn _ xargs) (VTCon _ yn _ yargs)
     = if xn /= yn
          then pure True
-         else do let xargsNF = map spineArg xargs
-                 let yargsNF = map spineArg yargs
+         else do xargsNF <- traverseSnocList spineArg xargs
+                 yargsNF <- traverseSnocList spineArg yargs
                  anyMSnoc mismatch (zip xargsNF yargsNF)
 mismatchNF (VDCon _ _ xt _ xargs) (VDCon _ _ yt _ yargs)
     = if xt /= yt
          then pure True
-         else do let xargsNF = map spineArg xargs
-                 let yargsNF = map spineArg yargs
+         else do xargsNF <- traverseSnocList spineArg xargs
+                 yargsNF <- traverseSnocList spineArg yargs
                  anyMSnoc mismatch (zip xargsNF yargsNF)
 mismatchNF (VPrimVal _ xc) (VPrimVal _ yc) = pure (xc /= yc)
 mismatchNF (VDelayed _ _ x) (VDelayed _ _ y)
@@ -96,15 +96,15 @@ impossibleOK : {auto c : Ref Ctxt Defs} ->
 impossibleOK (VTCon _ xn xa xargs) (VTCon _ yn ya yargs)
     = if xn /= yn
          then pure True
-         else do let xargsNF = map spineArg xargs
-                 let yargsNF = map spineArg yargs
+         else do xargsNF <- traverseSnocList spineArg xargs
+                 yargsNF <- traverseSnocList spineArg yargs
                  anyMSnoc mismatch (zip xargsNF yargsNF)
 -- If it's a data constructor, any mismatch will do
 impossibleOK (VDCon _ _ xt _ xargs) (VDCon _ _ yt _ yargs)
     = if xt /= yt
          then pure True
-         else do let xargsNF = map spineArg xargs
-                 let yargsNF = map spineArg yargs
+         else do xargsNF <- traverseSnocList spineArg xargs
+                 yargsNF <- traverseSnocList spineArg yargs
                  anyMSnoc mismatch (zip xargsNF yargsNF)
 impossibleOK (VPrimVal _ x) (VPrimVal _ y) = pure (x /= y)
 
@@ -168,8 +168,8 @@ recoverable : {auto c : Ref Ctxt Defs} ->
 recoverable (VTCon _ xn xa xargs) (VTCon _ yn ya yargs)
     = if xn /= yn
          then pure False
-         else do let xargsNF = map spineArg xargs
-                 let yargsNF = map spineArg yargs
+         else do xargsNF <- traverseSnocList spineArg xargs
+                 yargsNF <- traverseSnocList spineArg yargs
                  pure $ not !(anyMSnoc mismatch (zip xargsNF yargsNF))
 -- Type constructor vs. primitive type
 recoverable (VTCon _ _ _ _) (VPrimVal _ _) = pure False
@@ -188,8 +188,8 @@ recoverable _ (VTCon _ _ _ _) = pure True
 recoverable (VDCon _ _ xt _ xargs) (VDCon _ _ yt _ yargs)
     = if xt /= yt
          then pure False
-         else do let xargsNF = map spineArg xargs
-                 let yargsNF = map spineArg yargs
+         else do xargsNF <- traverseSnocList spineArg xargs
+                 yargsNF <- traverseSnocList spineArg yargs
                  pure $ not !(anyMSnoc mismatch (zip xargsNF yargsNF))
 -- Data constructor vs. primitive constant
 recoverable (VDCon _ _ _ _ _) (VPrimVal _ _) = pure False
@@ -1044,7 +1044,7 @@ processDef opts nest env fc n_in cs_in
       where
         closeEnv : NF [<] -> Core ClosedTerm
         closeEnv (VBind _ x (PVar _ _ _ _) sc)
-            = closeEnv !(expand !(sc (vRef fc Bound x)))
+            = closeEnv !(expand !(sc (pure (vRef fc Bound x))))
         closeEnv nf = quote [<] nf
 
     getClause : Either RawImp Clause -> Core (Maybe Clause)

@@ -113,16 +113,20 @@ conflict defs env nfty n
           -- twice somehow both references appear in the result  it's unlikely
           -- put posslbe
           = let x' = MN (show x) i in
-                conflictNF (i + 1) t !(expand !(sc (vRef fc Bound x')))
+                conflictNF (i + 1) t !(expand !(sc (pure (vRef fc Bound x'))))
       conflictNF i nf (VApp _ Bound n [<] _)
           = pure (Just [(n, !(quote env nf))])
       conflictNF i (VDCon _ n t a args) (VDCon _ n' t' a' args')
           = if t == t'
-               then conflictArgs i (map spineArg args) (map spineArg args')
+               then conflictArgs i
+                       !(traverseSnocList spineArg args)
+                       !(traverseSnocList spineArg args')
                else pure Nothing
       conflictNF i (VTCon _ n a args) (VTCon _ n' a' args')
           = if n == n'
-               then conflictArgs i (map spineArg args) (map spineArg args')
+               then conflictArgs i
+                      !(traverseSnocList spineArg args)
+                      !(traverseSnocList spineArg args')
                else pure Nothing
       conflictNF i (VPrimVal _ c) (VPrimVal _ c')
           = if c == c'
