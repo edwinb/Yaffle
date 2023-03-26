@@ -699,6 +699,27 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                    if lazy
                       then unifyLazy mode fc env valx' valy'
                       else unifyWithEta mode fc env valx' valy'
+  -- Same quick check for metavars
+  unifyExpandApps {vars} lazy mode fc env x@(VMeta fcx nx ix scx spx valx) y@(VMeta fcy ny iy scy spy valy)
+      = do True <- do let True = ix == iy
+                           | False => pure False
+                      True <- convertSpine fc env spx spy
+                           | False => pure False
+                      convScope scx scy
+              | False => do valx' <- expand x
+                            valy' <- expand y
+                            if lazy
+                              then unifyLazy mode fc env valx' valy'
+                              else unifyWithEta mode fc env valx' valy'
+           pure success
+    where
+      convScope : List (RigCount, Core (Glued vars)) ->
+                  List (RigCount, Core (Glued vars)) -> Core Bool
+      convScope [] [] = pure True
+      convScope ((_, x) :: xs) ((_, y) :: ys)
+          = do True <- convert env !x !y | False => pure False
+               convScope xs ys
+      convScope _ _ = pure False
   -- Otherwise, make sure the top level thing is expanded (so not a reducible
   -- VApp or VMeta node) then move on
   unifyExpandApps lazy mode fc env x y
