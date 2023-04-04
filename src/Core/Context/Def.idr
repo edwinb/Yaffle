@@ -25,6 +25,10 @@ export
 defaultFI : FnInfo
 defaultFI = MkFnInfo NotHole False False
 
+export
+reduceFI : FnInfo
+reduceFI = MkFnInfo NotHole True False
+
 public export
 record DataConInfo where
   constructor MkDataConInfo

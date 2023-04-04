@@ -272,7 +272,10 @@ findSCcall g pats fc fn_in arity args
 
 replaceInArgs : Var vars -> Term vars ->
                 List (Nat, Term vars) -> List (Nat, Term vars)
-replaceInArgs v tm = map (\ (n, arg) => (n, substVar v tm arg))
+replaceInArgs v tm [] = []
+-- TODO: Don't copy if there's no substitution done!
+replaceInArgs v tm ((n, arg) :: args)
+    = (n, arg) :: (n, substVar v tm arg) :: replaceInArgs v tm args
 
 findSCscope : {vars : _} ->
          {auto c : Ref Ctxt Defs} ->
@@ -396,7 +399,8 @@ findCalls tm = findSCTop 0 [] (delazy tm)
 getSC : {auto c : Ref Ctxt Defs} ->
         Defs -> Def -> Core (List SCCall)
 getSC defs (Function _ tm _ _)
-   = do sc <- findCalls tm
+   = do tm <- quote [<] !(nfTotality [<] tm)
+        sc <- findCalls tm
         pure $ nub sc
 getSC defs _ = pure []
 

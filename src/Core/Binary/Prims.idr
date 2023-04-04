@@ -497,7 +497,7 @@ TTC a => TTC (SnocList a) where
            readElems [<] (integerToNat (cast len))
     where
       readElems : SnocList a -> Nat -> CoreTTC (SnocList a)
-      readElems xs Z = pure (reverse xs)
+      readElems xs Z = pure xs
       readElems xs (S k)
           = do val <- fromBuf
                readElems (xs :< val) k

@@ -281,7 +281,8 @@ caseLamDef n
     = do defs <- get Ctxt
          Just def <- lookupCtxtExact n (gamma defs) | Nothing => pure ()
          let Just cexpr =  compexpr def             | Nothing => pure ()
-         setCompiled n !(doCaseLam cexpr)
+         cexpr' <- doCaseLam cexpr
+         setCompiled n cexpr'
   where
     doCaseLam : CDef -> Core CDef
     doCaseLam (MkFun args def)

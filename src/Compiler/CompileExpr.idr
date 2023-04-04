@@ -724,27 +724,10 @@ lamRHS ns tm
     lamBind fc [<] tm = tm
     lamBind fc (ns :< n) tm = lamBind fc ns (CLam fc n tm)
 
--- TODO: get rid of this `done` by making the return `args'` runtime irrelevant?
-getLams : {done : _} ->
-          Int -> SubstCEnv done args -> CExp (args ++ done) ->
-          (args' ** (SubstCEnv args' args, CExp (args ++ args')))
-getLams {done} i env (CLam fc x sc)
-    = getLams {done = done :< x} (i + 1) (env :< CRef fc (MN "ext" i)) sc
-getLams {done} i env sc = (done ** (env, sc))
-
--- Move any lambdas in the body of the definition into the lhs list of vars.
--- Annoyingly, the indices will need fixing up because the order in the top
--- level definition goes left to right (i.e. first argument has lowest index,
--- not the highest, as you'd expect if they were all lambdas).
 export
 mergeLambdas : (args : SnocList Name) -> CExp args -> (args' ** CExp args')
 mergeLambdas args (CLam fc x sc)
-    = let (args' ** (env, exp')) = getLams 0 [<] (CLam fc x sc)
-          expNs = substs env exp'
-          newArgs = getNewArgs env
-          expLocs = mkLocals (mkSizeOf args) {vars = [<]} (mkBounds newArgs)
-                             (rewrite appendLinLeftNeutral args in expNs) in
-          (_ ** expLocs)
+    = mergeLambdas (args :< x) sc
 mergeLambdas args exp = (args ** exp)
 
 toCDef : {auto c : Ref Ctxt Defs} ->

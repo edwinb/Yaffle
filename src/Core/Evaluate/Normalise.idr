@@ -13,7 +13,7 @@ import Data.List
 import Data.SnocList
 import Data.Vect
 
-data EvalFlags = Full | KeepAs | KeepLet
+data EvalFlags = Full | KeepAs | KeepLet | Totality
 
 export
 apply : FC -> Value f vars -> RigCount -> Core (Glued vars) -> Core (Glued vars)
@@ -274,11 +274,15 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
                 | Nothing => pure (VApp fc nt n [<] (pure Nothing))
            let Function fi fn _ _ = definition def
                 | _ => pure (VApp fc nt n [<] (pure Nothing))
-           if alwaysReduce fi || (elem TCInline (flags def))
+           if alwaysReduce fi || (reduceForTC eflags (flags def))
               then eval locs env (embed fn)
               else pure $ VApp fc nt n [<] $
                           do res <- eval locs env (embed fn)
                              pure (Just res)
+    where
+      reduceForTC : EvalFlags -> List DefFlag -> Bool
+      reduceForTC Totality f = elem TCInline f
+      reduceForTC _ _ = False
   eval locs env (Meta fc n i scope)
        = do scope' <- traverse (\ (q, val) =>
                                      do let val' = eval locs env val
@@ -288,13 +292,17 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
                  | Nothing => pure (VMeta fc n i scope' [<] (pure Nothing))
             let Function fi fn _ _ = definition def
                  | _ => pure (VMeta fc n i scope' [<] (pure Nothing))
-            if alwaysReduce fi
+            if alwaysReduce fi || (reduceForTC eflags (multiplicity def))
                then do evalfn <- eval locs env (embed fn)
                        applyAll fc evalfn scope'
                else pure $ VMeta fc n i scope' [<] $
                        do evalfn <- eval locs env (embed fn)
                           res <- applyAll fc evalfn scope'
                           pure (Just res)
+    where
+      reduceForTC : EvalFlags -> RigCount -> Bool
+      reduceForTC Totality c = not (isErased c)
+      reduceForTC _ _ = False
   eval locs env (Bind fc x (Lam bfc r p ty) sc)
       = pure $ VLam fc x r !(evalPiInfo locs env p) !(eval locs env ty)
                     (\arg => eval (locs :< arg) env sc)
@@ -363,3 +371,8 @@ parameters {auto c : Ref Ctxt Defs}
   nfKeepLet : {vars : _} ->
           Env Term vars -> Term vars -> Core (Glued vars)
   nfKeepLet = eval KeepLet [<]
+
+  export
+  nfTotality : {vars : _} ->
+          Env Term vars -> Term vars -> Core (Glued vars)
+  nfTotality = eval Totality [<]

@@ -858,7 +858,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                     handleUnify
                        (do tm <- search loc rig (smode == Defaults) depth defining
                                         (type def) [<]
-                           let gdef = { definition := Function defaultFI tm tm Nothing } def
+                           let gdef = { definition := Function reduceFI tm tm Nothing } def
                            ignore $ addDef (Resolved hid) gdef
                            removeGuess hid
                            pure True)
@@ -892,7 +892,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                                              AddDelay r =>
                                                 do logTerm "unify.retry" 5 "Retry Delay" tm
                                                    pure $ delayMeta r envb (type def) tm
-                                    let gdef = { definition := Function (MkFnInfo NotHole True False) tm' tm' Nothing } def
+                                    let gdef = { definition := Function reduceFI tm' tm' Nothing } def
                                     logTerm "unify.retry" 5 ("Resolved " ++ show hname) tm'
                                     ignore $ addDef (Resolved hid) gdef
                                     removeGuess hid
@@ -918,7 +918,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                            -- All constraints resolved, so turn into a
                            -- proper definition and remove it from the
                            -- hole list
-                           [] => do let gdef = { definition := Function (MkFnInfo NotHole True False) tm tm Nothing } def
+                           [] => do let gdef = { definition := Function reduceFI tm tm Nothing } def
                                     logTerm "unify.retry" 5 ("Resolved " ++ show hname) tm
                                     ignore $ addDef (Resolved hid) gdef
                                     removeGuess hid

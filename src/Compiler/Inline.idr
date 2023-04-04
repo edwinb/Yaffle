@@ -43,13 +43,28 @@ getArity (MkCon _ arity _) = arity
 getArity (MkForeign _ args _) = length args
 getArity (MkError _) = 0
 
+getArgsFromStack : Stack free -> (args : SnocList Name) ->
+                   List (CExp free) ->
+                   Maybe (List (CExp free), Stack free)
+getArgsFromStack (e :: es) (as :< a) acc
+    = getArgsFromStack es as (e :: acc)
+getArgsFromStack stk [<] acc = Just (acc, stk)
+getArgsFromStack _ _ _ = Nothing
+
+takeArgs : EEnv free vars -> List (CExp free) -> (args : SnocList Name) ->
+           Maybe (EEnv free (vars ++ args))
+takeArgs env (e :: es) (as :< a)
+  = do env' <- takeArgs env es as
+       pure (env' :< e)
+takeArgs env stk [<] = pure env
+takeArgs env [] args = Nothing
+
 takeFromStack : EEnv free vars -> Stack free -> (args : SnocList Name) ->
                 Maybe (EEnv free (vars ++ args), Stack free)
-takeFromStack env (e :: es) (as :< a)
-  = do (env', stk') <- takeFromStack env es as
-       pure (env' :< e, stk')
-takeFromStack env stk [<] = pure (env, stk)
-takeFromStack env [] args = Nothing
+takeFromStack env es as
+    = do (args, stk') <- getArgsFromStack es as []
+         env' <- takeArgs env args as
+         pure (env', stk')
 
 data LVar : Type where
 
@@ -187,7 +202,9 @@ mutual
                 if (Inline `elem` gdefFlags)
                     && (not (n `elem` rec))
                     && (not (NoInline `elem` gdefFlags))
-                   then do ap <- tryApply (n :: rec) stk env def
+                   then do log "compiler.inline.eval" 25 $ "Inlining " ++ show n
+                                     ++ show def
+                           ap <- tryApply (n :: rec) stk env def
                            pure $ fromMaybe (unloadApp arity stk (CRef fc n)) ap
                    else pure $ unloadApp arity stk (CRef fc n)
   eval {vars} {free} rec env [] (CLam fc x sc)
@@ -320,7 +337,7 @@ mutual
       = traverseOpt (eval rec env stk) def
   pickAlt {vars} {free} rec env stk con@(CCon fc n ci t args) (MkConAlt n' _ t' sc :: alts) def
       = if matches n t n' t'
-           then evalPickedAlt rec env stk (reverse args) sc
+           then evalPickedAlt rec env stk args sc
            else pickAlt rec env stk con alts def
     where
       matches : Name -> Maybe Int -> Name -> Maybe Int -> Bool
@@ -504,7 +521,8 @@ inlineDef n
     = do defs <- get Ctxt
          Just def <- lookupCtxtExact n (gamma defs) | Nothing => pure ()
          let Just cexpr = compexpr def              | Nothing => pure ()
-         setCompiled n !(inline n cexpr)
+         res <- inline n cexpr
+         setCompiled n res
 
 -- Update the names a function refers to at runtime based on the transformation
 -- results (saves generating code unnecessarily).
@@ -540,7 +558,8 @@ mergeLamDef n
             then pure ()
             else do let Just cexpr =  compexpr def
                              | Nothing => pure ()
-                    setCompiled n !(mergeLam cexpr)
+                    cexpr' <- mergeLam cexpr
+                    setCompiled n cexpr'
 
 export
 addArityHash : {auto c : Ref Ctxt Defs} ->
