@@ -115,7 +115,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
            -- If it gets stuck, return the glued args, not the values
            case getOp op args' of
              Just res => pure res
-             Nothing => pure $ VPrimOp fc op args
+             Nothing => do pure $ VPrimOp fc op args
 
   -- Forward declared since these are all mutual
   export

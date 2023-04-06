@@ -1027,14 +1027,15 @@ processDef opts nest env fc n_in cs_in
                    setUnboundImplicits autoimp
                    (lhstm, _) <- elabTerm n (InLHS mult) [] (MkNested []) [<]
                                     (IBindHere fc COVERAGE lhstm) Nothing
-                   defs <- get Ctxt
+                   logTerm "declare.def.impossible" 5 "LHS term" lhstm
                    lhs <- normaliseHoles [<] lhstm
+                   defs <- get Ctxt
                    if !(hasEmptyPat defs [<] lhs)
                       then do log "declare.def.impossible" 5 "Some empty pat"
                               put Ctxt ctxt
                               pure Nothing
                       else do log "declare.def.impossible" 5 "No empty pat"
-                              rtm <- closeEnv !(expand !(nf [<] lhs))
+                              rtm <- closeEnv !(nf [<] lhs)
                               put Ctxt ctxt
                               pure (Just rtm))
                (\err => do defs <- get Ctxt
@@ -1042,9 +1043,12 @@ processDef opts nest env fc n_in cs_in
                               then pure Nothing
                               else pure (Just tm))
       where
-        closeEnv : NF [<] -> Core ClosedTerm
+        -- They'll be 'Bind' at the top level already, and we really don't
+        -- want to expand when we get to the clause, so 'Glued' is what we
+        -- want here.
+        closeEnv : Glued [<] -> Core ClosedTerm
         closeEnv (VBind _ x (PVar _ _ _ _) sc)
-            = closeEnv !(expand !(sc (pure (vRef fc Bound x))))
+            = closeEnv !(sc (pure (vRef fc Bound x)))
         closeEnv nf = quote [<] nf
 
     getClause : Either RawImp Clause -> Core (Maybe Clause)
@@ -1061,18 +1065,18 @@ processDef opts nest env fc n_in cs_in
                     Core Covering
     checkCoverage n ty mult cs
         = do covcs' <- traverse getClause cs -- Make stand in LHS for impossible clauses
-             log "declare.def" 5 $ unlines
+             log "declare.def.impossible" 5 $ unlines
                $ "Using clauses :"
                :: map (("  " ++) . show) !(traverse toFullNames covcs')
              let covcs = mapMaybe id covcs'
              (ctree, _) <-
                  getPMDef fc (CompileTime mult) (Resolved n) ty covcs
-             log "declare.def" 3 $ "Working from " ++ show !(toFullNames ctree)
+             log "declare.def.impossible" 3 $ "Working from " ++ show !(toFullNames ctree)
              missCase <- if any catchAll covcs
                             then do log "declare.def" 3 $ "Catch all case in " ++ show n
                                     pure []
                             else getMissing fc (Resolved n) ctree
-             logC "declare.def" 3 $
+             logC "declare.def.impossible" 3 $
                      do mc <- traverse toFullNames missCase
                         pure ("Initially missing in " ++
                                  show !(getFullName (Resolved n)) ++ ":\n" ++
@@ -1081,12 +1085,12 @@ processDef opts nest env fc n_in cs_in
              missImp <- traverse (checkImpossible n mult) missCase
              -- Filter out the ones which are actually matched (perhaps having
              -- come up due to some overlapping patterns)
-             logC "declare.def" 5 $
+             logC "declare.def.impossible" 5 $
                  do mc <- traverse toFullNames missImp
                     pure ("Missing after checkImpossible:\n" ++
                               showSep "\n" (map show mc))
              missMatch <- traverse (checkMatched covcs) (mapMaybe id missImp)
-             logC "declare.def" 5 $
+             logC "declare.def.impossible" 5 $
                  do mc <- traverse toFullNames missMatch
                     pure ("Missing after checkMatched:\n" ++
                               showSep "\n" (map show mc))

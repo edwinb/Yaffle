@@ -124,6 +124,9 @@ expand' cases v@(VApp fc nt n sp val)
                     VCase{} => if cases
                                   then expand' cases val'
                                   else pure (believe_me v)
+                    VPrimOp{} => if cases
+                                  then expand' cases val'
+                                  else pure (believe_me v)
                     _ => expand' cases val'
             else pure (believe_me v)
 expand' cases v@(VMeta fc n i args sp val)

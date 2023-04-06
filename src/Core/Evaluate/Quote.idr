@@ -228,6 +228,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       blockedApp (VLam fc _ _ _ _ sc)
           = blockedApp !(sc (pure (VErased fc Placeholder)))
       blockedApp (VCase{}) = pure True
+      blockedApp (VPrimOp{}) = pure True
       blockedApp _ = pure False
   quoteGen {bound} bounds env (VLocal fc idx p sp) s
       = do sp' <- quoteSpine s bounds env sp
