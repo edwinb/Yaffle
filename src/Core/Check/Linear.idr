@@ -167,7 +167,7 @@ parameters {auto c : Ref Ctxt Defs}
                                  show (fullname gdef)) (type gdef)
                       pure True
                 _ => updateHoleUsageArgs useVar var zs (map snd args)
-  updateHoleUsage useVar var zs (Case _ _ sc scTy alts)
+  updateHoleUsage useVar var zs (Case _ _ _ sc scTy alts)
       = do hsc <- updateHoleUsage useVar var zs sc
            hscTy <- updateHoleUsage useVar var zs scTy
            halts <- updateHoleUsageAlts useVar var zs alts
@@ -366,7 +366,7 @@ parameters {auto c : Ref Ctxt Defs}
            pure (uf ++ ua)
   lcheck rig env (As fc s var pat)
       = lcheck rig env pat
-  lcheck rig env (Case fc scrig sc ty alts)
+  lcheck rig env (Case fc t scrig sc ty alts)
       = do usc <- lcheck (rigMult scrig rig) env sc
            ualts <- lcheckAlts (presence rig) (restrictEnv env rig) scrig alts
            pure (usc ++ ualts)

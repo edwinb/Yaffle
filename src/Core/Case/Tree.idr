@@ -97,24 +97,24 @@ Weaken TCaseScope where
   weakenNs ns t = insertCaseScopeNames zero ns t
 
 export
-mkCaseAlt : TCaseAlt vars -> CaseAlt vars
+mkCaseAlt : CaseType -> TCaseAlt vars -> CaseAlt vars
 
 export
-mkTerm : CaseTree vars -> Term vars
-mkTerm (TCase fc c idx p scTy xs)
-   = Case fc c (Local fc idx p) scTy (map mkCaseAlt xs)
-mkTerm (STerm i tm) = tm
-mkTerm (TUnmatched fc msg) = Unmatched fc msg
-mkTerm (TImpossible fc) = Erased fc Impossible
+mkTerm : CaseType -> CaseTree vars -> Term vars
+mkTerm ct (TCase fc c idx p scTy xs)
+   = Case fc ct c (Local fc idx p) scTy (map (mkCaseAlt ct) xs)
+mkTerm _ (STerm i tm) = tm
+mkTerm _ (TUnmatched fc msg) = Unmatched fc msg
+mkTerm _ (TImpossible fc) = Erased fc Impossible
 
-mkCaseScope : TCaseScope vars -> CaseScope vars
-mkCaseScope (TRHS tm) = RHS (mkTerm tm)
-mkCaseScope (TArg c x sc) = Arg c x (mkCaseScope sc)
+mkCaseScope : CaseType -> TCaseScope vars -> CaseScope vars
+mkCaseScope ct (TRHS tm) = RHS (mkTerm ct tm)
+mkCaseScope ct (TArg c x sc) = Arg c x (mkCaseScope ct sc)
 
-mkCaseAlt (TConCase fc x tag sc) = ConCase fc x tag (mkCaseScope sc)
-mkCaseAlt (TDelayCase fc ty arg tm) = DelayCase fc ty arg (mkTerm tm)
-mkCaseAlt (TConstCase fc c tm) = ConstCase fc c (mkTerm tm)
-mkCaseAlt (TDefaultCase fc tm) = DefaultCase fc (mkTerm tm)
+mkCaseAlt ct (TConCase fc x tag sc) = ConCase fc x tag (mkCaseScope ct sc)
+mkCaseAlt ct (TDelayCase fc ty arg tm) = DelayCase fc ty arg (mkTerm ct tm)
+mkCaseAlt ct (TConstCase fc c tm) = ConstCase fc c (mkTerm ct tm)
+mkCaseAlt ct (TDefaultCase fc tm) = DefaultCase fc (mkTerm ct tm)
 
 showCT : {vars : _} -> (indent : String) -> CaseTree vars -> String
 showCA : {vars : _} -> (indent : String) -> TCaseAlt vars  -> String

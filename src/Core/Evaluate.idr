@@ -257,7 +257,7 @@ parameters {auto c : Ref Ctxt Defs}
                (rhs', u) <- replace' False tmpi env orig parg !rhs
                pure (RHS rhs', u)
       repScope fc tmpi (xs :< (r, x)) scope
-          = do let xn = MN "tmp" tmpi
+          = do let xn = MN "tmpsc" tmpi
                let xv = VApp fc Bound xn [<] (pure Nothing)
                (scope', u) <- repScope fc (tmpi + 1) xs (scope (pure xv))
                pure (Arg r x (refsToLocalsCaseScope (Add x xn None) scope'), u)
@@ -267,8 +267,8 @@ parameters {auto c : Ref Ctxt Defs}
           = do (scope', u) <- repScope fc tmpi args scope
                pure (ConCase fc n t scope', u)
       repAlt (VDelayCase fc ty arg scope)
-          = do let tyn = MN "tmp" tmpi
-               let argn = MN "tmp" (tmpi + 1)
+          = do let tyn = MN "tmpd" tmpi
+               let argn = MN "tmpd" (tmpi + 1)
                let tyv = VApp fc Bound tyn [<] (pure Nothing)
                let argv = VApp fc Bound argn [<] (pure Nothing)
                -- Stop expanding or recursive functions will go forever
@@ -320,34 +320,49 @@ parameters {auto c : Ref Ctxt Defs}
 
       repSub (VLam fc x c p ty scfn)
           = do (b', u) <- repBinder (Lam fc c p ty)
-               let x' = MN "tmp" tmpi
+               let x' = MN "tmplam" tmpi
                let var = VApp fc Bound x' [<] (pure Nothing)
                (sc', u') <- replace' expand (tmpi + 1) env orig parg !(scfn (pure var))
                pure (Bind fc x b' (refsToLocals (Add x x' None) sc'), u || u')
       repSub (VBind fc x b scfn)
           = do (b', u) <- repBinder b
-               let x' = MN "tmp" tmpi
+               let x' = MN "tmpb" tmpi
                let var = VApp fc Bound x' [<] (pure Nothing)
                (sc', u') <- replace' expand (tmpi + 1) env orig parg !(scfn (pure var))
                pure (Bind fc x b' (refsToLocals (Add x x' None) sc'), u || u')
       repSub (VApp fc nt fn args val')
-          = if expand
-               then do Just nf <- val'
-                            | Nothing =>
-                             do (args', u) <- repArgAll args
-                                pure (applyWithFC (Ref fc nt fn) (toList args'), u)
-                       case nf of -- If blocked, rewrite the arguments
-                            VCase{} =>
+          = do fl <- getFlags fn
+               if expand && not (BlockReduce `elem` fl)
+                 then do Just nf <- val'
+                              | Nothing =>
                                do (args', u) <- repArgAll args
                                   pure (applyWithFC (Ref fc nt fn) (toList args'), u)
-                            _ =>
-                               do (tm', u) <- replace' expand tmpi env orig parg nf
-                                  if u
-                                     then pure (tm', u)
-                                     else do (args', u) <- repArgAll args
-                                             pure (applyWithFC (Ref fc nt fn) (toList args'), u)
-               else do (args', u) <- repArgAll args
-                       pure (applyWithFC (Ref fc nt fn) (toList args'), u)
+                         if !(blockedApp nf)
+                             then
+                                 do (args', u) <- repArgAll args
+                                    pure (applyWithFC (Ref fc nt fn) (toList args'), u)
+                              else
+                                 do (tm', u) <- replace' expand tmpi env orig parg nf
+                                    if u
+                                       then pure (tm', u)
+                                       else do (args', u) <- repArgAll args
+                                               pure (applyWithFC (Ref fc nt fn) (toList args'), u)
+                 else do (args', u) <- repArgAll args
+                         pure (applyWithFC (Ref fc nt fn) (toList args'), u)
+        where
+          getFlags : Name -> Core (List DefFlag)
+          getFlags fn
+              = do defs <- get Ctxt
+                   Just gdef <- lookupCtxtExact fn (gamma defs)
+                        | Nothing => pure []
+                   pure (flags gdef)
+
+          blockedApp : Value f vars -> Core Bool
+          blockedApp (VLam fc _ _ _ _ sc)
+              = blockedApp !(sc (pure (VErased fc Placeholder)))
+          blockedApp (VCase _ PatMatch _ _ _ _) = pure True
+          blockedApp (VPrimOp{}) = pure True
+          blockedApp _ = pure False
       repSub (VLocal fc idx p args)
           = do (args', u) <- repArgAll args
                pure (applyWithFC (Local fc idx p) (toList args'), u)
@@ -370,12 +385,12 @@ parameters {auto c : Ref Ctxt Defs}
           = do (a', u) <- repSub a
                (pat', u') <- repSub pat
                pure (As fc s a' pat',  u || u')
-      repSub (VCase fc r sc scty alts)
+      repSub (VCase fc t r sc scty alts)
           = do (sc', u) <- repArg sc
                (scty', u') <- repArg scty
                alts'  <- traverse repAlt alts
                let u'' = or (map (\x => Delay x) (map snd alts'))
-               pure (Case fc r sc' scty' (map fst alts'), u || u' || u'')
+               pure (Case fc t r sc' scty' (map fst alts'), u || u' || u'')
       repSub (VDelayed fc r tm)
           = do (tm', u) <- repSub tm
                pure (TDelayed fc r tm', u)

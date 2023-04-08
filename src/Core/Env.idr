@@ -182,7 +182,7 @@ mutual
       = findUsed env (findUsed env used fn) arg
   findUsed env used (As fc s a p)
       = findUsed env used p
-  findUsed env used (Case fc c sc scTy alts)
+  findUsed env used (Case fc t c sc scTy alts)
       = findUsedAlts env (findUsed env (findUsed env used sc) scTy) alts
     where
       findUsedScope : {vars : _} ->

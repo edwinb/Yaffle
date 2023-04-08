@@ -289,8 +289,8 @@ mapTermM f = goTerm where
     goTerm (Bind fc x bd sc) = f =<< Bind fc x <$> traverse goTerm bd <*> goTerm sc
     goTerm (App fc fn c arg) = f =<< App fc <$> goTerm fn <*> pure c <*> goTerm arg
     goTerm (As fc u as pat) = f =<< As fc u <$> pure as <*> goTerm pat
-    goTerm (Case fc c sc sct alts)
-        = f =<< Case fc c <$> goTerm sc <*> goTerm sct <*> traverse goAlt alts
+    goTerm (Case fc t c sc sct alts)
+        = f =<< Case fc t c <$> goTerm sc <*> goTerm sct <*> traverse goAlt alts
       where
         goScope : {vars : _} -> CaseScope vars -> CoreE err (CaseScope vars)
         goScope (RHS tm)

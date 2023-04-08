@@ -129,7 +129,7 @@ fuzzySearch expr = do
   doFind ns (App fc fn _ arg)
       = doFind (doFind ns fn) arg
   doFind ns (As fc s as tm) = doFind ns tm
-  doFind ns (Case fc c sc scty alts)
+  doFind ns (Case fc ct c sc scty alts)
       = foldl doFindAlt (doFind (doFind ns sc) scty) alts
   doFind ns (TDelayed fc x y) = doFind ns y
   doFind ns (TDelay fc x t y)

@@ -771,8 +771,8 @@ calcRefs rt at fn
 mkRunTime : {auto c : Ref Ctxt Defs} ->
             {auto m : Ref MD Metadata} ->
             {auto u : Ref UST UState} ->
-            FC -> Name -> Core ()
-mkRunTime fc n
+            FC -> (CaseType, Name) -> Core ()
+mkRunTime fc (ct, n)
     = do log "compile.casetree" 5 $ "Making run time definition for " ++ show !(toFullNames n)
          defs <- get Ctxt
          Just gdef <- lookupCtxtExact n (gamma defs)
@@ -789,7 +789,7 @@ mkRunTime fc n
            let clauses = case cov of
                               MissingCases _ => addErrorCase pats'
                               _ => pats'
-           (tree_rt, _) <- getPMDef (location gdef) RunTime n ty clauses
+           (tree_rt, _) <- getPMDef (location gdef) ct RunTime n ty clauses
 
            log "compile.casetree" 10 $ show tree_rt
            ignore $ addDef n $
@@ -831,7 +831,7 @@ compileRunTime : {auto c : Ref Ctxt Defs} ->
 compileRunTime fc atotal
     = do defs <- get Ctxt
          traverse_ (mkRunTime fc) (toCompileCase defs)
-         traverse_ (calcRefs True atotal) (toCompileCase defs)
+         traverse_ (calcRefs True atotal) (map snd (toCompileCase defs))
 
          update Ctxt { toCompileCase := [] }
 
@@ -933,9 +933,10 @@ processDef opts nest env fc n_in cs_in
                                      hashit nidx opts nest env) cs_in
          let pats = rights cs
 
+         let ct = if elem InCase opts then CaseBlock else PatMatch
          (tree_ct, unreachable) <-
              logTime 3 ("Building compile time case tree for " ++ show n) $
-                getPMDef fc (CompileTime mult) n ty pats
+                getPMDef fc ct (CompileTime mult) n ty pats
          traverse_ warnUnreachable unreachable
 
          logC "declare.def" 2 $
@@ -965,7 +966,7 @@ processDef opts nest env fc n_in cs_in
          addToSave n
 
          -- Flag this name as one which needs compiling
-         update Ctxt { toCompileCase $= (n ::) }
+         update Ctxt { toCompileCase $= ((ct, n) ::) }
 
          atotal <- toResolvedNames (NS builtinNS (UN $ Basic "assert_total"))
          logTime 3 ("Building size change graphs " ++ show n) $
@@ -1070,7 +1071,7 @@ processDef opts nest env fc n_in cs_in
                :: map (("  " ++) . show) !(traverse toFullNames covcs')
              let covcs = mapMaybe id covcs'
              (ctree, _) <-
-                 getPMDef fc (CompileTime mult) (Resolved n) ty covcs
+                 getPMDef fc PatMatch (CompileTime mult) (Resolved n) ty covcs
              log "declare.def.impossible" 3 $ "Working from " ++ show !(toFullNames ctree)
              missCase <- if any catchAll covcs
                             then do log "declare.def" 3 $ "Catch all case in " ++ show n

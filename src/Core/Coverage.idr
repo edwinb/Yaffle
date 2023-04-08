@@ -292,7 +292,7 @@ buildArgs : {auto c : Ref Ctxt Defs} ->
 -- top level
 buildArgs defs known not ps (Bind fc x (Lam lfc c p ty) sc)
     = buildArgs defs (weaken known) (weaken not) (ps :< (c, Ref fc Bound x)) sc
-buildArgs defs known not ps cs@(Case fc c (Local lfc idx el) ty altsIn)
+buildArgs defs known not ps cs@(Case fc ct c (Local lfc idx el) ty altsIn)
   -- If we've already matched on 'el' in this branch, restrict the alternatives
   -- to the tag we already know. Otherwise, add missing cases and filter out
   -- the ones it can't possibly be (the 'not') because a previous case

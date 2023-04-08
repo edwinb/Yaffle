@@ -87,7 +87,7 @@ checkIfGuarded fc n
     guardedDef : {vars : _} -> Glued vars -> Core Bool
     guardedDef (VLam fc _ _ _ _ sc)
         = guardedDef !(sc (pure (VErased fc Placeholder)))
-    guardedDef (VCase fc c _ _ alts)
+    guardedDef (VCase fc ct c _ _ alts)
         = guardedAlts alts
     guardedDef nf = guardedNF nf
 
@@ -111,7 +111,7 @@ scEq (Bind _ _ b sc) (Bind _ _ b' sc') = False -- not checkable
 scEq (App _ f _ a) (App _ f' _ a') = scEq f f' && scEq a a'
 scEq (As _ _ a p) p' = scEq p p'
 scEq p (As _ _ a p') = scEq p p'
-scEq (Case _ _ sc ty alts) (Case _ _ sc' ty' alts') = False -- not checkable
+scEq (Case _ _ _ sc ty alts) (Case _ _ _ sc' ty' alts') = False -- not checkable
 scEq (TDelayed _ _ t) (TDelayed _ _ t') = scEq t t'
 scEq (TDelay _ _ t x) (TDelay _ _ t' x') = scEq t t' && scEq x x'
 scEq (TForce _ _ t) (TForce _ _ t') = scEq t t'
@@ -152,8 +152,8 @@ delazy (Bind fc x b sc)
     = Bind fc x (map (delazy) b) (delazy sc)
 delazy (App fc f c a) = App fc (delazy f) c (delazy a)
 delazy (As fc s a p) = As fc s a (delazy p)
-delazy (Case fc c sc ty alts)
-    = Case fc c (delazy sc) (delazy ty) (map delazyAlt alts)
+delazy (Case fc ct c sc ty alts)
+    = Case fc ct c (delazy sc) (delazy ty) (map delazyAlt alts)
   where
     delazyScope : forall vars . CaseScope vars -> CaseScope vars
     delazyScope (RHS tm) = RHS (delazy tm)
@@ -329,10 +329,10 @@ findSC Guarded pats (TDelay _ _ _ tm)
     = findSC InDelay pats tm
 findSC g pats (TDelay _ _ _ tm)
     = findSC g pats tm
-findSC g args (Case fc c (Local lfc idx p) scTy alts)
+findSC g args (Case fc ct c (Local lfc idx p) scTy alts)
     = do altCalls <- traverse (findSCalt g args (Just (MkVar p))) alts
          pure (concat altCalls)
-findSC g args (Case fc c sc scTy alts)
+findSC g args (Case fc ct c sc scTy alts)
     = do altCalls <- traverse (findSCalt g args Nothing) alts
          scCalls <- findSC Unguarded args sc
          pure (scCalls ++ concat altCalls)

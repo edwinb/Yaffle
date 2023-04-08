@@ -40,8 +40,8 @@ apply fc (VAs _ _ _ pat) q arg
     = apply fc pat q arg -- doesn't really make sense to keep the name
 apply fc (VForce ffc r v spine) q arg
     = pure $ VForce ffc r v (spine :< (fc, q, arg))
-apply fc (VCase cfc r sc ty alts) q arg
-    = pure $ VCase cfc r sc ty !(traverse (applyAlt arg) alts)
+apply fc (VCase cfc t r sc ty alts) q arg
+    = pure $ VCase cfc t r sc ty !(traverse (applyAlt arg) alts)
   where
     applyConCase : Core (Glued vars) ->
                    Name -> Int ->
@@ -151,13 +151,14 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
 
   blockedCase : {vars : _} ->
                 FC -> LocalEnv free vars -> Env Term vars ->
-                RigCount -> (sc : NF vars) -> (scTy : Term (vars ++ free)) ->
+                CaseType -> RigCount ->
+                (sc : NF vars) -> (scTy : Term (vars ++ free)) ->
                 List (CaseAlt (vars ++ free)) ->
                 Core (Glued vars)
-  blockedCase fc locs env r sc scTy alts
+  blockedCase fc locs env t r sc scTy alts
       = do scTy' <- eval locs env scTy
            alts' <- traverse (evalCaseAlt locs env) alts
-           pure (VCase fc r sc scTy' alts')
+           pure (VCase fc t r sc scTy' alts')
 
   -- We've turned the spine into a list so that the argument positions
   -- correspond when going through the CaseScope
@@ -198,13 +199,13 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
 
   evalCase : {vars : _} ->
              FC -> LocalEnv free vars -> Env Term vars ->
-             RigCount -> (sc : NF vars) -> (scTy : Term (vars ++ free)) ->
+             CaseType -> RigCount -> (sc : NF vars) -> (scTy : Term (vars ++ free)) ->
              List (CaseAlt (vars ++ free)) ->
              Core (Glued vars)
-  evalCase fc locs env r sc ty alts
+  evalCase fc locs env t r sc ty alts
       = if isCanonical sc
-           then tryAlts locs env sc alts (blockedCase fc locs env r sc ty alts)
-           else blockedCase fc locs env r sc ty alts
+           then tryAlts locs env sc alts (blockedCase fc locs env t r sc ty alts)
+           else blockedCase fc locs env t r sc ty alts
     where
       isCanonical : NF vars -> Bool
       isCanonical (VLam{}) = True
@@ -323,12 +324,12 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
              KeepAs => pure $ VAs fc use !(eval locs env as)
                                          !(eval locs env pat)
              _ => eval locs env pat
-  eval locs env (Case fc r sc ty alts)
+  eval locs env (Case fc t r sc ty alts)
       = do sc' <- expand !(eval locs env sc)
            locs' <- case sc of
                          Local _ _ p => pure $ updateEnv locs p (pure (asGlued sc'))
                          _ => pure locs
-           evalCase fc locs' env r (stripAs sc') ty alts
+           evalCase fc locs' env t r (stripAs sc') ty alts
     where
       stripAs : Value f vars -> Value f vars
       stripAs (VAs _ _ _ p) = stripAs p

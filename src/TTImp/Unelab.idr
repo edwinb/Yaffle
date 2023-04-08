@@ -212,7 +212,7 @@ unelabTy' umode nest env (As fc s p tm)
                        NoSugar _ => pure (IAs fc (getFC p') s n.rawName tm', ty)
                        _ => pure (tm', ty)
               _ => pure (tm', ty) -- Should never happen!
-unelabTy' umode nest env (Case fc c sc scty alts)
+unelabTy' umode nest env (Case fc ty c sc scty alts)
     = do (sc', _) <- unelabTy' umode nest env sc
          (scty', _) <- unelabTy' umode nest env scty
          alts' <- traverse unelabAlt alts

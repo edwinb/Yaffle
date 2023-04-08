@@ -414,6 +414,17 @@ mutual
                1 => pure UseRight
                _ => corrupt "UseSide"
 
+  export
+  TTC CaseType where
+    toBuf PatMatch = tag 0
+    toBuf CaseBlock = tag 1
+
+    fromBuf
+        = case !getTag of
+               0 => pure PatMatch
+               1 => pure CaseBlock
+               _ => corrupt "CaseType"
+
 
   export
   {vars : _} -> TTC (Term vars) where
@@ -440,9 +451,9 @@ mutual
     toBuf (As fc s as tm)
         = do tag 5;
              toBuf s; toBuf as; toBuf tm
-    toBuf (Case fc c sc scty alts)
+    toBuf (Case fc t c sc scty alts)
         = do tag 6
-             toBuf c; toBuf sc; toBuf scty
+             toBuf t; toBuf c; toBuf sc; toBuf scty
              toBuf alts
     toBuf (TDelayed fc r tm)
         = do tag 7;
@@ -489,9 +500,9 @@ mutual
                        pure (App emptyFC fn c arg)
                5 => do s <- fromBuf; as <- fromBuf; tm <- fromBuf
                        pure (As emptyFC s as tm)
-               6 => do c <- fromBuf; sc <- fromBuf; scty <- fromBuf
+               6 => do t <- fromBuf; c <- fromBuf; sc <- fromBuf; scty <- fromBuf
                        alts <- fromBuf
-                       pure (Case emptyFC c sc scty alts)
+                       pure (Case emptyFC t c sc scty alts)
                7 => do lr <- fromBuf; tm <- fromBuf
                        pure (TDelayed emptyFC lr tm)
                8 => do lr <- fromBuf;
@@ -998,18 +1009,19 @@ TTC TotalReq where
 
 TTC DefFlag where
   toBuf Inline = tag 2
-  toBuf NoInline = tag 13
+  toBuf NoInline = tag 14
   toBuf Deprecate = tag 15
   toBuf Invertible = tag 3
   toBuf Overloadable = tag 4
   toBuf TCInline = tag 5
   toBuf (SetTotal x) = do tag 6; toBuf x
   toBuf BlockedHint = tag 7
-  toBuf Macro = tag 8
-  toBuf (PartialEval x) = tag 9 -- names not useful any more
-  toBuf AllGuarded = tag 10
-  toBuf (ConType ci) = do tag 11; toBuf ci
-  toBuf (Identity x) = do tag 12; toBuf x
+  toBuf BlockReduce = tag 8
+  toBuf Macro = tag 9
+  toBuf (PartialEval x) = tag 10 -- names not useful any more
+  toBuf AllGuarded = tag 11
+  toBuf (ConType ci) = do tag 12; toBuf ci
+  toBuf (Identity x) = do tag 13; toBuf x
 
   fromBuf
       = case !getTag of
@@ -1019,12 +1031,13 @@ TTC DefFlag where
              5 => pure TCInline
              6 => do x <- fromBuf; pure (SetTotal x)
              7 => pure BlockedHint
-             8 => pure Macro
-             9 => pure (PartialEval [])
-             10 => pure AllGuarded
-             11 => do ci <- fromBuf; pure (ConType ci)
-             12 => do x <- fromBuf; pure (Identity x)
-             13 => pure NoInline
+             8 => pure BlockReduce
+             9 => pure Macro
+             10 => pure (PartialEval [])
+             11 => pure AllGuarded
+             12 => do ci <- fromBuf; pure (ConType ci)
+             13 => do x <- fromBuf; pure (Identity x)
+             14 => pure NoInline
              15 => pure Deprecate
              _ => corrupt "DefFlag"
 

@@ -537,7 +537,7 @@ toCExpTm n (App fc tm _ arg)
 -- This shouldn't be in terms any more, but here for completeness
 toCExpTm n (As _ _ _ p) = toCExpTm n p
 -- TODO: Either make sure 'Delayed' is always Rig0, or add to typecase
-toCExpTm n (Case fc _ sc _ alts)
+toCExpTm n (Case fc _ _ sc _ alts)
     = toCExpCase n fc !(toCExp n sc) alts
 toCExpTm n (TDelayed fc _ _) = pure $ CErased fc
 toCExpTm n (TDelay fc lr _ arg)

@@ -116,10 +116,10 @@ parameters {auto c : Ref Ctxt Defs}
            pure (App fc fn' q arg')
   echeck rig env (As fc s var pat)
       = pure (As fc s !(echeck rig env var) !(echeck rig env pat))
-  echeck rig env (Case fc scrig sc ty alts)
+  echeck rig env (Case fc ct scrig sc ty alts)
       = do sc' <- echeck (rigMult scrig rig) env sc
            alts' <- echeckAlts (presence rig) (restrictEnv env rig) scrig alts
-           pure (Case fc scrig sc' ty alts')
+           pure (Case fc ct scrig sc' ty alts')
   echeck rig env (TDelay fc r ty arg)
       = pure (TDelay fc r ty !(echeck rig env arg))
   echeck rig env (TForce fc r tm) = echeck rig env tm

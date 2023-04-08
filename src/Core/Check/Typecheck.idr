@@ -231,7 +231,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   check rig env (RCase fc r sc alts) exp
       = do (sc', scTy') <- infer (rigMult r rig) env sc
            alts <- traverse (checkAlt (presence rig) env r sc' scTy' exp) alts
-           pure (Case fc r sc' scTy' alts)
+           pure (Case fc PatMatch r sc' scTy' alts)
   check rig env (RMeta fc str) exp
       = do let n = UN (mkUserName str)
            (idx, meta) <- newMeta fc rig env n exp (Hole (length env) (holeInit False))

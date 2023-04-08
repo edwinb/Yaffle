@@ -68,7 +68,8 @@ data Value : Form -> SnocList Name -> Type where
      VTCon    : FC -> Name -> (arity : Nat) ->
                 Spine vars -> Value f vars
      VAs      : FC -> UseSide -> Value f vars -> Value f vars -> Value f vars
-     VCase    : FC -> RigCount -> (sc : NF vars) -> (scTy : Glued vars) ->
+     VCase    : FC -> CaseType ->
+                RigCount -> (sc : NF vars) -> (scTy : Glued vars) ->
                 List (VCaseAlt vars) ->
                 Value f vars
      VDelayed : FC -> LazyReason -> Glued vars -> Value f vars
@@ -95,7 +96,7 @@ getLoc (VMeta fc x y xs sx z) = fc
 getLoc (VDCon fc x tag arity sx) = fc
 getLoc (VTCon fc x arity sx) = fc
 getLoc (VAs fc x y z) = fc
-getLoc (VCase fc x sc scTy xs) = fc
+getLoc (VCase fc t x sc scTy xs) = fc
 getLoc (VDelayed fc x y) = fc
 getLoc (VDelay fc x y z) = fc
 getLoc (VForce fc x y sx) = fc

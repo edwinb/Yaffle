@@ -78,6 +78,8 @@ parameters {auto c : Ref Ctxt Defs}
                    y'@(VCase{}) <- expandFull y | _ => pure False
                    -- See if the case blocks convert
                    convGen s env x' y'
+  convertAppsNF s env (VApp{}) (VMeta{}) = pure False
+  convertAppsNF s env (VMeta{}) (VApp{}) = pure False
   -- Expanded into something else, so we've made progress, so back to the top
   -- level converstion
   convertAppsNF s env x y = convGen s env x y
@@ -133,6 +135,11 @@ parameters {auto c : Ref Ctxt Defs}
       convBinders _ _ = pure False
   convGen s env x@(VApp fc nt n args val) y@(VApp fc' nt' n' args' val')
       = convertApps s env fc nt n args x fc' nt' n' args' y
+  -- If we have an App and a Meta, try to reduce first
+  convGen s env x@(VApp{}) y@(VMeta{})
+      = convertAppsNF s env !(expand x) !(expand y)
+  convGen s env x@(VMeta{}) y@(VApp{})
+      = convertAppsNF s env !(expand x) !(expand y)
   -- If one is an App and the other isn't, try to reduce the App first
   convGen s env (VApp fc _ n _ val) y
       = do Just x <- tryReduce s fc n val | Nothing => pure False
@@ -147,7 +154,7 @@ parameters {auto c : Ref Ctxt Defs}
   convGen {vars} s env x@(VMeta _ _ i sc args val) y@(VMeta _ _ i' sc' args' val')
       = do Just x <- val  | Nothing => convMeta
            Just y <- val' | Nothing => convMeta
-           convGen s env x y
+           convGen s env !(expand x) !(expand y)
     where
       convScope : List (RigCount, Core (Glued vars)) ->
                   List (RigCount, Core (Glued vars)) -> Core Bool
@@ -166,10 +173,10 @@ parameters {auto c : Ref Ctxt Defs}
   -- If one is a Metavar and the other isn't, try to reduce the Metavar first
   convGen s env (VMeta _ _ _ _ _ val) y
       = do Just x <- val | Nothing => pure False
-           convGen s env x y
+           convGen s env !(expand x) !(expand y)
   convGen s env x (VMeta _ _ _ _ _ val)
       = do Just y <- val | Nothing => pure False
-           convGen s env x y
+           convGen s env !(expand x) !(expand y)
   convGen s env (VDCon _ n t a sp) (VDCon _ n' t' a' sp')
       = if t == t'
            then convSpine s env sp sp'
@@ -179,7 +186,7 @@ parameters {auto c : Ref Ctxt Defs}
            then convSpine s env sp sp'
            else pure False
   convGen s env (VAs _ _ _ x) (VAs _ _ _ y) = convGen s env x y
-  convGen {vars} s env (VCase fc r sc ty alts) (VCase _ r' sc' ty' alts')
+  convGen {vars} s env (VCase fc t r sc ty alts) (VCase _ t' r' sc' ty' alts')
       = do True <- convGen s env sc sc' | False => pure False
            True <- convGen s env ty ty' | False => pure False
            convAlts alts alts'

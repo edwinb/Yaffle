@@ -26,7 +26,7 @@ eqTerm (Bind _ _ b sc) (Bind _ _ b' sc')
     = assert_total (eqBinderBy eqTerm b b') && eqTerm sc sc'
 eqTerm (App _ f _ a) (App _ f' _ a') = eqTerm f f' && eqTerm a a'
 eqTerm (As _ _ a p) (As _ _ a' p') = eqTerm a a' && eqTerm p p'
-eqTerm (Case _ _ sc ty alts) (Case _ _ sc' ty' alts')
+eqTerm (Case _ _ _ sc ty alts) (Case _ _ _ sc' ty' alts')
     = eqTerm sc sc' && eqTerm ty ty' &&
           assert_total (all (uncurry eqAlt) (zip alts alts'))
   where
@@ -337,8 +337,8 @@ insertNames out ns (App fc fn q arg)
     = App fc (insertNames out ns fn) q (insertNames out ns arg)
 insertNames out sns (As fc x as pat)
     = As fc x (insertNames out sns as) (insertNames out sns pat)
-insertNames out ns (Case fc r sc scTy xs)
-    = Case fc r (insertNames out ns sc) (insertNames out ns scTy)
+insertNames out ns (Case fc t r sc scTy xs)
+    = Case fc t r (insertNames out ns sc) (insertNames out ns scTy)
            (map (insertNamesAlt out ns) xs)
 insertNames out ns (TDelayed fc x y)
     = TDelayed fc x (insertNames out ns y)
@@ -454,8 +454,8 @@ shrinkTerm (App fc fn q arg) prf
    = Just (App fc !(shrinkTerm fn prf) q !(shrinkTerm arg prf))
 shrinkTerm (As fc s as tm) prf
    = Just (As fc s !(shrinkTerm as prf) !(shrinkTerm tm prf))
-shrinkTerm (Case fc r sc scTy alts) prf
-   = Just (Case fc r !(shrinkTerm sc prf) !(shrinkTerm scTy prf)
+shrinkTerm (Case fc t r sc scTy alts) prf
+   = Just (Case fc t r !(shrinkTerm sc prf) !(shrinkTerm scTy prf)
                 !(traverse (\alt => shrinkAlt alt prf) alts))
 shrinkTerm (TDelayed fc x y) prf
    = Just (TDelayed fc x !(shrinkTerm y prf))
@@ -495,8 +495,8 @@ embedSub sub (App fc fn c arg)
     = App fc (embedSub sub fn) c (embedSub sub arg)
 embedSub sub (As fc s nm pat)
     = As fc s (embedSub sub nm) (embedSub sub pat)
-embedSub sub (Case fc c sc scty alts)
-    = Case fc c (embedSub sub sc) (embedSub sub scty) (map embedSubAlt alts)
+embedSub sub (Case fc t c sc scty alts)
+    = Case fc t c (embedSub sub sc) (embedSub sub scty) (map embedSubAlt alts)
   where
     embedSubScope : forall small, vars .
                     SubVars small vars -> CaseScope small -> CaseScope vars
@@ -573,8 +573,8 @@ mkLocals outer bs (App fc fn q arg)
     = App fc (mkLocals outer bs fn) q (mkLocals outer bs arg)
 mkLocals outer bs (As fc s as tm)
     = As fc s (mkLocals outer bs as) (mkLocals outer bs tm)
-mkLocals outer bs (Case fc r sc scTy alts)
-    = Case fc r (mkLocals outer bs sc) (mkLocals outer bs scTy)
+mkLocals outer bs (Case fc t r sc scTy alts)
+    = Case fc t r (mkLocals outer bs sc) (mkLocals outer bs scTy)
            (map (mkLocalsAlt outer bs) alts)
 mkLocals outer bs (TDelayed fc x y)
     = TDelayed fc x (mkLocals outer bs y)
@@ -646,9 +646,9 @@ resolveNames vars (App fc fn c arg)
     = App fc (resolveNames vars fn) c (resolveNames vars arg)
 resolveNames vars (As fc s as pat)
     = As fc s (resolveNames vars as) (resolveNames vars pat)
-resolveNames vars (Case fc c sc scty alts)
-    = Case fc c (resolveNames vars sc) (resolveNames vars scty)
-                (map (resolveAlt vars) alts)
+resolveNames vars (Case fc t c sc scty alts)
+    = Case fc t c (resolveNames vars sc) (resolveNames vars scty)
+                  (map (resolveAlt vars) alts)
   where
     resolveScope : (vars : SnocList Name) -> CaseScope vars -> CaseScope vars
     resolveScope vars (RHS tm) = RHS (resolveNames vars tm)
@@ -831,8 +831,8 @@ namespace SubstEnv
       = App fc (substEnv outer env fn) c (substEnv outer env arg)
   substEnv outer env (As fc s as pat)
       = As fc s (substEnv outer env as) (substEnv outer env pat)
-  substEnv outer env (Case fc c sc scty alts)
-      = Case fc c (substEnv outer env sc)
+  substEnv outer env (Case fc t c sc scty alts)
+      = Case fc t c (substEnv outer env sc)
              (substEnv outer env scty)
              (map (substAlt outer env) alts)
   substEnv outer env (TDelayed fc x y) = TDelayed fc x (substEnv outer env y)
@@ -888,8 +888,8 @@ substName x new (App fc fn c arg)
     = App fc (substName x new fn) c (substName x new arg)
 substName x new (As fc s as pat)
     = As fc s (substName x new as) (substName x new pat)
-substName x new (Case fc c sc scty alts)
-    = Case fc c (substName x new sc) (substName x new scty)
+substName x new (Case fc t c sc scty alts)
+    = Case fc t c (substName x new sc) (substName x new scty)
            (map (substNameAlt new) alts)
   where
     substNameScope : forall vars . Term vars -> CaseScope vars -> CaseScope vars
@@ -930,8 +930,8 @@ substVar x new (App fc fn c arg)
     = App fc (substVar x new fn) c (substVar x new arg)
 substVar x new (As fc s as pat)
     = As fc s (substVar x new as) (substVar x new pat)
-substVar x new (Case fc c sc scty alts)
-    = Case fc c (substVar x new sc) (substVar x new scty)
+substVar x new (Case fc t c sc scty alts)
+    = Case fc t c (substVar x new sc) (substVar x new scty)
            (map (substVarAlt x new) alts)
   where
     substVarScope : forall vars . Var vars -> Term vars -> CaseScope vars -> CaseScope vars
@@ -975,7 +975,7 @@ addMetas res ns (Bind fc x b scope)
 addMetas res ns (App fc fn c arg)
     = addMetas res (addMetas res ns fn) arg
 addMetas res ns (As fc s as tm) = addMetas res ns tm
-addMetas res ns (Case fc c sc scty alts)
+addMetas res ns (Case fc t c sc scty alts)
     = addMetaAlts (addMetas res (addMetas res ns sc) scty) alts
   where
     addMetaScope : forall vars . NameMap Bool -> CaseScope vars -> NameMap Bool
@@ -1031,7 +1031,7 @@ addRefs ua at ns (App _ (App _ (Ref fc _ name) _ x) _ y)
 addRefs ua at ns (App fc fn c arg)
     = addRefs ua at (addRefs ua at ns fn) arg
 addRefs ua at ns (As fc s as tm) = addRefs ua at ns tm
-addRefs ua at ns (Case fc c sc scty alts)
+addRefs ua at ns (Case fc t c sc scty alts)
     = addRefAlts (addRefs ua at (addRefs ua at ns sc) scty) alts
   where
     addRefScope : forall vars . NameMap Bool -> CaseScope vars -> NameMap Bool
@@ -1108,7 +1108,7 @@ mutual
               " => " ++ show sc
         showApp (App _ _ _ _) [] = "[can't happen]"
         showApp (As _ _ n tm) [] = show n ++ "@" ++ show tm
-        showApp (Case _ r sc scty alts) []
+        showApp (Case _ _ r sc scty alts) []
             = "case " ++ show r ++ " " ++ show sc ++ " : " ++ show scty ++ " of " ++ show alts
         showApp (TDelayed _ _ tm) [] = "%Delayed " ++ show tm
         showApp (TDelay _ _ _ tm) [] = "%Delay " ++ show tm

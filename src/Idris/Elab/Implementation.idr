@@ -275,6 +275,7 @@ elabImplementation {vars} ifc vis opts_in pass env nest is cons iname ps named i
                unsetFlag vfc impName BlockedHint
 
                setFlag vfc impName TCInline
+               setFlag vfc impName BlockReduce
                -- it's the methods we're interested in, not the implementation
                setFlag vfc impName (SetTotal PartialOK)
 

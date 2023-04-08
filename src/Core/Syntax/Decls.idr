@@ -99,7 +99,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            Just gdef <- lookupCtxtExact n (gamma defs)
                 | Nothing => throw (UndefinedName fc n)
            cs <- traverse processClause rawcs
-           (tree, unreachable) <- getPMDef fc (CompileTime (multiplicity gdef)) n
+           (tree, unreachable) <- getPMDef fc PatMatch
+                                           (CompileTime (multiplicity gdef)) n
                                            (type gdef) cs
            updateDef n (const (Just (Function (MkFnInfo NotHole False False) tree tree Nothing)))
 

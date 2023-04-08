@@ -68,7 +68,7 @@ mkAlt fc sc (MkDataCon cn t ar qs)
     mkScope (q :: qs) (vs :< v) = TArg q v (weaken (mkScope qs vs))
 
 emptyRHSTm : FC -> Term vars -> Term vars
-emptyRHSTm fc (Case cfc c sc scTy alts) = Case cfc c sc scTy (map emptyRHSalt alts)
+emptyRHSTm fc (Case cfc ct c sc scTy alts) = Case cfc ct c sc scTy (map emptyRHSalt alts)
   where
     emptyRHSscope : forall vars . FC -> CaseScope vars -> CaseScope vars
     emptyRHSscope fc (RHS tm) = RHS (emptyRHSTm fc tm)

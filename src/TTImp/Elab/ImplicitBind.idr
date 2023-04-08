@@ -195,8 +195,8 @@ swapVars {vs} (Bind fc x b scope)
     = Bind fc x (map swapVars b) (swapVars {vs = vs :< x} scope)
 swapVars (App fc fn c arg) = App fc (swapVars fn) c (swapVars arg)
 swapVars (As fc s as pat) = As fc s (swapVars as) (swapVars pat)
-swapVars (Case fc c sc scty alts)
-    = Case fc c (swapVars sc) (swapVars scty) (map swapAlt alts)
+swapVars (Case fc ct c sc scty alts)
+    = Case fc ct c (swapVars sc) (swapVars scty) (map swapAlt alts)
   where
     swapScope : {vs : _} -> forall ys, x, y .
               CaseScope (ys :< y :< x ++ vs) ->

@@ -45,6 +45,10 @@ data DefFlag
          -- (otherwise they look potentially non terminating) so use with
          -- care!
     | SetTotal TotalReq
+    | BlockReduce -- Don't reduce when quoting/replacing. Used for interface
+                  -- dictionaries to prevent infinite reduction. This is a
+                  -- bit of a hack, to work around dictionaries not being
+                  -- strictly notal
     | BlockedHint -- a hint, but blocked for the moment (so don't use)
     | Macro
     | PartialEval (List (Name, Nat)) -- Partially evaluate on completing defintion.
@@ -71,6 +75,7 @@ Eq DefFlag where
     (==) Overloadable Overloadable = True
     (==) TCInline TCInline = True
     (==) (SetTotal x) (SetTotal y) = x == y
+    (==) BlockReduce BlockReduce = True
     (==) BlockedHint BlockedHint = True
     (==) Macro Macro = True
     (==) (PartialEval x) (PartialEval y) = x == y
@@ -88,6 +93,7 @@ Show DefFlag where
   show Overloadable = "overloadable"
   show TCInline = "tcinline"
   show (SetTotal x) = show x
+  show BlockReduce = "blockreduce"
   show BlockedHint = "blockedhint"
   show Macro = "macro"
   show (PartialEval _) = "partialeval"
@@ -300,7 +306,7 @@ record Defs where
   cgdirectives : List (CG, String)
      -- ^ Code generator directives, which are free form text and thus to
      -- be interpreted however the specific code generator requires
-  toCompileCase : List Name
+  toCompileCase : List (CaseType, Name)
      -- ^ Names which need to be compiled to run time case trees
   incData : List (CG, String, List String)
      -- ^ What we've compiled incrementally for this module: codegen,

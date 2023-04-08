@@ -1298,12 +1298,12 @@ findExtraDefaults ctree = pure []
 -- Returns the case tree under the yet-to-be-bound lambdas,
 -- and a list of the clauses that aren't reachable
 makePMDef : {auto c : Ref Ctxt Defs} ->
-            FC -> Phase -> Name -> ClosedTerm -> List Clause ->
+            FC -> CaseType -> Phase -> Name -> ClosedTerm -> List Clause ->
             Core (args ** (Term args, List Clause))
 -- If there's no clauses, make a definition with the right number of arguments
 -- for the type, which we can use in coverage checking to ensure that one of
 -- the arguments has an empty type
-makePMDef fc phase fn ty []
+makePMDef fc ct phase fn ty []
     = do log "compile.casetree.getpmdef" 20 "getPMDef: No clauses!"
          defs <- get Ctxt
          pure (!(getArgs 0 !(expand !(nf [<] ty))) ** (Unmatched fc "No clauses", []))
@@ -1314,10 +1314,10 @@ makePMDef fc phase fn ty []
              sc' <- expand !(sc (pure (VErased fc Placeholder)))
              pure (!(getArgs i sc') :< MN "arg" i)
     getArgs i _ = pure [<]
-makePMDef fc phase fn ty clauses
+makePMDef fc ct phase fn ty clauses
     = do let cs = map toClosed (labelPat 0 clauses)
          (_ ** t) <- simpleCase fc phase fn ty Nothing cs
-         let treeTm = mkTerm t
+         let treeTm = mkTerm ct t
          logC "compile.casetree.getpmdef" 20 $
            pure $ "Compiled to: " ++ show !(toFullNames treeTm)
          let allRHS = findCaseLeaf t
@@ -1358,10 +1358,10 @@ makePMDef fc phase fn ty clauses
 -- Returns the case tree, and a list of the clauses that aren't reachable
 export
 getPMDef : {auto c : Ref Ctxt Defs} ->
-           FC -> Phase -> Name -> ClosedTerm -> List Clause ->
+           FC -> CaseType -> Phase -> Name -> ClosedTerm -> List Clause ->
            Core (ClosedTerm, List Clause)
-getPMDef fc p n ty cs
-    = do (args ** (tree, missing)) <- makePMDef fc p n ty cs
+getPMDef fc ct p n ty cs
+    = do (args ** (tree, missing)) <- makePMDef fc ct p n ty cs
          -- We need to bind lambdas, and we can only do that if we know
          -- the types of the function arguments, so normalise the type just
          -- enough to get that

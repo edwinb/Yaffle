@@ -33,7 +33,7 @@ namespace Raw
   prettyAlt : {vars : _} -> CaseAlt vars -> Doc IdrisSyntax
   prettyScope : {vars : _} -> CaseScope vars -> Doc IdrisSyntax
 
-  prettyTree (Case fc c sc ty alts)
+  prettyTree (Case fc ct c sc ty alts)
       = let ann = case ty of
                     Erased _ _ => ""
                     _ => space <+> keyword ":" <++> byShow ty
@@ -150,7 +150,7 @@ namespace Resugared
       pure $ keyword "_" <++> fatArrow <+>
             Union (spaces 1 <+> tm) (nest 2 (hardline <+> tm))
 
-  prettyTree env (Case fc c sc ty alts) = do
+  prettyTree env (Case fc ct c sc ty alts) = do
       ann <- case ty of
                   Erased _ _ => pure ""
                   _ => do ty <- resugar env ty

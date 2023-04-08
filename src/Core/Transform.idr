@@ -134,11 +134,11 @@ trans env stk (Bind fc x b sc)
 trans env stk (App fc fn c arg)
     = do arg' <- trans env [] arg
          trans env ((fc, c, arg') :: stk) fn
-trans env stk (Case fc c sc scty alts)
+trans env stk (Case fc ct c sc scty alts)
     = do sc' <- trans env [] sc
          scty' <- trans env [] scty
          alts' <- traverse transAlt alts
-         pure $ unload stk (Case fc c sc' scty' alts')
+         pure $ unload stk (Case fc ct c sc' scty' alts')
   where
     transScope : forall vars .
                  FC -> Env Term vars -> CaseScope vars -> Core (CaseScope vars)

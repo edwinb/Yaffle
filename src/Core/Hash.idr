@@ -297,7 +297,7 @@ mutual
         = h `hashWithSalt` 4 `hashWithSalt` fn `hashWithSalt` arg
     hashWithSalt h (As fc _ nm pat)
         = h `hashWithSalt` 5 `hashWithSalt` nm `hashWithSalt` pat
-    hashWithSalt h (Case fc _ sc ty alts)
+    hashWithSalt h (Case fc _ _ sc ty alts)
         = h `hashWithSalt` 6 `hashWithSalt` sc `hashWithSalt` ty
             `hashWithSalt` alts
     hashWithSalt h (TDelayed fc x y)

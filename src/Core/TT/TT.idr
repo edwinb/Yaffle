@@ -656,6 +656,12 @@ data UseSide = UseLeft | UseRight
 public export
 data CaseAlt : SnocList Name -> Type
 
+-- A 'Case' arises either from a top level pattern match, or a 'case' block,
+-- and it's useful to know the difference so we know when to stop reducing due
+-- to a blocked top level function
+public export
+data CaseType = PatMatch | CaseBlock
+
 -- Typechecked terms
 -- These are guaranteed to be well-scoped wrt local variables, because they are
 -- indexed by the names of local variables in scope
@@ -682,7 +688,8 @@ data Term : SnocList Name -> Type where
      -- having to define a special purpose thing. (But it'd be nice to tidy
      -- that up, nevertheless)
      As : FC -> UseSide -> (as : Term vars) -> (pat : Term vars) -> Term vars
-     Case : FC -> RigCount -> (sc : Term vars) -> (scTy : Term vars) ->
+     Case : FC -> CaseType ->
+            RigCount -> (sc : Term vars) -> (scTy : Term vars) ->
             List (CaseAlt vars) ->
             Term vars
      -- Typed laziness annotations
@@ -714,7 +721,7 @@ getLoc (Meta fc _ _ _) = fc
 getLoc (Bind fc _ _ _) = fc
 getLoc (App fc _ _ _) = fc
 getLoc (As fc _ _ _) = fc
-getLoc (Case fc _ _ _ _) = fc
+getLoc (Case fc _ _ _ _ _) = fc
 getLoc (TDelayed fc _ _) = fc
 getLoc (TDelay fc _ _ _) = fc
 getLoc (TForce fc _ _) = fc

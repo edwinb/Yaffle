@@ -227,7 +227,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       blockedApp : Value f vars -> Core Bool
       blockedApp (VLam fc _ _ _ _ sc)
           = blockedApp !(sc (pure (VErased fc Placeholder)))
-      blockedApp (VCase{}) = pure True
+      blockedApp (VCase _ PatMatch _ _ _ _) = pure True
       blockedApp (VPrimOp{}) = pure True
       blockedApp _ = pure False
   quoteGen {bound} bounds env (VLocal fc idx p sp) s
@@ -273,7 +273,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       = do pat' <- quoteGen bounds env pat s
            as' <- quoteGen bounds env as s
            pure (As fc use as' pat')
-  quoteGen bounds env (VCase fc rig sc scTy alts) s
+  quoteGen bounds env (VCase fc t rig sc scTy alts) s
       = do sc' <- quoteGen bounds env sc s
            scTy' <- quoteGen bounds env scTy s
            let s' = case s of
@@ -281,7 +281,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
                          ExpandHoles => ExpandHoles
                          _ => BlockApp
            alts' <- traverse (quoteAlt s' bounds env) alts
-           pure $ Case fc rig sc' scTy' alts'
+           pure $ Case fc t rig sc' scTy' alts'
   quoteGen bounds env (VDelayed fc r ty) s
       = do ty' <- quoteGen bounds env ty s
            pure (TDelayed fc r ty')
