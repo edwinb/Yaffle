@@ -392,7 +392,9 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            logTermNF "unify.search" 10 "New search type" [<] hty
            idx <- addDef n hole
            addGuessName fc n idx
-           pure (idx, Meta fc n idx envArgs)
+           let htm = Meta fc n idx envArgs
+           logTerm "unify.search" 10 "New search term" htm
+           pure (idx, htm)
     where
       envArgs : List (RigCount, Term vars)
       envArgs = let args = reverse (mkConstantAppArgs {done = [<]} False fc env [<]) in

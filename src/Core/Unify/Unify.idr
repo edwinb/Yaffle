@@ -858,7 +858,10 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                     handleUnify
                        (do tm <- search loc rig (smode == Defaults) depth defining
                                         (type def) [<]
-                           let gdef = { definition := Function reduceFI tm tm Nothing } def
+                           let fi = if isErased rig
+                                       then defaultFI
+                                       else reduceFI
+                           let gdef = { definition := Function fi tm tm Nothing } def
                            ignore $ addDef (Resolved hid) gdef
                            removeGuess hid
                            pure True)

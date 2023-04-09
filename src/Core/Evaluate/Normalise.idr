@@ -18,6 +18,10 @@ data EvalFlags = Full | KeepAs | KeepLet | Totality
 export
 apply : FC -> Value f vars -> RigCount -> Core (Glued vars) -> Core (Glued vars)
 apply fc (VLam _ _ _ _ _ sc) _ arg = sc arg
+-- might happen if we're in KeepLet mode
+apply fc (VBind bfc x (Let lfc c val ty) sc) q arg
+    = pure $ VBind bfc x (Let lfc c val ty)
+                   (\val' => apply fc !(sc val') q arg)
 apply fc (VApp afc nt n spine go) q arg
     = pure $ VApp afc nt n (spine :< (fc, q, arg)) $
            do Just go' <- go
@@ -223,9 +227,11 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
               LocalEnv free vars ->
               Core (Glued vars)
   evalLocal env fc p [<]
-      = case getLet p env of
-             Just val => eval [<] env val
-             _ => pure $ VLocal fc _ p [<]
+      = case eflags of
+             KeepLet => pure $ VLocal fc _ p [<]
+             _ => case getLet p env of
+                       Just val => eval [<] env val
+                       _ => pure $ VLocal fc _ p [<]
   evalLocal env fc First (locs :< x) = x
   evalLocal env fc (Later p) (locs :< x) = evalLocal env fc p locs
 
@@ -323,6 +329,8 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
       = case eflags of
              KeepAs => pure $ VAs fc use !(eval locs env as)
                                          !(eval locs env pat)
+             KeepLet => pure $ VAs fc use !(eval locs env as)
+                                          !(eval locs env pat)
              _ => eval locs env pat
   eval locs env (Case fc t r sc ty alts)
       = do sc' <- expand !(eval locs env sc)

@@ -591,7 +591,7 @@ checkBindHere rig elabinfo nest env fc bindmode tm exp
          defs <- get Ctxt
          (bv, bt) <- bindImplicits fc bindmode
                                    defs env argImps
-                                   !(normaliseHoles env tmv)
+                                   !(normaliseLHS env tmv)
                                    !(normaliseHoles env ty)
          traverse_ implicitBind (map fst argImps)
          checkExp rig elabinfo env fc bv !(nf env bt) exp
