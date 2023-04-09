@@ -620,6 +620,12 @@ checkRestApp rig argRig elabinfo nest env fc tm x rigb aty sc
                -- reset hole and redo it with the unexpanded definition
                do updateDef (Resolved idx) (const (Just (Hole 0 (holeInit False))))
                   ignore $ solveIfUndefined env metaval argv
+           -- Mark for reduction when we finish elaborating
+           updateDef (Resolved idx)
+                (\def => case def of
+                      Function fi ct rt cs =>
+                         Just (Function ({ alwaysReduce := True } fi) ct rt cs)
+                      _ => Nothing)
            removeHole idx
            pure (tm, gty)
 

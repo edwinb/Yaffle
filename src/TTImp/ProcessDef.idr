@@ -973,6 +973,7 @@ processDef opts nest env fc n_in cs_in
            when (not (InCase `elem` opts)) $
              do calcRefs False atotal (Resolved nidx)
                 sc <- calculateSizeChange fc n
+                log "totality.termination.sizechange" 5 $ "Graph: " ++ show sc
                 setSizeChange fc n sc
                 checkIfGuarded fc n
 
