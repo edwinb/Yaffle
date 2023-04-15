@@ -121,15 +121,20 @@ expand' cases v@(VApp fc nt n sp val)
             then do
                Just val' <- val
                     | Nothing => pure (believe_me v)
-               case val' of
-                    VCase{} => if cases
-                                  then expand' cases val'
-                                  else pure (believe_me v)
-                    VPrimOp{} => if cases
-                                  then expand' cases val'
-                                  else pure (believe_me v)
-                    _ => expand' cases val'
+               if cases
+                  then expand' cases val'
+                  else if !(blockedApp val')
+                          then pure (believe_me v)
+                          else expand' cases val'
             else pure (believe_me v)
+  where
+    blockedApp : forall f . Value f vars -> Core Bool
+    blockedApp (VLam fc _ _ _ _ sc)
+        = blockedApp !(sc (pure (VErased fc Placeholder)))
+    blockedApp (VCase _ PatMatch _ _ _ _) = pure True
+    blockedApp (VPrimOp{}) = pure True
+    blockedApp _ = pure False
+
 expand' cases v@(VMeta fc n i args sp val)
     = do Just val' <- val
               | Nothing => pure (believe_me v)
