@@ -126,6 +126,7 @@ elabTermSub {vars} defining mode opts nest env env' sub tm ty
 
          -- To reduce the 'always reduce' holes, like postponed guesses,
          -- delayed terms, etc
+         logTerm "elab" 10 "Term before nfKeepLet" chktm
          chktm <- quote env !(nfKeepLet env chktm)
          logTerm "elab" 5 "Term after nfKeepLet" chktm
 

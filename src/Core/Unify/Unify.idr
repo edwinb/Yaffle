@@ -644,7 +644,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   unifyWithEta mode fc env tmx tmy@(VLam fcy y cy iy ty scy)
         = do logNF "unify" 10 "EtaR" env tmx
              logNF "unify" 10 "...with" env tmy
-             if isHoleApp tmy
+             if isHoleApp tmx
                 then if not !(convert env tmx tmy)
                         then unifyNoEta (lower mode) fc env tmx tmy
                         else pure success
