@@ -276,9 +276,18 @@ findSCcall g pats fc fn_in arity args
 replaceInArgs : Var vars -> Term vars ->
                 List (Nat, Term vars) -> List (Nat, Term vars)
 replaceInArgs v tm [] = []
--- TODO: Don't copy if there's no substitution done!
+-- Don't copy if there's no substitution done!
 replaceInArgs v tm ((n, arg) :: args)
-    = (n, arg) :: (n, substVar v tm arg) :: replaceInArgs v tm args
+    = let arg' = substVar v tm arg in
+          if scEq arg arg'
+             then (n, arg) :: replaceInArgs v tm args
+             else (n, arg) :: (n, arg') :: replaceInArgs v tm args
+
+expandForced : List (Var vars, Term vars) ->
+               List (Nat, Term vars) -> List (Nat, Term vars)
+expandForced [] args = args
+expandForced ((v, tm) :: fs) args
+    = expandForced fs (replaceInArgs v tm args)
 
 findSCscope : {vars : _} ->
          {auto c : Ref Ctxt Defs} ->
@@ -288,7 +297,8 @@ findSCscope : {vars : _} ->
          FC -> Term vars -> CaseScope vars -> -- case alternative
          Core (List SCCall)
 findSCscope g args var fc pat (RHS fs tm)
-    = findSC g (maybe args (\v => replaceInArgs v pat args) var) tm
+    = findSC g (expandForced fs
+                   (maybe args (\v => replaceInArgs v pat args) var)) tm
 findSCscope g args var fc pat (Arg c x sc)
     = let args' = map (\ (i, tm) => (i, weaken tm)) args
           var' = map weaken var
