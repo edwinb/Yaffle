@@ -313,7 +313,7 @@ buildArgs defs known not ps cs@(Case fc ct c (Local lfc idx el) ty altsIn)
                  KnownVars vars Int -> KnownVars vars (List Int) ->
                  Name -> Int -> SnocList (RigCount, Name) ->
                  CaseScope vars -> Core (List (SnocList (RigCount, ClosedTerm)))
-    buildArgSc fc var known not' n t args (RHS tm)
+    buildArgSc fc var known not' n t args (RHS _ tm)
         = do let con = Ref fc (DataCon t (length args)) n
              let app = applySpine fc con
                              (map (\ (c, n) => (c, (Ref fc Bound n))) args)

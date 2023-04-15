@@ -78,14 +78,25 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       = do sc' <- quoteScope a bounds sc
            pure $ ConCase fc n t sc'
     where
+      -- If forced equality is still var = tm after evaluation, then keep it,
+      -- otherwise it's been substituted so no longer useful
+      toForced : forall vars . (Term vars, Term vars) -> Maybe (Var vars, Term vars)
+      toForced (Local _ _ p, tm) = Just (MkVar p, tm)
+      toForced _ = Nothing
+
       quoteScope : {bound : _} ->
                    (args : SnocList (RigCount, Name)) ->
                    Bounds bound ->
                    VCaseScope args vars ->
                    Core (CaseScope (vars ++ bound))
-      quoteScope [<] bounds rhs
-          = do rhs' <- quoteGen bounds env !rhs s
-               pure (RHS rhs')
+      quoteScope {bound} [<] bounds rhs_in
+          = do (fs, rhs) <- rhs_in
+               rhs' <- quoteGen bounds env rhs s
+               qfs <- traverse
+                           (\ (n, v) => pure (!(quoteGen bounds env n s),
+                                              !(quoteGen bounds env v s)))
+                           fs
+               pure (RHS (mapMaybe toForced qfs) rhs')
       quoteScope (as :< (r, a)) bounds sc
           = do an <- genName "c"
                let sc' = sc (mkTmpVar fc an)
@@ -95,8 +106,9 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteAlt s bounds env (VDelayCase fc ty arg sc)
       = do tyn <- genName "ty"
            argn <- genName "arg"
+           (fs, rhs) <- sc (mkTmpVar fc tyn) (mkTmpVar fc argn)
            sc' <- quoteGen (Add arg argn (Add ty tyn bounds)) env
-                           !(sc (mkTmpVar fc tyn) (mkTmpVar fc argn)) s
+                           rhs s
            pure (DelayCase fc ty arg sc')
   quoteAlt s bounds env (VConstCase fc c sc)
       = do sc' <- quoteGen bounds env sc s
@@ -312,7 +324,7 @@ parameters {auto c : Ref Ctxt Defs}
   quoteStrategy : {vars : _} ->
             Strategy -> Env Term vars -> Value f vars -> Core (Term vars)
   quoteStrategy s env val
-      = do q <- newRef QVar 0
+      = do q <- newRef QVar 100
            quoteGen None env val s
 
   export

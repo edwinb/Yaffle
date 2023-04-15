@@ -188,7 +188,7 @@ mutual
       findUsedScope : {vars : _} ->
                       FC -> Env Term vars -> SnocList Nat -> CaseScope vars ->
                       SnocList Nat
-      findUsedScope fc env used (RHS tm) = findUsed env used tm
+      findUsedScope fc env used (RHS _ tm) = findUsed env used tm
       findUsedScope fc env used (Arg c x sc)
          = assert_total $
               dropS (findUsedScope fc

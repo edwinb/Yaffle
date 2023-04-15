@@ -144,7 +144,7 @@ fuzzySearch expr = do
   doFind ns (TType fc _) = AType :: ns
 
   doFindScope : List NameOrConst -> CaseScope vars -> List NameOrConst
-  doFindScope ns (RHS tm) = doFind ns tm
+  doFindScope ns (RHS _ tm) = doFind ns tm
   doFindScope ns (Arg c x tm) = doFindScope ns tm
 
   doFindAlt ns (ConCase fc n t sc) = doFindScope ns sc

@@ -130,7 +130,7 @@ isStrict (As _ _ _ p) = isStrict p
 isStrict (Case _ _ _ _ _ alts) = all isStrictAlt alts
   where
     isStrictScope : forall vs . CaseScope vs -> Bool
-    isStrictScope (RHS tm) = isStrict tm
+    isStrictScope (RHS _ tm) = isStrict tm
     isStrictScope (Arg _ _ sc) = isStrictScope sc
 
     isStrictAlt : forall vs . CaseAlt vs -> Bool

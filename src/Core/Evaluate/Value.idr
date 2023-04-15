@@ -162,7 +162,7 @@ spineVal (_, _, val) = expand !val
 
 public export
 0 VCaseScope : SnocList (RigCount, Name) -> SnocList Name -> Type
-VCaseScope [<] vars = Core (Glued vars)
+VCaseScope [<] vars = Core (List (Glued vars, Glued vars), Glued vars)
 VCaseScope (xs :< x) vars = Core (Glued vars) -> VCaseScope xs vars
 
 public export

@@ -254,8 +254,8 @@ parameters {auto c : Ref Ctxt Defs}
                  VCaseScope args vars -> Core (CaseScope vars, Bool)
       repScope fc tmpi [<] rhs
           = do -- Stop expanding or recursive functions will go forever
-               (rhs', u) <- replace' False tmpi env orig parg !rhs
-               pure (RHS rhs', u)
+               (rhs', u) <- replace' False tmpi env orig parg (snd !rhs)
+               pure (RHS [] rhs', u) -- Forced equalities thrown away now
       repScope fc tmpi (xs :< (r, x)) scope
           = do let xn = MN "tmpsc" tmpi
                let xv = VApp fc Bound xn [<] (pure Nothing)
@@ -273,7 +273,7 @@ parameters {auto c : Ref Ctxt Defs}
                let argv = VApp fc Bound argn [<] (pure Nothing)
                -- Stop expanding or recursive functions will go forever
                (scope', u) <- replace' False (tmpi + 2) env orig parg
-                                       !(scope (pure tyv) (pure argv))
+                                       (snd !(scope (pure tyv) (pure argv)))
                let rhs = refsToLocals (Add arg argn (Add ty tyn None)) scope'
                pure (DelayCase fc ty arg rhs, u)
       repAlt (VConstCase fc c rhs)

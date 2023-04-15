@@ -198,10 +198,16 @@ swapVars (As fc s as pat) = As fc s (swapVars as) (swapVars pat)
 swapVars (Case fc ct c sc scty alts)
     = Case fc ct c (swapVars sc) (swapVars scty) (map swapAlt alts)
   where
+    swapForced : {vs : _} -> forall ys, x, y .
+                 (Var (ys :< y :< x ++ vs), Term (ys :< y :< x ++ vs)) ->
+                 (Var (ys :< x :< y ++ vs), Term (ys :< x :< y ++ vs))
+    swapForced (MkVar v, tm)
+        = (swapIsVar _ v, swapVars tm)
+
     swapScope : {vs : _} -> forall ys, x, y .
               CaseScope (ys :< y :< x ++ vs) ->
               CaseScope (ys :< x :< y ++ vs)
-    swapScope (RHS tm) = RHS (swapVars tm)
+    swapScope (RHS fs tm) = RHS (map swapForced fs) (swapVars tm)
     swapScope {vs} (Arg c x sc) = Arg c x (swapScope {vs = vs :< x} sc)
 
     swapAlt : {vs : _} -> forall ys, x, y .

@@ -527,13 +527,13 @@ mutual
 
   export
   {vars : _} -> TTC (CaseScope vars) where
-    toBuf (RHS tm) = do tag 0; toBuf tm
+    toBuf (RHS _ tm) = do tag 0; toBuf tm
     toBuf (Arg c x sc) = do tag 1; toBuf c; toBuf x; toBuf sc
 
     fromBuf
         = case !getTag of
                0 => do tm <- fromBuf
-                       pure (RHS tm)
+                       pure (RHS [] tm)
                1 => do c <- fromBuf; x <- fromBuf; sc <- fromBuf
                        pure (Arg c x sc)
                _ => corrupt "CaseScope"

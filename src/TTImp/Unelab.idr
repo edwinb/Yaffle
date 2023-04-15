@@ -222,7 +222,7 @@ unelabTy' umode nest env (Case fc ty c sc scty alts)
                   FC -> Name -> SnocList (Maybe Name, Name) ->
                   Env Term vars -> NF [<] ->
                   CaseScope vars -> Core IImpClause
-    unelabScope fc n args env _ (RHS tm)
+    unelabScope fc n args env _ (RHS _ tm)
         = do (tm', _) <- unelabTy' umode nest env tm
              let n' = MkKindedName (Just Bound) n n
              pure (PatClause fc (applySpine (IVar fc n') args) tm')

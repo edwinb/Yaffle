@@ -297,9 +297,9 @@ findLinear top bound rig tm
       findLinArg : {vars : _} ->
                    RigCount -> SnocList (RigCount, Term vars) ->
                    Core (List (Name, RigCount))
-      findLinArg rig (as :< (c, As fc UseRight _ p))
+      findLinArg rig (as :< (c, As fc UseLeft _ p))
           = findLinArg rig (as :< (c, p))
-      findLinArg rig (as :< (c, As fc UseLeft p _))
+      findLinArg rig (as :< (c, As fc UseRight p _))
           = findLinArg rig (as :< (c, p))
       findLinArg rig (as :< (c, Local fc idx prf))
           = do let a = nameAt prf
@@ -940,8 +940,11 @@ processDef opts nest env fc n_in cs_in
          traverse_ warnUnreachable unreachable
 
          logC "declare.def" 2 $
-                 do t <- toFullNames !(normaliseHoles [<] tree_ct)
-                    pure ("Case tree for " ++ show n ++ ": " ++ show t)
+                 do ctnf <- normaliseHoles [<] tree_ct
+                    t <- toFullNames ctnf
+                    ct <- toFullNames tree_ct
+                    pure ("Case tree for " ++ show n ++ ": " ++ show ct
+                          ++ "\n" ++ "Normalised to " ++ show t)
          log "declare.def" 10 $ "Patterns: " ++ show !(toFullNames pats)
 
          -- check whether the name was declared in a different source file

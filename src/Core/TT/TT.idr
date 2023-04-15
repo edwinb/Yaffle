@@ -738,12 +738,18 @@ data UConstraint : Type where
      ULT : FC -> Name -> FC -> Name -> UConstraint
      ULE : FC -> Name -> FC -> Name -> UConstraint
 
+public export
+data Var : SnocList Name -> Type where
+     MkVar : {i : Nat} -> (0 p : IsVar n i vars) -> Var vars
+
 -- Scope of a case expression - bind the arguments one by one, as this makes
 -- more sense during evaluation and is consistent with the way we bind
 -- arguments in 'Bind'.
 public export
 data CaseScope : SnocList Name -> Type where
-     RHS : Term vars -> CaseScope vars
+     RHS : List (Var vars, Term vars) -> -- Forced equalities
+           Term vars -> -- RHS
+           CaseScope vars
      Arg : RigCount -> (x : Name) -> CaseScope (vars :< x) -> CaseScope vars
 
 ||| Case alternatives. Unlike arbitrary patterns, they can be at most

@@ -292,9 +292,13 @@ mapTermM f = goTerm where
     goTerm (Case fc t c sc sct alts)
         = f =<< Case fc t c <$> goTerm sc <*> goTerm sct <*> traverse goAlt alts
       where
+        goForced : {vars : _} -> (Var vars, Term vars) ->
+                   CoreE err (Var vars, Term vars)
+        goForced (v, tm) = pure (v, !(goTerm tm))
+
         goScope : {vars : _} -> CaseScope vars -> CoreE err (CaseScope vars)
-        goScope (RHS tm)
-            = pure $ RHS !(goTerm tm)
+        goScope (RHS fs tm)
+            = pure $ RHS !(traverse goForced fs) !(goTerm tm)
         goScope (Arg c x sc)
             = pure $ Arg c x !(goScope sc)
 

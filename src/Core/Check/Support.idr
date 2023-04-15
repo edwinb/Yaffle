@@ -32,7 +32,9 @@ matchVars = go []
                       (ms : SnocList Name) ->
                       LengthMatch ns ms ->
                       CaseScope (vars ++ ns) -> CaseScope (vars ++ ms)
-    renameNTopScope ms ok (RHS tm) = RHS (renameNTop ms ok tm)
+    renameNTopScope ms ok (RHS fs tm)
+        = RHS (map (\ (n, t) => (renameNTopVar ms ok n, renameNTop ms ok t)) fs)
+              (renameNTop ms ok tm)
     renameNTopScope ms ok (Arg r x sc)
         = Arg r x (renameNTopScope {ns = ns :< x} (ms :< x) (SnocMatch ok) sc)
 
@@ -63,7 +65,7 @@ matchVars = go []
     goCaseScope : forall vars .
                   List (Var vars, Term vars) -> CaseScope vars -> CaseScope vars ->
                   List (Var vars, Term vars)
-    goCaseScope acc (RHS tm) (RHS tm') = go acc tm tm'
+    goCaseScope acc (RHS _ tm) (RHS _ tm') = go acc tm tm'
     goCaseScope acc (Arg _ n sc) (Arg _ n' sc')
         = let sc' = renameNTopScope {ns = [<n']} [<n] (SnocMatch LinMatch) sc'
               scMatch = mapMaybe dropVar (goCaseScope [] sc sc') in

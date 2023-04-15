@@ -53,7 +53,7 @@ emptyRHS fc (TCase cfc c idx p scTy alts)
     emptyRHSalt (TDelayCase fc c arg sc) = TDelayCase fc c arg (emptyRHS fc sc)
     emptyRHSalt (TConstCase fc c sc) = TConstCase fc c (emptyRHS fc sc)
     emptyRHSalt (TDefaultCase fc sc) = TDefaultCase fc (emptyRHS fc sc)
-emptyRHS fc (STerm i s) = STerm i (Erased fc Placeholder)
+emptyRHS fc (STerm i vs s) = STerm i vs (Erased fc Placeholder)
 emptyRHS fc sc = sc
 
 export
@@ -71,7 +71,7 @@ emptyRHSTm : FC -> Term vars -> Term vars
 emptyRHSTm fc (Case cfc ct c sc scTy alts) = Case cfc ct c sc scTy (map emptyRHSalt alts)
   where
     emptyRHSscope : forall vars . FC -> CaseScope vars -> CaseScope vars
-    emptyRHSscope fc (RHS tm) = RHS (emptyRHSTm fc tm)
+    emptyRHSscope fc (RHS fs tm) = RHS fs (emptyRHSTm fc tm)
     emptyRHSscope fc (Arg c x sc) = Arg c x (emptyRHSscope fc sc)
 
     emptyRHSalt : forall vars . CaseAlt vars -> CaseAlt vars
@@ -89,7 +89,7 @@ mkAltTm fc sc (MkDataCon cn t ar qs)
     = ConCase fc cn t (mkScope qs (map (MN "m") (take ar [0..])))
   where
     mkScope : List RigCount -> SnocList Name -> CaseScope vars
-    mkScope _ [<] = RHS (emptyRHSTm fc sc)
+    mkScope _ [<] = RHS [] (emptyRHSTm fc sc)
     mkScope [] (vs :< v) = Arg top v (weaken (mkScope [] vs))
     mkScope (q :: qs) (vs :< v) = Arg q v (weaken (mkScope qs vs))
 

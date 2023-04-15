@@ -30,7 +30,7 @@ parameters {auto c : Ref Ctxt Defs}
     where
       echeckScope : {vars : _} -> Env Term vars -> CaseScope vars ->
                     Core (CaseScope vars)
-      echeckScope env (RHS tm) = pure $ RHS !(echeck rig env tm)
+      echeckScope env (RHS _ tm) = pure $ RHS [] !(echeck rig env tm)
       echeckScope env (Arg c x sc)
             -- We don't have the type of the argument, but the good news is
             -- that we don't need it because we only need multiplicities and

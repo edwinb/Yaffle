@@ -53,8 +53,9 @@ apply fc (VCase cfc t r sc ty alts) q arg
                    VCaseScope args vars ->
                    VCaseScope args vars
     applyConCase arg n t [<] rhs
-        = do rhs' <- rhs
-             apply fc rhs' q arg
+        = do (fs, rhs') <- rhs
+             sc <- apply fc rhs' q arg
+             pure (fs, sc)
     applyConCase arg n t (args :< (r, a)) sc
         = \a' => applyConCase arg n t args (sc a')
 
@@ -65,8 +66,9 @@ apply fc (VCase cfc t r sc ty alts) q arg
     applyAlt arg (VDelayCase fc t a rhs)
         = pure $ VDelayCase fc t a
                   (\t', a' =>
-                      do rhs' <- rhs t' a'
-                         apply fc rhs' q arg)
+                      do (fs, rhs') <- rhs t' a'
+                         sc <- apply fc rhs' q arg
+                         pure (fs, sc))
     applyAlt arg (VConstCase fc c rhs) = VConstCase fc c <$> apply fc rhs q arg
     applyAlt arg (VDefaultCase fc rhs) = VDefaultCase fc <$> apply fc rhs q arg
 -- Remaining cases would be ill-typed
@@ -136,18 +138,31 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
       = pure $ VConCase fc n tag _ (getScope locs scope)
     where
       CaseArgs : CaseScope vs -> SnocList (RigCount, Name)
-      CaseArgs (RHS tm) = [<]
+      CaseArgs (RHS _ tm) = [<]
       CaseArgs (Arg r x sc) = CaseArgs sc :< (r, x)
+
+      evalForced : forall free .
+                   LocalEnv free vars ->
+                   (Var (vars ++ free), Term (vars ++ free)) ->
+                   Core (Glued vars, Glued vars)
+      evalForced locs (MkVar v, tm)
+          = do v' <- eval locs env (Local fc _ v)
+               tm' <- eval locs env tm
+               pure (v', tm')
 
       getScope : forall free .
                  LocalEnv free vars ->
                  (sc : CaseScope (vars ++ free)) ->
                  VCaseScope (CaseArgs sc) vars
-      getScope locs (RHS tm) = eval locs env tm
+      getScope locs (RHS fs tm)
+          = do tm' <- eval locs env tm
+               fs' <- traverse (evalForced locs) fs
+               pure (fs', tm')
       getScope locs (Arg r x sc) = \v => getScope (locs :< v) sc
 
   evalCaseAlt locs env (DelayCase fc t a tm)
-      = pure $ VDelayCase fc t a (\t', a' => eval (locs :< a' :< t') env tm)
+      = pure $ VDelayCase fc t a
+                 (\t', a' => pure ([], !(eval (locs :< a' :< t') env tm)))
   evalCaseAlt locs env (ConstCase fc c tm)
       = pure $ VConstCase fc c !(eval locs env tm)
   evalCaseAlt locs env (DefaultCase fc tm)
@@ -171,7 +186,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
                   List (FC, RigCount, Core (Glued vars)) -> CaseScope (vars ++ free) ->
                   Core (Glued vars) -> -- what to do if stuck
                   Core (Glued vars)
-  evalCaseScope locs env [] (RHS tm) stuck = eval locs env tm
+  evalCaseScope locs env [] (RHS _ tm) stuck = eval locs env tm
   evalCaseScope locs env ((_, _, v) :: sp) (Arg r x sc) stuck
       = evalCaseScope (locs :< v) env sp sc stuck
   evalCaseScope _ _ _ _ stuck = stuck

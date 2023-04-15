@@ -69,7 +69,7 @@ checkIfGuarded fc n
     guardedNF _ = pure False
 
     guardedScope : {vars : _} -> (args : _) -> VCaseScope args vars -> Core Bool
-    guardedScope [<] sc = guardedNF !sc
+    guardedScope [<] sc = guardedNF (snd !sc)
     guardedScope (sx :< y) sc = guardedScope sx (sc (pure (VErased fc Placeholder)))
 
     guardedAlt : {vars : _} -> VCaseAlt vars -> Core Bool
@@ -156,7 +156,8 @@ delazy (Case fc ct c sc ty alts)
     = Case fc ct c (delazy sc) (delazy ty) (map delazyAlt alts)
   where
     delazyScope : forall vars . CaseScope vars -> CaseScope vars
-    delazyScope (RHS tm) = RHS (delazy tm)
+    delazyScope (RHS fs tm)
+        = RHS (map (\ (n, tm) => (n, delazy tm)) fs) (delazy tm)
     delazyScope (Arg c x sc) = Arg c x (delazyScope sc)
 
     delazyAlt : forall vars . CaseAlt vars -> CaseAlt vars
@@ -259,7 +260,9 @@ findSCcall g pats fc fn_in arity args
         -- the size change list empty
       = do defs <- get Ctxt
            fn <- getFullName fn_in
-           log "totality.termination.sizechange" 10 $ "Looking under " ++ show !(toFullNames fn)
+           log "totality.termination.sizechange" 10 $ "Looking under "
+                  ++ show fn ++ " " ++ show args
+           log "totality.termination.sizechange" 20 $ "With pats " ++ show pats
            aSmaller <- resolved (gamma defs) (NS builtinNS (UN $ Basic "assert_smaller"))
            if fn == NS builtinNS (UN $ Basic "assert_total")
               then pure []
@@ -284,7 +287,7 @@ findSCscope : {vars : _} ->
          Maybe (Var vars) -> -- variable we're splitting on (if it is a variable)
          FC -> Term vars -> CaseScope vars -> -- case alternative
          Core (List SCCall)
-findSCscope g args var fc pat (RHS tm)
+findSCscope g args var fc pat (RHS fs tm)
     = findSC g (maybe args (\v => replaceInArgs v pat args) var) tm
 findSCscope g args var fc pat (Arg c x sc)
     = let args' = map (\ (i, tm) => (i, weaken tm)) args
@@ -303,7 +306,7 @@ findSCalt g args var (ConCase fc n t sc)
     = findSCscope g args var fc (Ref fc (DataCon t (arity sc)) n) sc
   where
     arity : CaseScope vs -> Nat
-    arity (RHS _) = 0
+    arity (RHS _ _) = 0
     arity (Arg _ _ sc) = S (arity sc)
 findSCalt g args var (DelayCase fc ty arg tm)
     = let s = mkSizeOf [< ty, arg]
@@ -400,6 +403,7 @@ getSC : {auto c : Ref Ctxt Defs} ->
         Defs -> Def -> Core (List SCCall)
 getSC defs (Function _ tm _ _)
    = do tm <- quote [<] !(nfTotality [<] tm)
+        logTerm "totality.termination.sizechange" 5 "From tree" tm
         sc <- findCalls tm
         pure $ nub sc
 getSC defs _ = pure []

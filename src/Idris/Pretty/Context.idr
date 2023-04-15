@@ -42,7 +42,7 @@ namespace Raw
          <+> vsep (assert_total (map prettyAlt alts)))
   prettyTree tm = byShow tm
 
-  prettyScope (RHS tm) = fatArrow <++> byShow tm
+  prettyScope (RHS _ tm) = fatArrow <++> byShow tm
   prettyScope (Arg c x sc) = annotate Bound (pretty0 x) <++> prettyScope sc
 
   prettyAlt (ConCase _ n tag sc)
@@ -124,7 +124,7 @@ namespace Resugared
     {auto s : Ref Syn SyntaxInfo} ->
     Env Term vars -> CaseScope vars -> Core (Doc IdrisSyntax)
 
-  prettyScope env (RHS tm) = do
+  prettyScope env (RHS _ tm) = do
       tm <- prettyTree env tm
       pure $ fatArrow <++> tm
   prettyScope env (Arg c x sc) = do

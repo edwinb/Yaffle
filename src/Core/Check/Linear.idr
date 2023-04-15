@@ -85,7 +85,7 @@ parameters {auto c : Ref Ctxt Defs}
                     Var vars ->
                     List (Var vars) ->
                     CaseScope vars -> Core Bool
-  updateHoleUsageScope useVar var zs (RHS tm)
+  updateHoleUsageScope useVar var zs (RHS _ tm)
       = updateHoleUsage useVar var zs tm
   updateHoleUsageScope useVar (MkVar var) zs (Arg c x sc)
       = updateHoleUsageScope useVar (MkVar (Later var)) (map weaken zs) sc
@@ -218,7 +218,7 @@ parameters {auto c : Ref Ctxt Defs}
     where
       lcheckScope : {vars : _} -> Env Term vars -> CaseScope vars ->
                     Core (Usage vars)
-      lcheckScope env (RHS tm) = lcheck rig env tm
+      lcheckScope env (RHS _ tm) = lcheck rig env tm
       lcheckScope env (Arg c x sc)
             -- We don't have the type of the argument, but the good news is
             -- that we don't need it because we only need multiplicities and

@@ -40,7 +40,7 @@ onPRefs f = go neutral where
   go acc (Unmatched fc err) = acc
   go acc (TType fc u) = acc
 
-  goScope acc (RHS tm) = go acc tm
+  goScope acc (RHS _ tm) = go acc tm
   goScope acc (Arg c x sc) = goScope acc sc
 
   goAlt acc (ConCase fc n t sc) = goScope acc sc
@@ -91,7 +91,7 @@ onConstants f = go neutral where
   gos acc [] = acc
   gos acc (x :: xs) = gos (go acc x) xs
 
-  goScope acc (RHS tm) = go acc tm
+  goScope acc (RHS _ tm) = go acc tm
   goScope acc (Arg c x sc) = goScope acc sc
 
   goAlt acc (ConCase fc n t sc) = goScope acc sc
@@ -138,7 +138,8 @@ mapTermM f t = act t where
   go t@(Unmatched fc err) = pure t
   go t@(TType fc u) = pure t
 
-  goScope (RHS tm) = RHS <$> act tm
+  goScope (RHS fs tm)
+      = RHS <$> traverse (\ (n, t) => pure (n, !(act t))) fs <*> act tm
   goScope (Arg c x sc) = Arg c x <$> goScope sc
 
   goAlt (ConCase fc n t sc) = ConCase fc n t <$> goScope sc
@@ -174,7 +175,7 @@ mapTerm f t = act t where
   go t@(Unmatched fc msg) = t
   go t@(TType fc u) = t
 
-  goScope (RHS tm) = RHS (act tm)
+  goScope (RHS fs tm) = RHS (map (\ (n, t) => (n, act t)) fs) (act tm)
   goScope (Arg c x sc) = Arg c x (goScope sc)
 
   goAlt (ConCase fc n t sc) = ConCase fc n t (goScope sc)

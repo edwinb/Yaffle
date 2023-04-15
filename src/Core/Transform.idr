@@ -142,7 +142,7 @@ trans env stk (Case fc ct c sc scty alts)
   where
     transScope : forall vars .
                  FC -> Env Term vars -> CaseScope vars -> Core (CaseScope vars)
-    transScope fc env (RHS tm) = pure $ RHS !(trans env [] tm)
+    transScope fc env (RHS fs tm) = pure $ RHS fs !(trans env [] tm)
     transScope fc env (Arg c x sc)
         = let env' = env :< PVar fc c Explicit (Erased fc Placeholder) in
               pure $ Arg c x !(transScope fc env' sc)

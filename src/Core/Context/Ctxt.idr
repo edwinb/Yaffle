@@ -682,12 +682,16 @@ HasNames UConstraint where
            pure (ULE fcx x' fcy y')
 
 mutual -- Bah, they are all mutual and we can't forward declare implementations yet
+  HasNames (Var vars, Term vars) where
+    full gam (v, tm) = pure (v, !(full gam tm))
+    resolved gam (v, tm) = pure (v, !(resolved gam tm))
+
   export
   HasNames (CaseScope vars) where
-    full gam (RHS x) = pure (RHS !(full gam x))
+    full gam (RHS fs x) = pure (RHS !(full gam fs) !(full gam x))
     full gam (Arg c x sc) = pure (Arg c x !(full gam sc))
 
-    resolved gam (RHS x) = pure (RHS !(resolved gam x))
+    resolved gam (RHS fs x) = pure (RHS !(resolved gam fs) !(resolved gam x))
     resolved gam (Arg c x sc) = pure (Arg c x !(resolved gam sc))
 
   export

@@ -283,9 +283,20 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
       updateIVars : {vs, newvars : _} ->
                     IVars vs newvars -> Term newvars -> Maybe (Term vs)
 
+      updateForced : {vs, newvars : _} ->
+                     IVars vs newvars -> List (Var newvars, Term newvars) ->
+                     Maybe (List (Var vs, Term vs))
+      updateForced ivs [] = Just []
+      updateForced ivs ((MkVar v, tm) :: ts)
+          = case updateIVar ivs v of
+                 Nothing => updateForced ivs ts
+                 Just v' => Just ((v', !(updateIVars ivs tm)) ::
+                                     !(updateForced ivs ts))
+
       updateIScope : {vs, newvars : _} ->
                     IVars vs newvars -> CaseScope newvars -> Maybe (CaseScope vs)
-      updateIScope ivs (RHS tm) = Just (RHS !(updateIVars ivs tm))
+      updateIScope ivs (RHS fs tm)
+          = Just (RHS !(updateForced ivs fs) !(updateIVars ivs tm))
       updateIScope ivs (Arg c x sc)
           = Just (Arg c x !(updateIScope (ICons (Just (MkVar First))
                                               (weaken ivs)) sc))

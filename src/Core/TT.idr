@@ -31,7 +31,7 @@ eqTerm (Case _ _ _ sc ty alts) (Case _ _ _ sc' ty' alts')
           assert_total (all (uncurry eqAlt) (zip alts alts'))
   where
     eqScope : forall vs, vs' . CaseScope vs -> CaseScope vs' -> Bool
-    eqScope (RHS tm) (RHS tm') = eqTerm tm tm'
+    eqScope (RHS _ tm) (RHS _ tm') = eqTerm tm tm'
     eqScope (Arg _ _ sc) (Arg _ _ sc') = eqScope sc sc'
     eqScope _ _ = False
 
@@ -100,10 +100,6 @@ public export
 dropVar : (ns : SnocList Name) -> {idx : Nat} -> (0 p : IsVar name idx ns) -> SnocList Name
 dropVar (xs :< n) First = xs
 dropVar (xs :< n) (Later p) = dropVar xs p :< n
-
-public export
-data Var : SnocList Name -> Type where
-     MkVar : {i : Nat} -> (0 p : IsVar n i vars) -> Var vars
 
 namespace Var
 
@@ -356,7 +352,10 @@ insertNames out ns (TType fc u) = TType fc u
 insertNamesScope : forall outer . SizeOf outer -> SizeOf ns ->
               CaseScope (inner ++ outer) ->
               CaseScope (inner ++ ns ++ outer)
-insertNamesScope out ns (RHS tm) = RHS (insertNames out ns tm)
+insertNamesScope out ns (RHS fs tm)
+    = RHS (map (\ (n, tm) => (insertVarNames out ns n,
+                              insertNames out ns tm)) fs)
+          (insertNames out ns tm)
 insertNamesScope out ns (Arg r x sc)
     = Arg r x (insertNamesScope (suc out) ns sc)
 
@@ -432,7 +431,12 @@ shrinkBinder (PLet fc c val ty) prf
 shrinkBinder (PVTy fc c ty) prf
     = Just (PVTy fc c !(shrinkTerm ty prf))
 
-shrinkScope (RHS tm) prf = Just (RHS !(shrinkTerm tm prf))
+shrinkScope (RHS fs tm) prf
+    = Just (RHS !(traverse shrinkForcedEq fs) !(shrinkTerm tm prf))
+  where
+    shrinkForcedEq : (Var vars, Term vars) ->
+                     Maybe (Var newvars, Term newvars)
+    shrinkForcedEq (MkVar v, tm) = Just (!(subElem v prf), !(shrinkTerm tm prf))
 shrinkScope (Arg r x sc) prf = Just (Arg r x !(shrinkScope sc (KeepCons prf)))
 
 shrinkAlt (ConCase fc x tag sc) prf
@@ -500,7 +504,9 @@ embedSub sub (Case fc t c sc scty alts)
   where
     embedSubScope : forall small, vars .
                     SubVars small vars -> CaseScope small -> CaseScope vars
-    embedSubScope sub (RHS tm) = RHS (embedSub sub tm)
+    embedSubScope sub (RHS fs tm)
+        = RHS (map (\ (MkVar n, tm) => (varEmbedSub sub n, embedSub sub tm)) fs)
+              (embedSub sub tm)
     embedSubScope sub (Arg c x sc) = Arg c x (embedSubScope (KeepCons sub) sc)
 
     embedSubAlt : CaseAlt small -> CaseAlt vars
@@ -592,7 +598,11 @@ mkLocals outer bs (TType fc u) = TType fc u
 mkLocalsCaseScope
     : SizeOf outer -> Bounds bound ->
       CaseScope (vars ++ outer) -> CaseScope (vars ++ (bound ++ outer))
-mkLocalsCaseScope outer bs (RHS tm) = RHS (mkLocals outer bs tm)
+mkLocalsCaseScope outer bs (RHS fs tm)
+    = RHS (map (\ (MkVar n, t) =>
+                      (let MkNVar p' = addVars outer bs (MkNVar n) in
+                           MkVar p', mkLocals outer bs t)) fs)
+          (mkLocals outer bs tm)
 mkLocalsCaseScope outer bs (Arg r x scope)
     = Arg r x (mkLocalsCaseScope (suc outer) bs scope)
 
@@ -651,7 +661,9 @@ resolveNames vars (Case fc t c sc scty alts)
                   (map (resolveAlt vars) alts)
   where
     resolveScope : (vars : SnocList Name) -> CaseScope vars -> CaseScope vars
-    resolveScope vars (RHS tm) = RHS (resolveNames vars tm)
+    resolveScope vars (RHS fs tm)
+        = RHS (map (\ (n, t) => (n, resolveNames vars t)) fs)
+              (resolveNames vars tm)
     resolveScope vars (Arg c x sc) = Arg c x (resolveScope (vars :< x) sc)
 
     resolveAlt : (vars : SnocList Name) -> CaseAlt vars -> CaseAlt vars
@@ -769,6 +781,12 @@ renameVars : CompatibleVars xs ys -> Term xs -> Term ys
 renameVars compat tm = believe_me tm -- no names in term, so it's identity
 
 export
+renameNTopVar : (ms : SnocList Name) ->
+             LengthMatch ns ms ->
+             Var (vars ++ ns) -> Var (vars ++ ms)
+renameNTopVar ms ok v = believe_me v
+
+export
 renameNTop : (ms : SnocList Name) ->
              LengthMatch ns ms ->
              Term (vars ++ ns) -> Term (vars ++ ms)
@@ -790,6 +808,24 @@ namespace SubstEnv
   data SubstEnv : SnocList Name -> SnocList Name -> Type where
        Lin : SubstEnv [<] vars
        (:<) : SubstEnv ds vars -> Term vars -> SubstEnv (ds :< d) vars
+
+  findDropVar : Var (vars ++ dropped) ->
+                SubstEnv dropped vars ->
+                Maybe (Var vars)
+  findDropVar (MkVar var) [<] = Just (MkVar var)
+  findDropVar (MkVar First) (env :< tm) = Nothing
+  findDropVar (MkVar (Later p)) (env :< tm)
+      = findDropVar (MkVar p) env
+
+  findVar : SizeOf outer ->
+            Var ((vars ++ dropped) ++ outer) ->
+            SubstEnv dropped vars ->
+            Maybe (Var (vars ++ outer))
+  findVar outer var env = case sizedView outer of
+    Z       => findDropVar var env
+    S outer => case var of
+      MkVar First     => Just (MkVar First)
+      MkVar (Later p) => map weaken (findVar outer (MkVar p) env)
 
   findDrop : FC -> Var (vars ++ dropped) ->
              SubstEnv dropped vars ->
@@ -850,7 +886,18 @@ namespace SubstEnv
              SubstEnv dropped vars ->
              CaseScope ((vars ++ dropped) ++ outer) ->
              CaseScope (vars ++ outer)
-  substCaseScope outer env (RHS tm) = RHS (substEnv outer env tm)
+  substCaseScope s env (RHS fs tm)
+      = RHS (substForced fs) (substEnv s env tm)
+    where
+      -- If we substitute in the vars, the equality is no longer useful
+      substForced : List (Var ((vars ++ dropped) ++ outer),
+                          Term ((vars ++ dropped) ++ outer)) ->
+                    List (Var (vars ++ outer), Term (vars ++ outer))
+      substForced [] = []
+      substForced ((v, tm) :: fs)
+         = case findVar s v env of
+                Nothing => substForced fs
+                Just v' => ((v', substEnv s env tm) :: substForced fs)
   substCaseScope outer env (Arg c x sc)
       = Arg c x (substCaseScope (suc outer) env sc)
 
@@ -893,7 +940,9 @@ substName x new (Case fc t c sc scty alts)
            (map (substNameAlt new) alts)
   where
     substNameScope : forall vars . Term vars -> CaseScope vars -> CaseScope vars
-    substNameScope new (RHS tm) = RHS (substName x new tm)
+    substNameScope new (RHS fs tm)
+        = RHS (map (\ (n, t) => (n, substName x new t)) fs)
+              (substName x new tm)
     substNameScope new (Arg c n sc)
         = Arg c n (substNameScope (weaken new) sc)
 
@@ -935,7 +984,9 @@ substVar x new (Case fc t c sc scty alts)
            (map (substVarAlt x new) alts)
   where
     substVarScope : forall vars . Var vars -> Term vars -> CaseScope vars -> CaseScope vars
-    substVarScope x new (RHS tm) = RHS (substVar x new tm)
+    substVarScope x new (RHS fs tm)
+        = RHS (map (\ (n, t) => (n, substVar x new t)) fs)
+              (substVar x new tm)
     substVarScope x new (Arg c n sc)
         = Arg c n (substVarScope (weaken x) (weaken new) sc)
 --
@@ -979,7 +1030,7 @@ addMetas res ns (Case fc t c sc scty alts)
     = addMetaAlts (addMetas res (addMetas res ns sc) scty) alts
   where
     addMetaScope : forall vars . NameMap Bool -> CaseScope vars -> NameMap Bool
-    addMetaScope ns (RHS tm) = addMetas res ns tm
+    addMetaScope ns (RHS _ tm) = addMetas res ns tm
     addMetaScope ns (Arg c x sc) = addMetaScope ns sc
 
     addMetaAlt : NameMap Bool -> CaseAlt vars -> NameMap Bool
@@ -1035,7 +1086,7 @@ addRefs ua at ns (Case fc t c sc scty alts)
     = addRefAlts (addRefs ua at (addRefs ua at ns sc) scty) alts
   where
     addRefScope : forall vars . NameMap Bool -> CaseScope vars -> NameMap Bool
-    addRefScope ns (RHS tm) = addRefs ua at ns tm
+    addRefScope ns (RHS _ tm) = addRefs ua at ns tm
     addRefScope ns (Arg c x sc) = addRefScope ns sc
 
     addRefAlt : NameMap Bool -> CaseAlt vars -> NameMap Bool
@@ -1127,7 +1178,14 @@ mutual
 
   export
   {vars : _} -> Show (CaseScope vars) where
-      show (RHS rhs) = " => " ++ show rhs
+      show (RHS fs rhs) = " => " ++ if not (null fs)
+                                       then "[" ++
+                                              showSep "," (map showForced fs)
+                                               ++ "] " ++ show rhs
+                                       else show rhs
+        where
+          showForced : (Var vars, Term vars) -> String
+          showForced (MkVar v, tm) = show (Local EmptyFC _ v) ++ " = " ++ show tm
       show (Arg r nm sc) = " " ++ show nm ++ show sc
 
   export

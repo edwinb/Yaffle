@@ -154,7 +154,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            let matches = matchVars conTy scrTy
            rhsExp <- replaceMatches fc env matches rhsExp
            rhs' <- check rig env rhs rhsExp
-           pure (RHS rhs')
+           pure (RHS [] rhs')
 
   checkCon i bs fc rig valenv env cname (arg :: args) app (VBind _ x (Pi _ rigp p aty) sc) rhs scrig scr scrTy rhsTy
       = do -- Extend the environment with the constructor argument name

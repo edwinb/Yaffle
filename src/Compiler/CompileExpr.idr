@@ -375,7 +375,7 @@ conCases n (ConCase fc x tag sc :: ns)
 
     toCExpScope : {vars : _} -> Nat -> List Nat ->
                   CaseScope vars -> Core (CCaseScope vars)
-    toCExpScope i es (RHS tm) = pure $ CRHS !(toCExp n tm)
+    toCExpScope i es (RHS _ tm) = pure $ CRHS !(toCExp n tm)
     toCExpScope {vars} i es (Arg c x sc)
         = if i `elem` es
              then pure $ shrinkCScope (DropCons SubRefl) $
@@ -438,7 +438,7 @@ getNewType fc scr n (ConCase _ x tag sc :: ns)
                SubstCEnv args vars ->
                CaseScope (vars ++ args) ->
                Core (Maybe (CExp vars))
-    substScr i pos x env (RHS tm)
+    substScr i pos x env (RHS _ tm)
         = do tm' <- toCExp n tm
              pure $ Just (substs env tm')
     substScr i pos x env (Arg c n sc)
@@ -453,7 +453,7 @@ getNewType fc scr n (ConCase _ x tag sc :: ns)
                SubstCEnv args (vars :< MN "eff" 0) ->
                CaseScope (vars ++ args) ->
                Core (Maybe (CExp vars))
-    substLetScr i pos x env (RHS tm)
+    substLetScr i pos x env (RHS _ tm)
         = do tm' <- toCExp n tm
              let tm' = insertNames {outer = args} {inner = vars} {ns = [<MN "eff" 0]}
                             (mkSizeOf _) (mkSizeOf _) tm'
