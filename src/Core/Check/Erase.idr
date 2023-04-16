@@ -85,8 +85,11 @@ parameters {auto c : Ref Ctxt Defs}
 
   echeck rig env (Meta fc n i args)
       = do args' <- traverse (\ (c, arg) => do
-                           arg' <- echeck (rigMult rig c) env arg
-                           pure (c, arg')) args
+                           let argRig = rigMult rig c
+                           if isErased argRig
+                              then pure (c, Erased fc Placeholder)
+                              else do arg' <- echeck (rigMult rig c) env arg
+                                      pure (c, arg')) args
            pure (Meta fc n i args')
   echeck rig_in env (Bind fc nm b sc)
       = do b' <- echeckBinder rig env b
