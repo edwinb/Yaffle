@@ -739,6 +739,9 @@ prepareExp ctm
          inidx <- resolveName (UN $ Basic "[input]")
          (tm, ty) <- elabTerm inidx InExpr [] (MkNested [])
                                  [<] ttimpWithIt Nothing
+         -- Substitute in any holes that won't have been set to compile
+         tm <- quoteHoles [<] !(nfKeepLet [<] tm)
+
          linearCheck replFC linear [<] tm
          compileAndInlineAll
          pure tm
