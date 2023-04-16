@@ -122,7 +122,7 @@ parameters {auto c : Ref Ctxt Defs}
            pure (Case fc ct scrig sc' ty alts')
   echeck rig env (TDelay fc r ty arg)
       = pure (TDelay fc r ty !(echeck rig env arg))
-  echeck rig env (TForce fc r tm) = echeck rig env tm
+  echeck rig env (TForce fc r tm) = pure (TForce fc r !(echeck rig env tm))
   echeck rig env (PrimOp fc fn args)
      = do args' <- traverseVect (echeck rig env) args
           pure (PrimOp fc fn args')

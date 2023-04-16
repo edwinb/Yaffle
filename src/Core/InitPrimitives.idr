@@ -1,5 +1,7 @@
 module Core.InitPrimitives
 
+import Compiler.CompileExpr
+
 import Core.Context
 import Core.Core
 import Core.FC
@@ -29,7 +31,7 @@ mkPrim : (arity : Nat) -> PrimFn arity -> Term [<]
 mkPrim a op = mkFn 0 a (rewrite plusZeroRightNeutral a in op) []
 
 addPrim : Ref Ctxt Defs =>
-          Prim -> CoreE err ()
+          Prim -> Core ()
 addPrim p
     = do let fndef = mkPrim (arity p) (fn p)
          let primdef = newDef EmptyFC (opName (fn p)) RigW [<]
@@ -37,8 +39,9 @@ addPrim p
                               (Function (MkFnInfo NotHole False False)
                                         fndef fndef Nothing)
          ignore $ addDef (opName (fn p)) primdef
+         compileDef (opName (fn p))
 
 export
 addPrimitives : Ref Ctxt Defs =>
-                CoreE err ()
+                Core ()
 addPrimitives = traverse_ addPrim allPrimitives
