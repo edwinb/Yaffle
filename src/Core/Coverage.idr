@@ -292,7 +292,7 @@ buildArgs : {auto c : Ref Ctxt Defs} ->
 -- top level
 buildArgs defs known not ps (Bind fc x (Lam lfc c p ty) sc)
     = buildArgs defs (weaken known) (weaken not) (ps :< (c, Ref fc Bound x)) sc
-buildArgs defs known not ps cs@(Case fc ct c (Local lfc idx el) ty altsIn)
+buildArgs defs known not ps cs@(Case fc PatMatch c (Local lfc idx el) ty altsIn)
   -- If we've already matched on 'el' in this branch, restrict the alternatives
   -- to the tag we already know. Otherwise, add missing cases and filter out
   -- the ones it can't possibly be (the 'not') because a previous case
@@ -325,7 +325,7 @@ buildArgs defs known not ps cs@(Case fc ct c (Local lfc idx el) ty altsIn)
     buildArgAlt : Name -> KnownVars vars (List Int) ->
                   CaseAlt vars -> Core (List (SnocList (RigCount, ClosedTerm)))
     buildArgAlt var not' (ConCase cfc n t sc)
-        = buildArgSc cfc var known not' n t [<] sc
+        = buildArgSc cfc var ((MkVar el, t) :: known) not' n t [<] sc
     buildArgAlt var not' (DelayCase cfc t a sc)
         = let l = mkSizeOf [< t, a]
               ps' = map (\ (c, tm) =>
