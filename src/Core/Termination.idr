@@ -403,7 +403,10 @@ findSCTop i args (Bind fc x (Lam lfc c p ty) sc)
     wkn : List (Nat, Term vars) -> List (Nat, Term (vars :< n))
     wkn [] = []
     wkn ((i, tm) :: args) = (i, weaken tm) :: wkn args
-findSCTop i args def = findSC Toplevel args def
+-- Reversing the arguments so we get the same behaviour as Idris 2.
+-- TODO: What we should really do is find all the places the argument
+-- appears in calls, not just the first one
+findSCTop i args def = findSC Toplevel (reverse args) def
 
 findCalls : {auto c : Ref Ctxt Defs} ->
             ClosedTerm -> Core (List SCCall)
