@@ -74,6 +74,7 @@ apply fc (VCase cfc t r sc ty alts) q arg
 -- Remaining cases would be ill-typed
 apply _ arg _ _ = pure (believe_me arg)
 
+export
 applyAll : FC -> Glued vars -> List (RigCount, Core (Glued vars)) -> Core (Glued vars)
 applyAll fc f [] = pure f
 applyAll fc f ((q, x) :: xs)
