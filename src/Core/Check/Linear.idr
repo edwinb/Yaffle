@@ -28,7 +28,7 @@ Show (Usage vars) where
       showAll : Usage vs -> String
       showAll [<] = ""
       showAll [<el] = show el
-      showAll (xs :< x) = show xs ++ ", " ++ show x
+      showAll (xs :< x) = showAll xs ++ ", " ++ show x
 
 doneScope : Usage (vars :< n) -> Usage vars
 doneScope [<] = [<]
@@ -47,6 +47,13 @@ count : Nat -> Usage ns -> Nat
 count p [<] = 0
 count p (xs :< v)
     = if p == varIdx v then 1 + count p xs else count p xs
+
+sameUsage : {ns : _} -> Usage ns -> Usage ns -> Bool
+sameUsage xs ys = sort (getIdxs xs) == sort (getIdxs ys)
+  where
+    getIdxs : {ns : _} -> Usage ns -> List Nat
+    getIdxs [<] = []
+    getIdxs (vs :< v) = varIdx v :: getIdxs vs
 
 localPrf : {later : _} -> Var (vars :< n ++ later)
 localPrf {later = [<]} = MkVar First
@@ -197,7 +204,8 @@ parameters {auto c : Ref Ctxt Defs}
   checkUsageOK : FC -> Nat -> Name -> RigCount -> Core ()
   checkUsageOK fc used nm r
       = when (isLinear r && used /= 1)
-          (throw (LinearUsed fc used nm))
+          (do log "quantity" 5 $ "Linearity error " ++ show nm
+              throw (LinearUsed fc used nm))
 
   getZeroes : {vs : _} -> Env Term vs -> List (Var vs)
   getZeroes [<] = []
@@ -263,10 +271,16 @@ parameters {auto c : Ref Ctxt Defs}
                List (CaseAlt vars) ->
                Core (Usage vars)
   lcheckAlts rig env scrig [] = pure [<]
+  lcheckAlts rig env scrig [a]
+     = lcheckAlt rig env scrig a
   lcheckAlts rig env scrig (a :: alts)
      = do ua <- lcheckAlt rig env scrig a
           ualts <- lcheckAlts rig env scrig alts
-          pure (ua ++ ualts)
+          -- Usage must be the same in all alts
+          if sameUsage ua ualts
+             then pure ua
+             else throw (InternalError ("TODO: Missing error in lcheckAlts "
+                            ++ show (ua, ualts)))
 
   lcheckBinder : {vars : _} ->
            RigCount -> Env Term vars -> Binder (Term vars) -> Core (Usage vars)
@@ -281,7 +295,7 @@ parameters {auto c : Ref Ctxt Defs}
       = let b = getBinder prf env
             rigb = multiplicity b in
             do rigSafe rigb rig
-               pure (used rig)
+               pure (used (rigMult rig rigb))
     where
       getName : {idx : _} -> (vs : SnocList Name) -> (0 p : IsVar n idx vs) -> Name
       getName (_ :< x) First = x
