@@ -1,0 +1,22 @@
+data Unit : Type where
+  MkUnit : Unit
+
+record Id a where
+  constructor MkId
+  field : a
+
+data X : Type where
+  Stop : Unit -> X
+  Cont : Id X -> X
+
+f : X -> Unit
+f (Stop n) = n
+f (Cont x) = f (field x)
+
+field' : Id a -> a
+field' x = case x of
+  MkId y => y
+
+f' : X -> Unit
+f' (Stop n) = n
+f' (Cont x) = f' (field' x)

@@ -27,7 +27,7 @@ yaffleTests = MkTestPool "Yaffle" [] Nothing
       "compile001", "compile002",
       "coverage001",
       "qtt001", "qtt002", "qtt003", "qtt004",
-      "record001", "record002",
+      "record001", "record002", "record003",
       "rewrite001",
       "with001",
       -- Below are things that don't test anything specific, but are useful exercises
