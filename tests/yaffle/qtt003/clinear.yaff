@@ -1,0 +1,13 @@
+data Nat : Type where
+     Z : Nat
+     S : Nat -> Nat
+
+data LPair : Type -> Type -> Type where
+     MkLPair : {0 a : Type} -> {0 b : Type} ->
+               (1 x : a) -> (1 y : b) -> LPair a b
+
+foo : (1 x : Nat) -> Nat -> LPair Nat (LPair Nat Nat)
+foo x y
+   = MkLPair Z (case y of
+                     Z => MkLPair x (S (S Z))
+                     S k => MkLPair (S Z) (S (S Z)))

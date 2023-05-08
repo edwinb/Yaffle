@@ -1,0 +1,21 @@
+Processing as TTImp
+Written TTC
+Yaffle>  0 x : Main.Nat
+   y : Main.Nat
+-------------------------------------
+Main.nox : Main.Nat
+Yaffle>  1 x : Main.Nat
+   k : Main.Nat
+   y : Main.Nat
+-------------------------------------
+Main.onex : ((Main.LPair Main.Nat) Main.Nat)
+Yaffle>  0 y : Main.Nat
+   x : Main.Nat
+-------------------------------------
+Main.noy1 : Main.Nat
+Yaffle>  0 y : Main.Nat
+   k : Main.Nat
+   x : Main.Nat
+-------------------------------------
+Main.noy2 : Main.Nat
+Yaffle> Bye for now!

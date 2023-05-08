@@ -82,6 +82,7 @@ data Error : Type where
      NotTotal : FC -> Name -> PartialReason -> Error
      LinearUsed : FC -> Nat -> Name -> Error
      LinearMisuse : FC -> Name -> RigCount -> RigCount -> Error
+     InconsistentUse : FC -> List (FC, List Name) -> Error
      BorrowPartial : {vars : _} ->
                      FC -> Env Term vars -> Term vars -> Term vars -> Error
      BorrowPartialType : {vars : _} ->
@@ -180,6 +181,7 @@ getErrorLoc (NotCovering loc _ _) = Just loc
 getErrorLoc (NotTotal loc _ _) = Just loc
 getErrorLoc (LinearUsed loc _ _) = Just loc
 getErrorLoc (LinearMisuse loc _ _ _) = Just loc
+getErrorLoc (InconsistentUse loc _) = Just loc
 getErrorLoc (BorrowPartial loc _ _ _) = Just loc
 getErrorLoc (BorrowPartialType loc _ _) = Just loc
 getErrorLoc (AmbiguousName loc _) = Just loc
@@ -267,6 +269,7 @@ killErrorLoc (NotCovering fc x y) = NotCovering emptyFC x y
 killErrorLoc (NotTotal fc x y) = NotTotal emptyFC x y
 killErrorLoc (LinearUsed fc k x) = LinearUsed emptyFC k x
 killErrorLoc (LinearMisuse fc x y z) = LinearMisuse emptyFC x y z
+killErrorLoc (InconsistentUse fc x) = InconsistentUse emptyFC x
 killErrorLoc (BorrowPartial fc x y z) = BorrowPartial emptyFC x y z
 killErrorLoc (BorrowPartialType fc x y) = BorrowPartialType emptyFC x y
 killErrorLoc (AmbiguousName fc xs) = AmbiguousName emptyFC xs
@@ -453,6 +456,9 @@ Show Error where
          "irrelevant"
          "relevant"
          (const "non-linear")
+  show (InconsistentUse fc ns)
+      = show fc ++ ":Inconsistent use of variables in case branches " ++
+        show ns
   show (BadUnboundImplicit fc env n ty)
       = show fc ++ ":Can't bind name " ++ nameRoot n ++
                    " with type " ++ show ty
@@ -597,6 +603,7 @@ Eq Error where
   NotTotal fc1 n1 x1 == NotTotal fc2 n2 x2 = fc1 == fc2 && n1 == n2
   LinearUsed fc1 k1 n1 == LinearUsed fc2 k2 n2 = fc1 == fc2 && k1 == k2 && n1 == n2
   LinearMisuse fc1 n1 x1 y1 == LinearMisuse fc2 n2 x2 y2 = fc1 == fc2 && n1 == n2 && x1 == x2 && y1 == y2
+  InconsistentUse fc1 x1 == InconsistentUse fc2 x2 = fc1 == fc2 && x1 == x2
   BorrowPartial fc1 rho1 s1 t1 == BorrowPartial fc2 rho2 s2 t2 = fc1 == fc2
   BorrowPartialType fc1 rho1 s1 == BorrowPartialType fc2 rho2 s2 = fc1 == fc2
   AmbiguousName fc1 xs1 == AmbiguousName fc2 xs2 = fc1 == fc2 && xs1 == xs2

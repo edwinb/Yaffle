@@ -26,13 +26,15 @@ yaffleTests = MkTestPool "Yaffle" [] Nothing
       "case001",
       "compile001", "compile002",
       "coverage001",
-      "qtt001", "qtt002",
+      "qtt001", "qtt002", "qtt003", "qtt004",
       "record001", "record002",
       "rewrite001",
       "with001",
       -- Below are things that don't test anything specific, but are useful exercises
-      "example001",
-      "papers001" ]
+      "example001"
+      -- "papers001"  -- disabled since it doesn't work in Idris 2 either, and will
+                      -- be tested when building libraries
+    ]
 
 failingTests : TestPool
 failingTests = MkTestPool "Failing tests (PRs welcome)" [] Nothing

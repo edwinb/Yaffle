@@ -1,0 +1,4 @@
+Processing as TTImp
+clinear:10:1--14:1:When elaborating right hand side of Main.foo:
+clinear:11:17--13:52:Inconsistent use of variables in case branches [(clinear:12:27--13:22, [x]), (clinear:13:29--13:52, [])]
+Yaffle> Bye for now!

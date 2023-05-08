@@ -130,12 +130,17 @@ scEqSpine (sp :< (_, _, x)) (sp' :< (_, _, y))
             else pure False
 scEqSpine _ _ = pure False
 
+-- Approximate equality between values. We don't go under binders - we're
+-- only checking for size change equality so expect to just see type and
+-- data constructors
+-- TODO: size change for pattern matching on types
 scEq' : Value f vars -> Value f' vars -> Core Bool
 scEq' (VApp _ Bound n sp _) (VApp _ Bound n' sp' _)
     = if n == n'
          then scEqSpine sp sp'
          else pure False
--- Should never see this!
+-- Should never see this since we always call with vars = [<], but it is
+-- technically possible
 scEq' (VLocal _ idx _ sp) (VLocal _ idx' _ sp')
     = if idx == idx'
          then scEqSpine sp sp'
