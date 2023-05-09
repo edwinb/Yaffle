@@ -1027,7 +1027,7 @@ addMetas res ns (App fc fn c arg)
     = addMetas res (addMetas res ns fn) arg
 addMetas res ns (As fc s as tm) = addMetas res ns tm
 addMetas res ns (Case fc t c sc scty alts)
-    = addMetaAlts (addMetas res (addMetas res ns sc) scty) alts
+    = addMetaAlts (addMetas res ns sc) alts
   where
     addMetaScope : forall vars . NameMap Bool -> CaseScope vars -> NameMap Bool
     addMetaScope ns (RHS _ tm) = addMetas res ns tm
@@ -1083,7 +1083,7 @@ addRefs ua at ns (App fc fn c arg)
     = addRefs ua at (addRefs ua at ns fn) arg
 addRefs ua at ns (As fc s as tm) = addRefs ua at ns tm
 addRefs ua at ns (Case fc t c sc scty alts)
-    = addRefAlts (addRefs ua at (addRefs ua at ns sc) scty) alts
+    = addRefAlts (addRefs ua at ns sc) alts
   where
     addRefScope : forall vars . NameMap Bool -> CaseScope vars -> NameMap Bool
     addRefScope ns (RHS _ tm) = addRefs ua at ns tm

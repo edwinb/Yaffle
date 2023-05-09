@@ -13,7 +13,11 @@ import Data.List
 import Data.SnocList
 import Data.Vect
 
-data EvalFlags = Full | KeepAs | KeepLet | Totality
+data EvalFlags
+    = Full
+    | KeepAs -- keep @ patterns, don't expand any 'let' in the environment
+    | KeepLet -- don't expand any 'let' at all, just expand 'alwaysInline'
+    | Totality
 
 export
 apply : FC -> Value f vars -> RigCount -> Core (Glued vars) -> Core (Glued vars)
@@ -244,6 +248,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
               Core (Glued vars)
   evalLocal env fc p [<]
       = case eflags of
+             KeepAs => pure $ VLocal fc _ p [<]
              KeepLet => pure $ VLocal fc _ p [<]
              _ => case getLet p env of
                        Just val => eval [<] env val
@@ -349,7 +354,11 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
                                           !(eval locs env pat)
              _ => eval locs env pat
   eval locs env (Case fc t r sc ty alts)
-      = do sc' <- expand !(eval locs env sc)
+      = do sc' <- case eflags of
+                       -- Don't expand in totality mode or we might reduce too
+                       -- much
+                       Totality => believe_me $ eval locs env sc
+                       _ => expand !(eval locs env sc)
            locs' <- case sc of
                          Local _ _ p => pure $ updateEnv locs p (pure (asGlued sc'))
                          _ => pure locs

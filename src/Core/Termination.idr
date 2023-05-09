@@ -52,14 +52,16 @@ checkIfGuarded fc n
          defs <- get Ctxt
          Just (Function _ tm _ _) <- lookupDefExact n (gamma defs)
               | _ => pure ()
-         t <- guardedDef !(nf [<] tm)
+         t <- guardedDef !(expand !(nf [<] tm))
          if t then do Just gdef <- lookupCtxtExact n (gamma defs)
                            | Nothing => pure ()
                       g <- allM (checkNotFn defs) (keys (refersTo gdef))
+                      log "totality.termination.guarded" 6
+                            $ "Refers to " ++ show !(toFullNames (keys (refersTo gdef)))
                       when g $ setFlag fc n AllGuarded
               else pure ()
   where
-    guardedNF : {vars : _} -> Glued vars -> Core Bool
+    guardedNF : {vars : _} -> NF vars -> Core Bool
     guardedNF (VDCon{}) = pure True
     guardedNF (VApp _ _ n _ _)
         = do defs <- get Ctxt
@@ -69,27 +71,27 @@ checkIfGuarded fc n
     guardedNF _ = pure False
 
     guardedScope : {vars : _} -> (args : _) -> VCaseScope args vars -> Core Bool
-    guardedScope [<] sc = guardedNF (snd !sc)
+    guardedScope [<] sc = guardedNF !(expand (snd !sc))
     guardedScope (sx :< y) sc = guardedScope sx (sc (pure (VErased fc Placeholder)))
 
     guardedAlt : {vars : _} -> VCaseAlt vars -> Core Bool
     guardedAlt (VConCase _ _ _ args sc) = guardedScope _ sc
     guardedAlt (VDelayCase fc ty arg sc)
         = guardedScope [< (top, arg), (top, ty) ] sc
-    guardedAlt (VConstCase _ _ sc) = guardedNF sc
-    guardedAlt (VDefaultCase _ sc) = guardedNF sc
+    guardedAlt (VConstCase _ _ sc) = guardedNF !(expand sc)
+    guardedAlt (VDefaultCase _ sc) = guardedNF !(expand sc)
 
     guardedAlts : {vars : _} -> List (VCaseAlt vars) -> Core Bool
     guardedAlts [] = pure True
     guardedAlts (x :: xs)
         = if !(guardedAlt x) then guardedAlts xs else pure False
 
-    guardedDef : {vars : _} -> Glued vars -> Core Bool
+    guardedDef : {vars : _} -> NF vars -> Core Bool
     guardedDef (VLam fc _ _ _ _ sc)
-        = guardedDef !(sc (pure (VErased fc Placeholder)))
+        = guardedDef !(expand !(sc (pure (VErased fc Placeholder))))
     guardedDef (VCase fc ct c _ _ alts)
         = guardedAlts alts
-    guardedDef nf = guardedNF nf
+    guardedDef nf = guardedNF !(expand nf)
 
     checkNotFn : Defs -> Name -> Core Bool
     checkNotFn defs n
@@ -454,12 +456,6 @@ findSCapp : {auto c : Ref Ctxt Defs} ->
          Glued [<] -> -- dealing with cases where this is an application
                       -- of some sort
          Core (List SCCall)
-findSCapp InDelay eqs pats (VDCon fc n t a sp)
-    = findSCspine InDelay eqs pats sp
-findSCapp InDelay eqs pats (VApp fc Func n sp _)
-    = -- Just check the arguments, they call is okay because we're in a Delay
-      -- immediately under a constructor
-      findSCspine Unguarded eqs pats sp
 findSCapp g eqs pats (VLocal fc _ _ sp)
     = do args <- traverseSnocList (snd . snd) sp
          scs <- traverseSnocList (findSC g eqs pats) args
@@ -469,27 +465,32 @@ findSCapp g eqs pats (VApp fc Bound _ sp _)
          scs <- traverseSnocList (findSC g eqs pats) args
          pure (concat scs)
 findSCapp g eqs pats (VApp fc Func fn sp _)
-    = do args <- traverseSnocList (snd . snd) sp
-         defs <- get Ctxt
+    = do defs <- get Ctxt
+         args <- traverseSnocList (snd . snd) sp
          Just ty <- lookupTyExact fn (gamma defs)
             | Nothing => do
                 log "totality" 50 $ "Lookup failed"
                 findSCcall Unguarded eqs pats fc fn 0 (cast args)
-         g' <- allGuarded fn
-         arity <- getArity [<] ty
-         findSCcall g' eqs pats fc fn arity (cast args)
+         allg <- allGuarded fn
+         -- If it has the all guarded flag, pretend it's a data constructor
+         -- Otherwise just carry on as normal
+         if allg
+            then findSCapp g eqs pats (VDCon fc fn 0 0 sp)
+            else case g of
+                    -- constructor guarded and delayed, so just check the
+                    -- arguments
+                    InDelay => findSCspine Unguarded eqs pats sp
+                    _ => do arity <- getArity [<] ty
+                            findSCcall Unguarded eqs pats fc fn arity (cast args)
   where
-    allGuarded : Name -> Core Guardedness
+    allGuarded : Name -> Core Bool
     allGuarded n
         = do defs <- get Ctxt
              Just gdef <- lookupCtxtExact n (gamma defs)
-                  | Nothing => pure Unguarded
-             if AllGuarded `elem` flags gdef
-                then case g of
-                          InDelay => pure InDelay
-                          Toplevel => pure Guarded
-                          _ => pure Unguarded
-                else pure Unguarded
+                  | Nothing => pure False
+             pure (AllGuarded `elem` flags gdef)
+findSCapp InDelay eqs pats (VDCon fc n t a sp)
+    = findSCspine InDelay eqs pats sp
 findSCapp Guarded eqs pats (VDCon fc n t a sp)
     = findSCspine Guarded eqs pats sp
 findSCapp Toplevel eqs pats (VDCon fc n t a sp)
@@ -497,6 +498,8 @@ findSCapp Toplevel eqs pats (VDCon fc n t a sp)
 findSCapp g eqs pats tm = pure [] -- not an application (TODO: VTCon)
 
 -- If we're Guarded and find a Delay, continue with the argument as InDelay
+findSC Guarded eqs pats (VDelay _ LInf _ tm)
+    = findSC InDelay eqs pats tm
 findSC g eqs args (VLam fc x c p ty sc)
     = do v <- nextVar
          findSC g eqs args !(sc (pure v))
@@ -507,8 +510,6 @@ findSC g eqs args (VBind fc n b sc)
       findSCbinder : Binder (Glued [<]) -> Core (List SCCall)
       findSCbinder (Let _ c val ty) = findSC Unguarded eqs args val
       findSCbinder _ = pure []
-findSC Guarded eqs pats (VDelay _ LInf _ tm)
-    = findSC InDelay eqs pats tm
 findSC g eqs pats (VDelay _ _ _ tm)
     = findSC g eqs pats tm
 findSC g eqs pats (VForce _ _ v sp)
