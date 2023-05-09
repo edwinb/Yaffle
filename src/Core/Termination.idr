@@ -135,7 +135,7 @@ scEqSpine _ _ = pure False
 -- data constructors
 -- TODO: size change for pattern matching on types
 scEq' : Value f vars -> Value f' vars -> Core Bool
-scEq' (VApp _ Bound n sp _) (VApp _ Bound n' sp' _)
+scEq' (VApp _ _ n sp _) (VApp _ _ n' sp' _)
     = if n == n'
          then scEqSpine sp sp'
          else pure False
@@ -233,9 +233,13 @@ nextVar
          put SCVar (v + 1)
          pure (mkvar v)
 
+ForcedEqs : Type
+ForcedEqs = List (Glued [<], Glued [<])
+
 findSC : {auto c : Ref Ctxt Defs} ->
          {auto v : Ref SCVar Int} ->
          Guardedness ->
+         ForcedEqs ->
          List (Nat, Glued [<]) -> -- LHS args and their position
          Glued [<] -> -- definition. No expanding to NF, we want to check
                       -- the program as written (plus tcinlines)
@@ -251,52 +255,86 @@ expandToArity Z xs = xs
 expandToArity (S k) (x :: xs) = x :: expandToArity k xs
 expandToArity (S k) [] = Nothing :: expandToArity k []
 
+findVar : Int -> List (Glued vars, Glued vars) -> Maybe (Glued vars)
+findVar i [] = Nothing
+findVar i ((VApp _ Bound (MN _ i') _ _, tm) :: eqs)
+    = if i == i' then Just tm else findVar i eqs
+findVar i (_ :: eqs) = findVar i eqs
+
+canonicalise : List (Glued vars, Glued vars) -> Glued vars -> Core (Glued vars)
+canonicalise eqs tm@(VApp _ Bound (MN _ i) _ _)
+    = case findVar i eqs of
+           Nothing => pure tm
+           Just val => canonicalise eqs val
+canonicalise eqs (VDCon fc cn t a sp)
+    = pure $ VDCon fc cn t a !(canonSp sp)
+  where
+    canonSp : Spine vars -> Core (Spine vars)
+    canonSp [<] = pure [<]
+    canonSp (rest :< (fc, c, arg))
+        = do rest' <- canonSp rest
+             pure (rest' :< (fc, c, canonicalise eqs !arg))
+-- for matching on types, convert to the form the case tree builder uses
+canonicalise eqs (VPrimVal fc (PrT c))
+    = pure $ (VTCon fc (UN (Basic $ show c)) 0 [<])
+canonicalise eqs (VType fc _)
+    = pure $ (VTCon fc (UN (Basic "Type")) 0 [<])
+canonicalise eqs val = pure val
+
 -- if the argument is an 'assert_smaller', return the thing it's smaller than
-asserted : Name -> Glued [<] -> Core (Maybe (Glued [<]))
-asserted aSmaller (VApp _ nt fn [<_, _, (_, _, b), _] _)
+asserted : ForcedEqs -> Name -> Glued [<] -> Core (Maybe (Glued [<]))
+asserted eqs aSmaller (VApp _ nt fn [<_, _, (_, _, b), _] _)
      = if fn == aSmaller
-          then Just <$> b
+          then Just <$> canonicalise eqs !b
           else pure Nothing
-asserted _ _ = pure Nothing
+asserted _ _ _ = pure Nothing
 
 -- Calculate the size change for the given argument.
 -- i.e., return the size relationship of the given argument with an entry
 -- in 'pats'; the position in 'pats' and the size change.
 -- Nothing if there is no relation with any of them.
 mkChange : {auto c : Ref Ctxt Defs} ->
+           ForcedEqs ->
            Name ->
            (pats : List (Nat, Glued [<])) ->
            (arg : Glued [<]) ->
            Core (Maybe (Nat, SizeChange))
-mkChange aSmaller [] arg = pure Nothing
-mkChange aSmaller ((i, parg) :: pats) arg
+mkChange eqs aSmaller [] arg = pure Nothing
+mkChange eqs aSmaller ((i, parg) :: pats) arg
     = if !(scEq arg parg)
          then pure (Just (i, Same))
-         else do s <- smaller False !(asserted aSmaller arg) arg parg
+         else do s <- smaller False !(asserted eqs aSmaller arg) arg parg
                  if s then pure (Just (i, Smaller))
-                      else mkChange aSmaller pats arg
+                      else mkChange eqs aSmaller pats arg
 
 findSCcall : {auto c : Ref Ctxt Defs} ->
              {auto v : Ref SCVar Int} ->
              Guardedness ->
+             ForcedEqs ->
              List (Nat, Glued [<]) ->
              FC -> Name -> Nat -> List (Glued [<]) ->
              Core (List SCCall)
-findSCcall g pats fc fn_in arity args
+findSCcall g eqs pats fc fn_in arity args
         -- Under 'assert_total' we assume that all calls are fine, so leave
         -- the size change list empty
-      = do defs <- get Ctxt
+      = do args <- traverse (canonicalise eqs) args
+           defs <- get Ctxt
            fn <- getFullName fn_in
            log "totality.termination.sizechange" 10 $ "Looking under "
                   ++ show fn
            aSmaller <- resolved (gamma defs) (NS builtinNS (UN $ Basic "assert_smaller"))
+           logC "totality.termination.sizechange" 10 $
+               do under <- traverse (\ (n, t) =>
+                              pure (n, !(toFullNames !(quoteNF [<] t)))) pats
+                  targs <- traverse (\t => toFullNames !(quoteNF [<] t)) args
+                  pure ("Under " ++ show under ++ "\n" ++ "Args " ++ show targs)
            if fn == NS builtinNS (UN $ Basic "assert_total")
               then pure []
               else
-               do scs <- traverse (findSC g pats) args
+               do scs <- traverse (findSC g eqs pats) args
                   pure ([MkSCCall fn
                            (expandToArity arity
-                                !(traverse (mkChange aSmaller pats) args))]
+                                !(traverse (mkChange eqs aSmaller pats) args))]
                            ++ concat scs)
 
 -- Substitute a name with what we know about it.
@@ -339,87 +377,107 @@ expandForced ((VApp _ Bound n _ _, tm) :: fs) args
     = expandForced fs !(replaceInArgs n tm args)
 expandForced (_ :: fs) args = expandForced fs args
 
+
 findSCscope : {auto c : Ref Ctxt Defs} ->
               {auto v : Ref SCVar Int} ->
          Guardedness ->
+         ForcedEqs ->
          List (Nat, Glued [<]) -> -- LHS args and their position
          Maybe Name -> -- variable we're splitting on (if it is a variable)
          FC -> Glued [<] ->
          (args : _) -> VCaseScope args [<] -> -- case alternative
          Core (List SCCall)
-findSCscope g args var fc pat [<] sc
-   = do (eqs, rhs) <- sc
-        findSC g !(expandForced eqs
-                    !(maybe (pure args)
-                            (\v => replaceInArgs v pat args) var))
-                 rhs
-findSCscope g args var fc pat (cargs :< (c, xn)) sc
+findSCscope g eqs args var fc pat [<] sc
+   = do (eqsc, rhs) <- sc
+        logC "totality.termination.sizechange" 10 $
+            (do tms <- traverse (\ (gx, gy) =>
+                            pure (!(toFullNames !(quote [<] gx)),
+                                  !(toFullNames !(quote [<] gy)))) eqsc
+                pure ("Force equalities " ++ show tms))
+        let eqs' = eqsc ++ eqs
+        args' <- maybe (pure args) (\v => replaceInArgs v pat args) var
+        logNF "totality.termination.sizechange" 10 "RHS" [<] rhs
+        findSC g eqs'
+               !(traverse (\ (n, arg) => pure (n, !(canonicalise eqs' arg))) args')
+               rhs
+findSCscope g eqs args var fc pat (cargs :< (c, xn)) sc
    = do varg <- nextVar
         pat' <- the (Core (Glued [<])) $ case pat of
                   VDCon vfc n t a sp =>
                       pure (VDCon vfc n t a (sp :< (fc, c, pure varg)))
                   _ => throw (InternalError "Not a data constructor in findSCscope")
-        findSCscope g args var fc pat' cargs (sc (pure varg))
+        findSCscope g eqs args var fc pat' cargs (sc (pure varg))
 
 findSCalt : {auto c : Ref Ctxt Defs} ->
             {auto v : Ref SCVar Int} ->
          Guardedness ->
+         ForcedEqs ->
          List (Nat, Glued [<]) -> -- LHS args and their position
          Maybe Name -> -- variable we're splitting on (if it is a variable)
          VCaseAlt [<] -> -- case alternative
          Core (List SCCall)
-findSCalt g args var (VConCase fc n t cargs sc)
-    = findSCscope g args var fc (VDCon fc n t (length cargs) [<]) _ sc
-findSCalt g args var (VDelayCase fc ty arg tm)
+findSCalt g eqs args var (VConCase fc n t cargs sc)
+    = findSCscope g eqs args var fc (VDCon fc n t (length cargs) [<]) _ sc
+findSCalt g eqs args var (VDelayCase fc ty arg tm)
     = do targ <- nextVar
          varg <- nextVar
          let pat = VDelay fc LUnknown targ varg
          (eqs, rhs) <- tm (pure targ) (pure varg)
-         findSC g !(expandForced eqs
+         findSC g eqs !(expandForced eqs
                      !(maybe (pure args)
                              (\v => replaceInArgs v pat args) var))
                   rhs
-findSCalt g args var (VConstCase fc c tm)
-    = findSC g !(maybe (pure args)
+findSCalt g eqs args var (VConstCase fc c tm)
+    = findSC g eqs !(maybe (pure args)
                        (\v => replaceInArgs v (VPrimVal fc c) args) var)
                tm
-findSCalt g args var (VDefaultCase fc tm) = findSC g args tm
+findSCalt g eqs args var (VDefaultCase fc tm) = findSC g eqs args tm
 
 findSCspine : {auto c : Ref Ctxt Defs} ->
          {auto v : Ref SCVar Int} ->
          Guardedness ->
+         ForcedEqs ->
          List (Nat, Glued [<]) -> -- LHS args and their position
          Spine [<] ->
          Core (List SCCall)
-findSCspine g pats [<] = pure []
-findSCspine g pats (sp :< (_, _, v))
-    = do vCalls <- findSC g pats !v
-         spCalls <- findSCspine g pats sp
+findSCspine g eqs pats [<] = pure []
+findSCspine g eqs pats (sp :< (_, _, v))
+    = do vCalls <- findSC g eqs pats !v
+         spCalls <- findSCspine g eqs pats sp
          pure (vCalls ++ spCalls)
 
 findSCapp : {auto c : Ref Ctxt Defs} ->
             {auto v : Ref SCVar Int} ->
          Guardedness ->
+         ForcedEqs ->
          List (Nat, Glued [<]) -> -- LHS args and their position
          Glued [<] -> -- dealing with cases where this is an application
                       -- of some sort
          Core (List SCCall)
-findSCapp InDelay pats (VDCon fc n t a sp)
-    = findSCspine InDelay pats sp
-findSCapp InDelay pats (VApp fc Func n sp _)
+findSCapp InDelay eqs pats (VDCon fc n t a sp)
+    = findSCspine InDelay eqs pats sp
+findSCapp InDelay eqs pats (VApp fc Func n sp _)
     = -- Just check the arguments, they call is okay because we're in a Delay
       -- immediately under a constructor
-      findSCspine Unguarded pats sp
-findSCapp g pats (VApp fc Func fn sp _)
+      findSCspine Unguarded eqs pats sp
+findSCapp g eqs pats (VLocal fc _ _ sp)
+    = do args <- traverseSnocList (snd . snd) sp
+         scs <- traverseSnocList (findSC g eqs pats) args
+         pure (concat scs)
+findSCapp g eqs pats (VApp fc Bound _ sp _)
+    = do args <- traverseSnocList (snd . snd) sp
+         scs <- traverseSnocList (findSC g eqs pats) args
+         pure (concat scs)
+findSCapp g eqs pats (VApp fc Func fn sp _)
     = do args <- traverseSnocList (snd . snd) sp
          defs <- get Ctxt
          Just ty <- lookupTyExact fn (gamma defs)
             | Nothing => do
                 log "totality" 50 $ "Lookup failed"
-                findSCcall Unguarded pats fc fn 0 (cast args)
+                findSCcall Unguarded eqs pats fc fn 0 (cast args)
          g' <- allGuarded fn
          arity <- getArity [<] ty
-         findSCcall g' pats fc fn arity (cast args)
+         findSCcall g' eqs pats fc fn arity (cast args)
   where
     allGuarded : Name -> Core Guardedness
     allGuarded n
@@ -432,39 +490,39 @@ findSCapp g pats (VApp fc Func fn sp _)
                           Toplevel => pure Guarded
                           _ => pure Unguarded
                 else pure Unguarded
-findSCapp Guarded pats (VDCon fc n t a sp)
-    = findSCspine Guarded pats sp
-findSCapp Toplevel pats (VDCon fc n t a sp)
-    = findSCspine Guarded pats sp
-findSCapp g pats tm = pure [] -- not an application (TODO: VTCon)
+findSCapp Guarded eqs pats (VDCon fc n t a sp)
+    = findSCspine Guarded eqs pats sp
+findSCapp Toplevel eqs pats (VDCon fc n t a sp)
+    = findSCspine Guarded eqs pats sp
+findSCapp g eqs pats tm = pure [] -- not an application (TODO: VTCon)
 
 -- If we're Guarded and find a Delay, continue with the argument as InDelay
-findSC g args (VLam fc x c p ty sc)
+findSC g eqs args (VLam fc x c p ty sc)
     = do v <- nextVar
-         findSC g args !(sc (pure v))
-findSC g args (VBind fc n b sc)
+         findSC g eqs args !(sc (pure v))
+findSC g eqs args (VBind fc n b sc)
     = do v <- nextVar
-         pure $ !(findSCbinder b) ++ !(findSC g args !(sc (pure v)))
+         pure $ !(findSCbinder b) ++ !(findSC g eqs args !(sc (pure v)))
   where
       findSCbinder : Binder (Glued [<]) -> Core (List SCCall)
-      findSCbinder (Let _ c val ty) = findSC Unguarded args val
+      findSCbinder (Let _ c val ty) = findSC Unguarded eqs args val
       findSCbinder _ = pure []
-findSC Guarded pats (VDelay _ LInf _ tm)
-    = findSC InDelay pats tm
-findSC g pats (VDelay _ _ _ tm)
-    = findSC g pats tm
-findSC g pats (VForce _ _ v sp)
-    = do vCalls <- findSC g pats v
-         spCalls <- findSCspine Unguarded pats sp
+findSC Guarded eqs pats (VDelay _ LInf _ tm)
+    = findSC InDelay eqs pats tm
+findSC g eqs pats (VDelay _ _ _ tm)
+    = findSC g eqs pats tm
+findSC g eqs pats (VForce _ _ v sp)
+    = do vCalls <- findSC g eqs pats v
+         spCalls <- findSCspine Unguarded eqs pats sp
          pure (vCalls ++ spCalls)
-findSC g args (VCase fc ct c (VApp _ Bound n [<] _) scTy alts)
-    = do altCalls <- traverse (findSCalt g args (Just n)) alts
+findSC g eqs args (VCase fc ct c (VApp _ Bound n [<] _) scTy alts)
+    = do altCalls <- traverse (findSCalt g eqs args (Just n)) alts
          pure (concat altCalls)
-findSC g args (VCase fc ct c sc scTy alts)
-    = do altCalls <- traverse (findSCalt g args Nothing) alts
-         scCalls <- findSC Unguarded args (asGlued sc)
+findSC g eqs args (VCase fc ct c sc scTy alts)
+    = do altCalls <- traverse (findSCalt g eqs args Nothing) alts
+         scCalls <- findSC Unguarded eqs args (asGlued sc)
          pure (scCalls ++ concat altCalls)
-findSC g pats tm = findSCapp g pats tm
+findSC g eqs pats tm = findSCapp g eqs pats tm
 
 findSCTop : {auto c : Ref Ctxt Defs} ->
             {auto v : Ref SCVar Int} ->
@@ -472,7 +530,7 @@ findSCTop : {auto c : Ref Ctxt Defs} ->
 findSCTop i args (VLam fc x c p ty sc)
     = do arg <- nextVar
          findSCTop (i + 1) ((i, arg) :: args) !(sc (pure arg))
-findSCTop i args def = findSC Toplevel (reverse args) def
+findSCTop i args def = findSC Toplevel [] (reverse args) def
 
 getSC : {auto c : Ref Ctxt Defs} ->
         Defs -> Def -> Core (List SCCall)
