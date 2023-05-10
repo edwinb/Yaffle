@@ -1,0 +1,13 @@
+package network
+version = 0.6.0
+
+opts = "--ignore-missing-ipkg"
+
+modules = Control.Linear.Network,
+
+          Network.Socket,
+          Network.Socket.Data,
+          Network.Socket.Raw,
+          Network.FFI
+
+depends = linear
