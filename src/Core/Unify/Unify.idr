@@ -201,6 +201,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                                                  show (atTop mode)) env x y
                      else do logNF "unify" 10 "Convert error" env x
                              logNF "unify" 10 ".........with" env y
+                             log "unify" 10 $ "In mode " ++ show (umode mode)
                              convertError loc env x y
 
   spineToValues : Spine vars -> List (Core (Glued vars))
@@ -513,6 +514,12 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            then unifySpine mode fc env spx spy
            else postpone fc mode "Postponing local app"
                          env x y
+  unifyNoEta mode@(MkUnifyInfo p InMatch) fc env x@(VLocal fcx idx _ spx)
+                                                 y@(VLocal fcy idy _ spy)
+      = if idx == idy
+           then unifySpine mode fc env spx spy
+           else postpone fc mode "Postponing local app"
+                         env x y
   unifyNoEta mode fc env x@(VDCon fcx nx tx ax spx) y@(VDCon fcy ny ty ay spy)
       = if tx == ty
            then unifySpine mode fc env spx spy
@@ -531,6 +538,12 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            pure (union cs cs')
   unifyNoEta mode fc env x@(VCase{}) y@(VCase{})
       = unifyIfEq True fc mode env (asGlued x) (asGlued y)
+  unifyNoEta mode fc env (VErased _ (Dotted x)) (VErased _ (Dotted y))
+      = unifyNoEta mode fc env !(expand x) !(expand y)
+  unifyNoEta mode fc env x (VErased _ (Dotted y))
+      = unifyNoEta mode fc env x !(expand y)
+  unifyNoEta mode fc env (VErased _ (Dotted x)) y
+      = unifyNoEta mode fc env !(expand x) y
   unifyNoEta mode fc env x_in y_in
       = do x <- expand x_in
            y <- expand y_in
@@ -786,6 +799,7 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                  => do defs <- get Ctxt
                        x <- nf env xold
                        y <- nf env yold
+                       log "unify" 10 (show loc)
                        logNF "unify" 5 "Retrying" env x
                        logNF "unify" 5 "....with" env y
 
@@ -940,7 +954,8 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                             " constraints")
            progress <- traverse (retryGuess umode smode) (toList (guesses ust))
            when (any id progress) $
-                 solveConstraints umode Normal
+               do log "unify.retry" 5 "Progress made, trying again"
+                  solveConstraints umode Normal
 
   export
   solveConstraintsAfter : Int -> UnifyInfo -> (smode : SolveMode) -> Core ()
@@ -1019,6 +1034,9 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
           = do defs <- get Ctxt
                x <- nf env xold
                y <- nf env yold
+               logNF "unify.constraint" 10 "Dot" env y
+               logNF "unify.constraint" 10 "  =" env x
+
                -- A dot is okay if the constraint is solvable *without solving
                -- any additional holes*
                ust <- get UST

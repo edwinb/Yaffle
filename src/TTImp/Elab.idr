@@ -108,7 +108,9 @@ elabTermSub {vars} defining mode opts nest env env' sub tm ty
                     do update UST { delayedElab := olddelayed }
                        throw err)
          update UST { delayedElab := olddelayed }
-         solveConstraintsAfter constart solvemode MatchArgs
+         case mode of
+              InLHS _ => pure ()
+              _ => solveConstraintsAfter constart solvemode MatchArgs
 
          -- As long as we're not in the RHS of a case block,
          -- finish off constraint solving

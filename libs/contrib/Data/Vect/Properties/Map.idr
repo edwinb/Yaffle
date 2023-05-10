@@ -23,8 +23,6 @@ indexMapWithPos : (f : Fin n -> a -> b) -> (xs : Vect n a) -> (i : Fin n)
 indexMapWithPos f (x :: _ )  FZ    = Refl
 indexMapWithPos f (_ :: xs) (FS i) = indexMapWithPos _ _ _
 
-%logging "elab" 5
-%logging "unify" 10
 ||| `tabulate : (Fin n ->) -> Vect n` is a natural transformation
 export
 mapTabulate : (f : a -> b) -> (g : Fin n -> a)
@@ -35,10 +33,7 @@ mapTabulate f g = irrelevantEq $
   ~~ f (g i)                      ...(indexTabulate _ _)
   ~~ f (index i $ tabulate g)     ...(cong f (sym $ indexTabulate _ _))
   ~~ index i (map f $ tabulate g) ...(sym $ indexNaturality _ _ _)
-%logging "unify" 0
-%logging "elab" 0
 
-{-
 ||| Tabulating with the constant function is replication
 export
 tabulateConstantly : (x : a) -> Fin.tabulate {len} (const x) === replicate len  x
