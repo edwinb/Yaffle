@@ -264,7 +264,7 @@ unelabTy' umode nest env (Case fc ty c sc scty alts)
              let ty = case nty of
                            Nothing => Erased fc Placeholder
                            Just t => t
-             unelabScope fc n [<] env !(expand !(nf [<] ty)) sc
+             unelabScope fc !(getFullName n) [<] env !(expand !(nf [<] ty)) sc
     unelabAlt (DelayCase fc t a tm)
         = do let env' = env :<
                      PVar fc top Explicit (Erased fc Placeholder) :<
