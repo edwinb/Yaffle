@@ -48,6 +48,11 @@ parameters {auto c : Ref Ctxt Defs}
               then val
               else pure Nothing
 
+  convNF : {vars : _} ->
+           Ref QVar Int =>
+           Strategy -> Env Term vars ->
+           NF vars -> NF vars -> Core Bool
+
   convGen : {vars : _} ->
             Ref QVar Int =>
             Strategy -> Env Term vars ->
@@ -104,21 +109,21 @@ parameters {auto c : Ref Ctxt Defs}
            else convertAppsNF s env !(expand x) !(expand y)
 
   -- Declared above
-  -- convGen : {vars : _} ->
-  --           Ref QVar Int =>
-  --           Strategy -> Env Term vars ->
-  --           Value f vars -> Value f' vars -> Core Bool
-  convGen s env (VLam fc x r p ty sc) (VLam fc' x' r' p' ty' sc')
+  -- convNF : {vars : _} ->
+  --          Ref QVar Int =>
+  --          Strategy -> Env Term vars ->
+  --          NF vars -> NF vars -> Core Bool
+  convNF s env (VLam fc x r p ty sc) (VLam fc' x' r' p' ty' sc')
       = do True <- convGen s env ty ty' | False => pure False
            var <- genVar fc "conv"
            convGen s env !(sc (pure var)) !(sc' (pure var))
-  convGen {vars} s env tmx@(VLam fc x r p ty sc) tmy
+  convNF {vars} s env tmx@(VLam fc x r p ty sc) tmy
       = do let etay = VLam fc x r p ty (\x => apply fc tmy r x)
            convGen {f'=Normal} s env tmx etay
-  convGen {vars} s env tmx tmy@(VLam fc x r p ty sc)
+  convNF {vars} s env tmx tmy@(VLam fc x r p ty sc)
       = do let etax = VLam fc x r p ty (\x => apply fc tmx r x)
            convGen {f=Normal} s env etax tmy
-  convGen {vars} s env (VBind fc x b sc) (VBind fc' x' b' sc')
+  convNF {vars} s env (VBind fc x b sc) (VBind fc' x' b' sc')
       = do True <- convBinders b b' | False => pure False
            var <- genVar fc "conv"
            convGen s env !(sc (pure var)) !(sc' (pure var))
@@ -133,25 +138,13 @@ parameters {auto c : Ref Ctxt Defs}
                then pure False
                else convGen s env tx ty
       convBinders _ _ = pure False
-  convGen s env x@(VApp fc nt n args val) y@(VApp fc' nt' n' args' val')
-      = convertApps s env fc nt n args x fc' nt' n' args' y
-  -- If we have an App and a Meta, try to reduce first
-  convGen s env x@(VApp{}) y@(VMeta{})
-      = convertAppsNF s env !(expand x) !(expand y)
-  convGen s env x@(VMeta{}) y@(VApp{})
-      = convertAppsNF s env !(expand x) !(expand y)
-  -- If one is an App and the other isn't, try to reduce the App first
-  convGen s env (VApp fc _ n _ val) y
-      = do Just x <- tryReduce s fc n val | Nothing => pure False
-           convGen s env x y
-  convGen s env x (VApp fc _ n _ val)
-      = do Just y <- tryReduce s fc n val | Nothing => pure False
-           convGen s env x y
-  convGen s env (VLocal _ i _ sp) (VLocal _ i' _ sp')
+  convNF s env x@(VApp fc nt n args val) y@(VApp fc' nt' n' args' val')
+      = convertAppsNF s env x y
+  convNF s env (VLocal _ i _ sp) (VLocal _ i' _ sp')
       = if i == i'
            then convSpine s env sp sp'
            else pure False
-  convGen {vars} s env x@(VMeta _ _ i sc args val) y@(VMeta _ _ i' sc' args' val')
+  convNF {vars} s env x@(VMeta _ _ i sc args val) y@(VMeta _ _ i' sc' args' val')
       = do Just x <- val  | Nothing => convMeta
            Just y <- val' | Nothing => convMeta
            convGen s env !(expand x) !(expand y)
@@ -171,22 +164,22 @@ parameters {auto c : Ref Ctxt Defs}
                        convSpine s env args args'
                else pure False
   -- If one is a Metavar and the other isn't, try to reduce the Metavar first
-  convGen s env (VMeta _ _ _ _ _ val) y
-      = do Just x <- val | Nothing => pure False
-           convGen s env !(expand x) !(expand y)
-  convGen s env x (VMeta _ _ _ _ _ val)
-      = do Just y <- val | Nothing => pure False
-           convGen s env !(expand x) !(expand y)
-  convGen s env (VDCon _ n t a sp) (VDCon _ n' t' a' sp')
+--   convNF s env (VMeta _ _ _ _ _ val) y
+--       = do Just x <- val | Nothing => pure False
+--            convGen s env !(expand x) !(expand y)
+--   convNF s env x (VMeta _ _ _ _ _ val)
+--       = do Just y <- val | Nothing => pure False
+--            convGen s env !(expand x) !(expand y)
+  convNF s env (VDCon _ n t a sp) (VDCon _ n' t' a' sp')
       = if t == t'
            then convSpine s env sp sp'
            else pure False
-  convGen s env (VTCon _ n a sp) (VTCon _ n' a' sp')
+  convNF s env (VTCon _ n a sp) (VTCon _ n' a' sp')
       = if n == n'
            then convSpine s env sp sp'
            else pure False
-  convGen s env (VAs _ _ _ x) (VAs _ _ _ y) = convGen s env x y
-  convGen {vars} s env (VCase fc t r sc ty alts) (VCase _ t' r' sc' ty' alts')
+  convNF s env (VAs _ _ _ x) (VAs _ _ _ y) = convGen s env x y
+  convNF {vars} s env (VCase fc t r sc ty alts) (VCase _ t' r' sc' ty' alts')
       = do True <- convGen s env sc sc' | False => pure False
            True <- convGen s env ty ty' | False => pure False
            convAlts alts alts'
@@ -225,23 +218,23 @@ parameters {auto c : Ref Ctxt Defs}
          = do True <- convAlt x y | False => pure False
               convAlts xs ys
      convAlts _ _ = pure False
-  convGen s env (VDelayed _ r x) (VDelayed _ r' y)
+  convNF s env (VDelayed _ r x) (VDelayed _ r' y)
       = if compatible r r'
            then convGen s env x y
            else pure False
-  convGen s env (VDelay _ r _ x) (VDelay _ r' _ y)
+  convNF s env (VDelay _ r _ x) (VDelay _ r' _ y)
       = if compatible r r'
            then convGen s env x y
            else pure False
-  convGen s env (VForce _ r x spx) (VForce _ r' y spy)
+  convNF s env (VForce _ r x spx) (VForce _ r' y spy)
       = if compatible r r'
            then do True <- convGen s env x y
                        | False => pure False
                    convSpine s env spx spy
            else pure False
 
-  convGen s env (VPrimVal _ c) (VPrimVal _ c') = pure $ c == c'
-  convGen {vars} s env (VPrimOp _ fn args) (VPrimOp _ fn' args')
+  convNF s env (VPrimVal _ c) (VPrimVal _ c') = pure $ c == c'
+  convNF {vars} s env (VPrimOp _ fn args) (VPrimOp _ fn' args')
       = if sameFn fn fn'
            then convArgs args args'
            else pure False
@@ -253,14 +246,18 @@ parameters {auto c : Ref Ctxt Defs}
                     | False => pure False
                convArgs xs ys
       convArgs _ _ = pure False
-  convGen s env (VErased _ (Dotted t)) u = convGen s env t u
-  convGen s env t (VErased _ (Dotted u)) = convGen s env t u
-  convGen s env (VErased _ _) _ = pure True
-  convGen s env _ (VErased _ _) = pure True
-  convGen s env (VType fc n) (VType fc' n')
+  convNF s env (VErased _ (Dotted t)) u = convGen s env t u
+  convNF s env t (VErased _ (Dotted u)) = convGen s env t u
+  convNF s env (VErased _ _) _ = pure True
+  convNF s env _ (VErased _ _) = pure True
+  convNF s env (VType fc n) (VType fc' n')
       = do addConstraint (ULE fc n fc' n')
            pure True
-  convGen s env x y = pure False
+  convNF s env x y = pure False
+
+  convGen s env x@(VApp fc nt n args val) y@(VApp fc' nt' n' args' val')
+      = convertApps s env fc nt n args x fc' nt' n' args' y
+  convGen s env x y = convNF s env !(expand x) !(expand y)
 
   namespace Value
     export
