@@ -198,7 +198,6 @@ partitionOnto_ext  lfts rgts p (x::xs) with (@@(p x), @@(List.partition p xs))
  partitionOnto_ext lfts rgts p (x::xs) | ((True **px_tru), ((dl_l, dl_r)**dl_pf))
    = rewrite px_tru in
      rewrite dl_pf  in
-     rewrite px_tru in
      let u = partitionOnto_ext (x :: lfts) rgts p xs in
      coe (\u => (reverseOnto (x :: fst u) lfts
                 ,reverseOnto (     snd u) rgts)
@@ -207,7 +206,6 @@ partitionOnto_ext  lfts rgts p (x::xs) with (@@(p x), @@(List.partition p xs))
  partitionOnto_ext lfts rgts p (x::xs) | ((False**px_fls), ((dl_l, dl_r)**dl_pf))
    = rewrite px_fls in
      rewrite dl_pf  in
-     rewrite px_fls in
      let u = partitionOnto_ext lfts (x :: rgts) p xs in
      coe (\u => (reverseOnto (     fst u) lfts
                 ,reverseOnto (x :: snd u) rgts)

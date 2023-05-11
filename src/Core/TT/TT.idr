@@ -662,6 +662,11 @@ data CaseAlt : SnocList Name -> Type
 public export
 data CaseType = PatMatch | CaseBlock
 
+export
+Show CaseType where
+  show PatMatch = "(pat)"
+  show CaseBlock = "(expr)"
+
 -- Typechecked terms
 -- These are guaranteed to be well-scoped wrt local variables, because they are
 -- indexed by the names of local variables in scope
