@@ -660,12 +660,12 @@ data CaseAlt : SnocList Name -> Type
 -- and it's useful to know the difference so we know when to stop reducing due
 -- to a blocked top level function
 public export
-data CaseType = PatMatch | CaseBlock
+data CaseType = PatMatch | CaseBlock Name
 
 export
 Show CaseType where
   show PatMatch = "(pat)"
-  show CaseBlock = "(expr)"
+  show (CaseBlock n) = "(block " ++ show n ++ ")"
 
 -- Typechecked terms
 -- These are guaranteed to be well-scoped wrt local variables, because they are

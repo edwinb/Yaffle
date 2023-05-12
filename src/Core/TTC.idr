@@ -417,12 +417,12 @@ mutual
   export
   TTC CaseType where
     toBuf PatMatch = tag 0
-    toBuf CaseBlock = tag 1
+    toBuf (CaseBlock n) = do tag 1; toBuf n
 
     fromBuf
         = case !getTag of
                0 => pure PatMatch
-               1 => pure CaseBlock
+               1 => do n <- fromBuf; pure (CaseBlock n)
                _ => corrupt "CaseType"
 
 

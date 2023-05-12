@@ -933,7 +933,7 @@ processDef opts nest env fc n_in cs_in
                                      hashit nidx opts nest env) cs_in
          let pats = rights cs
 
-         let ct = if elem InCase opts then CaseBlock else PatMatch
+         let ct = if elem InCase opts then CaseBlock n else PatMatch
          (tree_ct, unreachable) <-
              logTime 3 ("Building compile time case tree for " ++ show n) $
                 getPMDef fc ct (CompileTime mult) n ty pats

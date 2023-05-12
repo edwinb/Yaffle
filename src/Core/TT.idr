@@ -1083,7 +1083,12 @@ addRefs ua at ns (App fc fn c arg)
     = addRefs ua at (addRefs ua at ns fn) arg
 addRefs ua at ns (As fc s as tm) = addRefs ua at ns tm
 addRefs ua at ns (Case fc t c sc scty alts)
-    = addRefAlts (addRefs ua at ns sc) alts
+    = let ns' = case t of
+                 -- if it came from a case block, record which one so that
+                 -- we can know if it's a 'case' under an assert_total
+                     CaseBlock n => insert n ua ns
+                     _ => ns in
+          addRefAlts (addRefs ua at ns' sc) alts
   where
     addRefScope : forall vars . NameMap Bool -> CaseScope vars -> NameMap Bool
     addRefScope ns (RHS _ tm) = addRefs ua at ns tm

@@ -720,6 +720,14 @@ mutual -- Bah, they are all mutual and we can't forward declare implementations 
     resolved gam (c, t) = pure $ (c, !(resolved gam t))
 
   export
+  HasNames CaseType where
+    full gam PatMatch = pure PatMatch
+    full gam (CaseBlock n) = pure $ CaseBlock !(full gam n)
+
+    resolved gam PatMatch = pure PatMatch
+    resolved gam (CaseBlock n) = pure $ CaseBlock !(resolved gam n)
+
+  export
   HasNames (Term vars) where
     full gam (Ref fc x (Resolved i))
         = do Just gdef <- lookupCtxtExact (Resolved i) gam
@@ -737,7 +745,7 @@ mutual -- Bah, they are all mutual and we can't forward declare implementations 
     full gam (As fc s p tm)
         = pure (As fc s !(full gam p) !(full gam tm))
     full gam (Case fc t c sc scTy alts)
-        = pure (Case fc t c !(full gam sc) !(full gam scTy) !(full gam alts))
+        = pure (Case fc !(full gam t) c !(full gam sc) !(full gam scTy) !(full gam alts))
     full gam (TDelayed fc x y)
         = pure (TDelayed fc x !(full gam y))
     full gam (TDelay fc x t y)
@@ -766,7 +774,7 @@ mutual -- Bah, they are all mutual and we can't forward declare implementations 
     resolved gam (As fc s p tm)
         = pure (As fc s !(resolved gam p) !(resolved gam tm))
     resolved gam (Case fc t c sc scTy alts)
-        = pure (Case fc t c !(resolved gam sc) !(resolved gam scTy) !(resolved gam alts))
+        = pure (Case fc !(resolved gam t) c !(resolved gam sc) !(resolved gam scTy) !(resolved gam alts))
     resolved gam (TDelayed fc x y)
         = pure (TDelayed fc x !(resolved gam y))
     resolved gam (TDelay fc x t y)

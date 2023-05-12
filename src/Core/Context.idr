@@ -199,6 +199,9 @@ parameters {auto c : Ref Ctxt Defs}
   inCurrentNS (UN n)
       = do defs <- get Ctxt
            pure (NS (currentNS defs) (UN n))
+  inCurrentNS n@(CaseBlock _ _)
+      = do defs <- get Ctxt
+           pure (NS (currentNS defs) n)
   inCurrentNS n@(WithBlock _ _)
       = do defs <- get Ctxt
            pure (NS (currentNS defs) n)
