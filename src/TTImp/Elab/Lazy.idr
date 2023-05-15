@@ -53,7 +53,11 @@ checkDelay rig elabinfo nest env fc tm mexpected
          -- need to infer the delay reason
          delayOnFailure fc rig elabinfo env (Just expected) delayError LazyDelay
             (\delayed =>
-                 case !(expand expected) of
+                do expected <- ifThenElse delayed
+                                 (do exp <- quote env expected
+                                     nf env exp)
+                                 (pure expected)
+                   case !(expand expected) of
                       VDelayed _ r expnf =>
                          do defs <- get Ctxt
                             (tm', gty) <- check rig elabinfo nest env tm
@@ -61,7 +65,7 @@ checkDelay rig elabinfo nest env fc tm mexpected
                             ty <- quote env gty
                             pure (TDelay fc r ty tm',
                                   VDelayed fc r gty)
-                      ty => do logNF "elab.delay" 5 "Expected delay type" env ty
+                      ty => do logNF "elab.delay" 5 ("Expected delay type (" ++ show delayed ++ ")") env ty
                                throw (GenericMsg fc ("Can't infer delay type")))
   where
     delayError : Error -> Bool
