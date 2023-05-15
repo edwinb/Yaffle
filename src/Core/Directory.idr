@@ -28,7 +28,7 @@ export
 pkgGlobalDirectory : {auto c : Ref Ctxt Defs} -> Version -> Core String
 pkgGlobalDirectory version =
   do d <- getDirs
-     pure (prefix_dir d </> "idris2-" ++ showVersion False version)
+     pure (prefix_dir d </> "yaffle-" ++ showVersion False version)
 
 export
 pkgLocalDirectory : {auto c : Ref Ctxt Defs} -> Core String

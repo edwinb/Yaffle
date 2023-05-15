@@ -1,0 +1,24 @@
+1/1: Building Holes (Holes.idr)
+Warning: Unreachable clause: f True
+
+Holes:12:1--12:7
+ 08 | Weird v =  Vect_ext ?hole0 ?hole1 ?hole2
+ 09 | 
+ 10 | f : Bool -> Nat
+ 11 | f True = 0
+ 12 | f True = ?help
+      ^^^^^^
+
+Main> Main.help : Nat
+Main>  0 a : Type
+ 0 n : Nat
+   v : Vect n a
+------------------------------
+hole0 : Vect n a
+Main>  0 a : Type
+ 0 n : Nat
+   v : Vect n a
+------------------------------
+hole1 : Vect n a
+Main> v
+Main> Bye for now!

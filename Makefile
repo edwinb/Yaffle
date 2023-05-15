@@ -135,8 +135,8 @@ endif
 .PHONY: ${TEST_PREFIX}/${NAME_VERSION}
 
 testenv:
-	@${MAKE} ${TEST_PREFIX}/${NAME_VERSION}
-	@${MAKE} -C tests testbin IDRIS2=${TARGET} #IDRIS2_PREFIX=${TEST_PREFIX}
+	${MAKE} ${TEST_PREFIX}/${NAME_VERSION}
+	${MAKE} -C tests testbin IDRIS2=${TARGET}
 
 testenv-clean:
 	$(RM) -r ${TEST_PREFIX}/${NAME_VERSION}
@@ -184,7 +184,6 @@ clean-libs:
 	${MAKE} -C libs/linear clean
 	${MAKE} -C libs/papers clean
 
-# No libs yet! clean: clean-libs support-clean testenv-clean
 clean: clean-libs support-clean testenv-clean
 	-${IDRIS2_BOOT} --clean ${IDRIS2_APP_IPKG}
 	$(RM) src/IdrisPaths.idr
@@ -230,7 +229,7 @@ install-bootstrap-libs:
 
 install-libs: install-bootstrap-libs
 	${MAKE} -C libs/contrib install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
-#	${MAKE} -C libs/test install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
+	${MAKE} -C libs/test install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
 
 install-with-src-libs:
 	${MAKE} -C libs/prelude install-with-src IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}

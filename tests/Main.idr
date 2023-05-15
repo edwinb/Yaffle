@@ -36,6 +36,19 @@ yaffleTests = MkTestPool "Yaffle" [] Nothing
                       -- be tested when building libraries
     ]
 
+idrisTestsRegression : TestPool
+idrisTestsRegression = MkTestPool "Various regressions" [] Nothing
+       -- Miscellaneous regressions
+      ["reg001", "reg002", "reg003", "reg004", "reg005", "reg006", "reg007"
+--        "reg008", "reg009", "reg010", "reg011", "reg012", "reg013", "reg014",
+--        "reg015", "reg016", "reg017", "reg018", "reg019", "reg020", "reg021",
+--        "reg022", "reg023", "reg024", "reg025", "reg026", "reg027", "reg028",
+--        "reg029", "reg030", "reg031", "reg032", "reg033", "reg034", "reg035",
+--        "reg036", "reg037", "reg038", "reg039", "reg040", "reg041", "reg042",
+--        "reg043", "reg044", "reg045", "reg046", "reg047", "reg048", "reg049",
+--        "reg050"
+      ]
+
 failingTests : TestPool
 failingTests = MkTestPool "Failing tests (PRs welcome)" [] Nothing
   [ "unify004"
@@ -45,6 +58,7 @@ main : IO ()
 main
     = runner $ [ testPaths "tt"     ttTests
                , testPaths "yaffle" yaffleTests
+               , testPaths "idris2" idrisTestsRegression
                , testPaths "tt"     failingTests]
   where
     testPaths : String -> TestPool -> TestPool

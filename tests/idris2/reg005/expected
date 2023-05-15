@@ -1,0 +1,11 @@
+1/1: Building iftype (iftype.idr)
+Error: While processing right hand side of isInListBad. Can't solve constraint between: if c then "Foo" else "Baz" and if c then "Foo" else "Bar".
+
+iftype:15:15--15:19
+ 11 | isInList = Here
+ 12 | 
+ 13 | isInListBad : Elem (ABC Bool String (\c => if c then "Foo" else "Bar"))
+ 14 |                   [(ABC Bool String (\c => if c then "Foo" else "Baz"))]
+ 15 | isInListBad = Here
+                    ^^^^
+
