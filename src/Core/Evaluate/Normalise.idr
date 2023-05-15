@@ -372,8 +372,9 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
   eval locs env (TDelay fc r ty arg)
       = pure $ VDelay fc r !(eval locs env ty) !(eval locs env arg)
   eval locs env (TForce fc r tm)
-      = do VDelay _ _ _ arg <- eval locs env tm
-               | tm' => pure $ VForce fc r tm' [<]
+      = do val <- eval locs env tm
+           VDelay _ _ _ arg <- expand val
+               | tm' => pure $ VForce fc r val [<]
            pure arg
   eval locs env (PrimVal fc c) = pure $ VPrimVal fc c
   eval {free} {vars} locs env (PrimOp fc op args)
