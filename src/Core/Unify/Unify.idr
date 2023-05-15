@@ -444,8 +444,6 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   unifyNotMetavar : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
           Value f vars -> Value f' vars -> Core UnifyResult
-  unifyNotMetavar mode fc env (VAs _ _ _ x) y = unifyNoEta mode fc env !(expand x) y
-  unifyNotMetavar mode fc env x (VAs _ _ _ y) = unifyNoEta mode fc env x !(expand y)
   -- Unifying applications means we're stuck and need to postpone, since we've
   -- already checked convertibility
   -- In 'match' or 'search'  mode, we can nevertheless unify the arguments
@@ -504,6 +502,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = if !(convert env x y)
            then pure success
            else postpone fc mode "Postponing application (right)" env x y
+  unifyNotMetavar mode fc env (VAs _ _ _ x) y = unifyNoEta mode fc env !(expand x) y
+  unifyNotMetavar mode fc env x (VAs _ _ _ y) = unifyNoEta mode fc env x !(expand y)
   unifyNotMetavar mode fc env x_in y_in
       = do x <- expand x_in
            y <- expand y_in

@@ -12,6 +12,6 @@ Yaffle> Main.ctestS ==>
 	Runtime: \({arg:0} : [__]) => let {sc:0} : Main.Nat = (Main.S (Main.plus {arg:0}[0] {arg:0}[0])) in case  {sc:0}[0] : Main.Nat of [Main.S {e:0} => case  {e:0}[0] : Main.Nat of [Main.Z => {arg:0}[2], _ => (Main.plus {e:0}[0] {e:0}[0])]]
 	[covering]
 	[Main.plus: [Just (0, Same), Just (0, Same)], Main.plus: [Nothing, Nothing]]
-	total
+	not covering due to call to function Main.case block in ctestS
 
 Yaffle> Bye for now!
