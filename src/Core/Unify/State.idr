@@ -623,3 +623,71 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   export
   checkNoGuards : Core ()
   checkNoGuards = checkUserHoles False
+
+  export
+  dumpHole : (s : String) ->
+             {auto 0 _ : KnownTopic s} ->
+             Nat -> (hole : Int) -> Core ()
+  dumpHole str n hole
+      = do ust <- get UST
+           defs <- get Ctxt
+           case !(lookupCtxtExact (Resolved hole) (gamma defs)) of
+            Nothing => pure ()
+            Just gdef => case (definition gdef, type gdef) of
+               (Guess tm envb constraints, ty) =>
+                    do logString str n $
+                         "!" ++ show !(getFullName (Resolved hole)) ++ " : "
+                             ++ show !(toFullNames !(normaliseHoles [<] ty))
+                         ++ "\n\t  = "
+                             ++ show !(normaliseHoles [<] tm)
+                             ++ "\n\twhen"
+                       traverse_ dumpConstraint constraints
+               (Hole _ p, ty) =>
+                    logString str n $
+                      "?" ++ show (fullname gdef) ++ " : "
+                          ++ show !(normaliseHoles [<] ty)
+                          ++ if implbind p then " (ImplBind)" else ""
+                          ++ if invertible gdef then " (Invertible)" else ""
+               (BySearch _ _ _, ty) =>
+                    logString str n $
+                       "Search " ++ show hole ++ " : " ++
+                       show !(toFullNames !(normaliseHoles [<] ty))
+               (ImpBind, ty) =>
+                    log str 4 $
+                        "Bound: " ++ show hole ++ " : " ++
+                        show !(normalise [<] ty)
+               (Delayed, ty) =>
+                    log str 4 $
+                       "Delayed elaborator : " ++
+                       show !(normalise [<] ty)
+               _ => pure ()
+    where
+      dumpConstraint : Int -> Core ()
+      dumpConstraint cid
+          = do ust <- get UST
+               defs <- get Ctxt
+               case lookup cid (constraints ust) of
+                    Nothing => pure ()
+                    Just Resolved => logString str n "\tResolved"
+                    Just (MkConstraint _ lazy env x y) =>
+                      do logString str n $
+                           "\t  " ++ show !(toFullNames x)
+                                  ++ " =?= " ++ show !(toFullNames y)
+                    Just (MkSeqConstraint _ _ xs ys) =>
+                         logString str n $ "\t\t" ++ show xs ++ " =?= " ++ show ys
+
+  export
+  dumpConstraints : (topics : String) ->
+                    {auto 0 _ : KnownTopic topics} ->
+                    (verbosity : Nat) ->
+                    (all : Bool) ->
+                    Core ()
+  dumpConstraints str n all
+      = do ust <- get UST
+           defs <- get Ctxt
+           when !(logging str n) $ do
+             let hs = toList (guesses ust) ++
+                      toList (if all then holes ust else currentHoles ust)
+             unless (isNil hs) $
+               do logString str n "--- CONSTRAINTS AND HOLES ---"
+                  traverse_ (dumpHole str n) (map fst hs)

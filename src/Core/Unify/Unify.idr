@@ -440,8 +440,84 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   unifyNoEta : {vars : _} ->
           UnifyInfo -> FC -> Env Term vars ->
           Value f vars -> Value f' vars -> Core UnifyResult
-  unifyNoEta mode fc env (VAs _ _ _ x) y = unifyNoEta mode fc env !(expand x) y
-  unifyNoEta mode fc env x (VAs _ _ _ y) = unifyNoEta mode fc env x !(expand y)
+
+  unifyNotMetavar : {vars : _} ->
+          UnifyInfo -> FC -> Env Term vars ->
+          Value f vars -> Value f' vars -> Core UnifyResult
+  unifyNotMetavar mode fc env (VAs _ _ _ x) y = unifyNoEta mode fc env !(expand x) y
+  unifyNotMetavar mode fc env x (VAs _ _ _ y) = unifyNoEta mode fc env x !(expand y)
+  -- Unifying applications means we're stuck and need to postpone, since we've
+  -- already checked convertibility
+  -- In 'match' or 'search'  mode, we can nevertheless unify the arguments
+  -- if the names match.
+  unifyNotMetavar mode@(MkUnifyInfo p InSearch) fc env x@(VApp _ _ nx spx _) y@(VApp _ _ ny spy _)
+      = if nx == ny
+           then unifySpine mode fc env spx spy
+           else postpone fc mode "Postponing application (search)" env x y
+  unifyNotMetavar mode@(MkUnifyInfo p InMatch) fc env x@(VApp _ _ nx spx _) y@(VApp _ _ ny spy _)
+      = if nx == ny
+           then unifySpine mode fc env spx spy
+           else postpone fc mode "Postponing application (match)" env x y
+  -- Now the cases where we're decomposing into smaller problems
+  unifyNotMetavar mode@(MkUnifyInfo p InTerm) fc env x@(VLocal fcx idx _ spx)
+                                                y@(VLocal fcy idy _ spy)
+      = if idx == idy
+           then unifySpine mode fc env spx spy
+           else postpone fc mode "Postponing local app"
+                         env x y
+  unifyNotMetavar mode@(MkUnifyInfo p InMatch) fc env x@(VLocal fcx idx _ spx)
+                                                 y@(VLocal fcy idy _ spy)
+      = if idx == idy
+           then unifySpine mode fc env spx spy
+           else postpone fc mode "Postponing local app"
+                         env x y
+  unifyNotMetavar mode fc env x@(VDCon fcx nx tx ax spx) y@(VDCon fcy ny ty ay spy)
+      = if tx == ty
+           then unifySpine mode fc env spx spy
+           else convertError fc env x y
+  unifyNotMetavar mode fc env x@(VTCon fcx nx ax spx) y@(VTCon fcy ny ay spy)
+      = if nx == ny
+           then unifySpine mode fc env spx spy
+           else convertError fc env x y
+  unifyNotMetavar mode fc env (VDelayed _ _ x) (VDelayed _ _ y)
+      = unify (lower mode) fc env x y
+  unifyNotMetavar mode fc env (VDelay _ _ tx ax) (VDelay _ _ ty ay)
+      = unifyArgs (lower mode) fc env [pure tx,pure ax] [pure ty,pure ay]
+  unifyNotMetavar mode fc env (VForce _ _ vx spx) (VForce _ _ vy spy)
+      = do cs <- unify (lower mode) fc env vx vy
+           cs' <- unifySpine (lower mode) fc env spx spy
+           pure (union cs cs')
+  unifyNotMetavar mode fc env x@(VCase{}) y@(VCase{})
+      = unifyIfEq True fc mode env (asGlued x) (asGlued y)
+  unifyNotMetavar mode fc env (VErased _ (Dotted x)) (VErased _ (Dotted y))
+      = unifyNoEta mode fc env !(expand x) !(expand y)
+  unifyNotMetavar mode fc env x (VErased _ (Dotted y))
+      = unifyNoEta mode fc env x !(expand y)
+  unifyNotMetavar mode fc env (VErased _ (Dotted x)) y
+      = unifyNoEta mode fc env !(expand x) y
+  unifyNotMetavar mode fc env x@(VApp{}) y
+      -- conversion check first, in case app is a blocked case
+      = if !(convert env x y)
+           then pure success
+           else postpone fc mode "Postponing application (left)" env x y
+  unifyNotMetavar mode fc env x y@(VApp{})
+      = if !(convert env x y)
+           then pure success
+           else postpone fc mode "Postponing application (right)" env x y
+  unifyNotMetavar mode fc env x_in y_in
+      = do x <- expand x_in
+           y <- expand y_in
+           unifyIfEq (isPostponable x || isPostponable y) fc mode env (asGlued x) (asGlued y)
+    where
+      -- If one of them is a delay, and they're not equal, we'd better
+      -- postpone and come back to it so we can insert the implicit
+      -- Force/Delay later
+      isPostponable : NF vars -> Bool
+      isPostponable (VDelayed{}) = True
+      isPostponable (VCase{}) = True
+      isPostponable (VForce{}) = True
+      isPostponable _ = False
+
   -- Deal with metavariable cases first
   -- If they're both holes, solve the one with the bigger context
   unifyNoEta mode fc env x@(VMeta fcx nx ix margsx argsx _) y@(VMeta fcy ny iy margsy argsy _)
@@ -486,76 +562,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = unifyHole False mode fc env fcm n i margs args (asGlued tm)
   unifyNoEta mode fc env tm (VMeta fcm n i margs args _)
       = unifyHole True mode fc env fcm n i margs args (asGlued tm)
-  -- Unifying applications means we're stuck and need to postpone, since we've
-  -- already checked convertibility
-  -- In 'match' or 'search'  mode, we can nevertheless unify the arguments
-  -- if the names match.
-  unifyNoEta mode@(MkUnifyInfo p InSearch) fc env x@(VApp _ _ nx spx _) y@(VApp _ _ ny spy _)
-      = if nx == ny
-           then unifySpine mode fc env spx spy
-           else postpone fc mode "Postponing application (search)" env x y
-  unifyNoEta mode@(MkUnifyInfo p InMatch) fc env x@(VApp _ _ nx spx _) y@(VApp _ _ ny spy _)
-      = if nx == ny
-           then unifySpine mode fc env spx spy
-           else postpone fc mode "Postponing application (match)" env x y
-  unifyNoEta mode fc env x@(VApp{}) y
-      -- conversion check first, in case app is a blocked case
-      = if !(convert env x y)
-           then pure success
-           else postpone fc mode "Postponing application (left)" env x y
-  unifyNoEta mode fc env x y@(VApp{})
-      = if !(convert env x y)
-           then pure success
-           else postpone fc mode "Postponing application (right)" env x y
-  -- Now the cases where we're decomposing into smaller problems
-  unifyNoEta mode@(MkUnifyInfo p InTerm) fc env x@(VLocal fcx idx _ spx)
-                                                y@(VLocal fcy idy _ spy)
-      = if idx == idy
-           then unifySpine mode fc env spx spy
-           else postpone fc mode "Postponing local app"
-                         env x y
-  unifyNoEta mode@(MkUnifyInfo p InMatch) fc env x@(VLocal fcx idx _ spx)
-                                                 y@(VLocal fcy idy _ spy)
-      = if idx == idy
-           then unifySpine mode fc env spx spy
-           else postpone fc mode "Postponing local app"
-                         env x y
-  unifyNoEta mode fc env x@(VDCon fcx nx tx ax spx) y@(VDCon fcy ny ty ay spy)
-      = if tx == ty
-           then unifySpine mode fc env spx spy
-           else convertError fc env x y
-  unifyNoEta mode fc env x@(VTCon fcx nx ax spx) y@(VTCon fcy ny ay spy)
-      = if nx == ny
-           then unifySpine mode fc env spx spy
-           else convertError fc env x y
-  unifyNoEta mode fc env (VDelayed _ _ x) (VDelayed _ _ y)
-      = unify (lower mode) fc env x y
-  unifyNoEta mode fc env (VDelay _ _ tx ax) (VDelay _ _ ty ay)
-      = unifyArgs (lower mode) fc env [pure tx,pure ax] [pure ty,pure ay]
-  unifyNoEta mode fc env (VForce _ _ vx spx) (VForce _ _ vy spy)
-      = do cs <- unify (lower mode) fc env vx vy
-           cs' <- unifySpine (lower mode) fc env spx spy
-           pure (union cs cs')
-  unifyNoEta mode fc env x@(VCase{}) y@(VCase{})
-      = unifyIfEq True fc mode env (asGlued x) (asGlued y)
-  unifyNoEta mode fc env (VErased _ (Dotted x)) (VErased _ (Dotted y))
-      = unifyNoEta mode fc env !(expand x) !(expand y)
-  unifyNoEta mode fc env x (VErased _ (Dotted y))
-      = unifyNoEta mode fc env x !(expand y)
-  unifyNoEta mode fc env (VErased _ (Dotted x)) y
-      = unifyNoEta mode fc env !(expand x) y
-  unifyNoEta mode fc env x_in y_in
-      = do x <- expand x_in
-           y <- expand y_in
-           unifyIfEq (isPostponable x || isPostponable y) fc mode env (asGlued x) (asGlued y)
-    where
-      -- If one of them is a delay, and they're not equal, we'd better
-      -- postpone and come back to it so we can insert the implicit
-      -- Force/Delay later
-      isPostponable : NF vars -> Bool
-      isPostponable (VDelayed{}) = True
-      isPostponable (VCase{}) = True
-      isPostponable _ = False
+  unifyNoEta mode fc env tm tm' = unifyNotMetavar mode fc env tm tm'
 
   mkArg : FC -> Name -> Core (Glued vars)
   mkArg fc var = pure $ VApp fc Bound var [<] (pure Nothing)
@@ -800,7 +807,8 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                        x <- nf env xold
                        y <- nf env yold
                        log "unify" 10 (show loc)
-                       logNF "unify" 5 "Retrying" env x
+                       logNF "unify" 5 ("Retrying " ++ show c ++ " " ++ show (umode mode))
+                             env x
                        logNF "unify" 5 "....with" env y
 
                        catch
@@ -1018,6 +1026,10 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
   checkDots
       = do ust <- get UST
            hs <- getCurrentHoles
+           log "unify.constraint" 5 ("Dot with " ++
+                            show (length (toList (guesses ust))) ++
+                            " constraints")
+           dumpConstraints "unify.constraint" 15 True
            traverse_ checkConstraint (reverse (dotConstraints ust))
            hs <- getCurrentHoles
            update UST { dotConstraints := [] }
