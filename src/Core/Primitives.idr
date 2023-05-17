@@ -18,13 +18,13 @@ record Prim where
   totality : Totality
 
 binOp : (Constant -> Constant -> Maybe Constant) ->
-        {vars : _} -> Vect 2 (NF vars) -> Maybe (NF vars)
+        Vect 2 (NF vars) -> Maybe (NF vars)
 binOp fn [VPrimVal fc x, VPrimVal _ y]
     = map (VPrimVal fc) (fn x y)
 binOp _ _ = Nothing
 
 unaryOp : (Constant -> Maybe Constant) ->
-          {vars : _} -> Vect 1 (NF vars) -> Maybe (NF vars)
+          Vect 1 (NF vars) -> Maybe (NF vars)
 unaryOp fn [VPrimVal fc x]
     = map (VPrimVal fc) (fn x)
 unaryOp _ _ = Nothing
@@ -462,7 +462,7 @@ doubleExp = doubleOp exp
 doubleLog : Vect 1 (NF vars) -> Maybe (NF vars)
 doubleLog = doubleOp log
 
-doublePow : {vars : _ } -> Vect 2 (NF vars) -> Maybe (NF vars)
+doublePow : Vect 2 (NF vars) -> Maybe (NF vars)
 doublePow = binOp pow'
     where pow' : Constant -> Constant -> Maybe Constant
           pow' (Db x) (Db y) = pure $ Db (pow x y)
@@ -566,7 +566,7 @@ castTo WorldType = const Nothing
 
 export
 getOp : {0 arity : Nat} -> PrimFn arity ->
-        {vars : SnocList Name} -> Vect arity (NF vars) -> Maybe (NF vars)
+        {0 vars : SnocList Name} -> Vect arity (NF vars) -> Maybe (NF vars)
 getOp (Add ty) = binOp add
 getOp (Sub ty) = binOp sub
 getOp (Mul ty) = binOp mul

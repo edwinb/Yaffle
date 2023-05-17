@@ -119,7 +119,7 @@ mkEnv {vars} ext = rewrite sym (appendLinLeftNeutral ns) in go ext [<]
 
 parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
 
-  runOp : {ar, vars : _} ->
+  runOp : {ar : _} ->
           FC -> PrimFn ar -> Vect ar (Glued vars) -> Core (NF vars)
   runOp fc op args
       = do args' <- traverseVect expand args
@@ -130,13 +130,11 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
 
   -- Forward declared since these are all mutual
   export
-  eval : {vars : _} ->
-         LocalEnv free vars ->
+  eval : LocalEnv free vars ->
          Env Term vars ->
          Term (vars ++ free) -> Core (Glued vars)
 
-  evalCaseAlt : {vars : _} ->
-                LocalEnv free vars -> Env Term vars ->
+  evalCaseAlt : LocalEnv free vars -> Env Term vars ->
                 CaseAlt (vars ++ free) ->
                 Core (VCaseAlt vars)
   evalCaseAlt {vars} {free} locs env (ConCase fc n tag scope)
@@ -173,8 +171,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
   evalCaseAlt locs env (DefaultCase fc tm)
       = pure $ VDefaultCase fc !(eval locs env tm)
 
-  blockedCase : {vars : _} ->
-                FC -> LocalEnv free vars -> Env Term vars ->
+  blockedCase : FC -> LocalEnv free vars -> Env Term vars ->
                 CaseType -> RigCount ->
                 (sc : NF vars) -> (scTy : Term (vars ++ free)) ->
                 List (CaseAlt (vars ++ free)) ->
@@ -186,8 +183,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
 
   -- We've turned the spine into a list so that the argument positions
   -- correspond when going through the CaseScope
-  evalCaseScope : {vars : _} ->
-                  LocalEnv free vars -> Env Term vars ->
+  evalCaseScope : LocalEnv free vars -> Env Term vars ->
                   List (FC, RigCount, Core (Glued vars)) -> CaseScope (vars ++ free) ->
                   Core (Glued vars) -> -- what to do if stuck
                   Core (Glued vars)
@@ -196,8 +192,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
       = evalCaseScope (locs :< v) env sp sc stuck
   evalCaseScope _ _ _ _ stuck = stuck
 
-  tryAlts : {vars : _} ->
-            LocalEnv free vars -> Env Term vars ->
+  tryAlts : LocalEnv free vars -> Env Term vars ->
             (sc : NF vars) -> -- scrutinee, which we assume to be in
                   -- canonical form since we've checked (so not blocked)
             List (CaseAlt (vars ++ free)) ->
@@ -221,8 +216,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
   tryAlts locs env sc (a :: as) stuck = tryAlts locs env sc as stuck
   tryAlts locs env sc [] stuck = stuck
 
-  evalCase : {vars : _} ->
-             FC -> LocalEnv free vars -> Env Term vars ->
+  evalCase : FC -> LocalEnv free vars -> Env Term vars ->
              CaseType -> RigCount -> (sc : NF vars) -> (scTy : Term (vars ++ free)) ->
              List (CaseAlt (vars ++ free)) ->
              Core (Glued vars)
@@ -239,9 +233,10 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
       isCanonical (VDelay{}) = True
       isCanonical (VPrimVal{}) = True
       isCanonical (VType{}) = True
+      isCanonical (VErased _ (Dotted t)) = isCanonical t
       isCanonical _ = False
 
-  evalLocal : {vars, idx : _} ->
+  evalLocal : {idx : _} ->
               Env Term vars ->
               FC -> (0 p : IsVar n idx (vars ++ free)) ->
               LocalEnv free vars ->
@@ -261,8 +256,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
   evalLocal env fc First (locs :< x) = x
   evalLocal env fc (Later p) (locs :< x) = evalLocal env fc p locs
 
-  evalPiInfo : {vars : _} ->
-               LocalEnv free vars ->
+  evalPiInfo : LocalEnv free vars ->
                Env Term vars ->
                PiInfo (Term (vars ++ free)) ->
                Core (PiInfo (Glued vars))
@@ -273,8 +267,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
       = do x' <- eval locs env x
            pure (DefImplicit x')
 
-  evalBinder : {vars : _} ->
-               LocalEnv free vars ->
+  evalBinder : LocalEnv free vars ->
                Env Term vars ->
                Binder (Term (vars ++ free)) ->
                Core (Binder (Glued vars))
@@ -291,8 +284,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
   evalBinder locs env (PVTy fc c ty)
      = pure $ PVTy fc c !(eval locs env ty)
 
-  evalMeta : {vars : _} ->
-             LocalEnv free vars ->
+  evalMeta : LocalEnv free vars ->
              Env Term vars ->
              FC -> Name -> Int -> List (RigCount, Term (vars ++ free)) ->
              Core (Glued vars)
@@ -317,8 +309,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
       reduceForTC Totality c = not (isErased c)
       reduceForTC _ _ = False
 
-  evalRef : {vars : _} ->
-            LocalEnv free vars ->
+  evalRef : LocalEnv free vars ->
             Env Term vars ->
             FC -> NameType -> Name ->
             Core (Glued vars)
@@ -342,8 +333,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
       reduceForTC Totality f = elem TCInline f
       reduceForTC _ _ = False
 
-  evalBind : {vars : _} ->
-         LocalEnv free vars ->
+  evalBind : LocalEnv free vars ->
          Env Term vars ->
          FC -> (x : Name) -> (b : Binder (Term (vars ++ free))) ->
          (scope : (Term ((vars ++ free) :< x))) ->
@@ -363,8 +353,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
                      (\arg => eval (locs :< arg) env sc)
 
 --   Declared above with this type:
---   eval : {vars : _} ->
---          LocalEnv free vars ->
+--   eval : LocalEnv free vars ->
 --          Env Term vars ->
 --          Term (vars ++ free) -> Core (Glued vars)
   eval locs env (Local fc idx p) = evalLocal env fc p locs
@@ -372,7 +361,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
   eval locs env (Meta fc n i scope)
        = evalMeta locs env fc n i scope
   eval locs env (Bind fc x b sc) = evalBind locs env fc x b sc
-  eval locs env (App fc fn q arg)
+  eval locs env tm@(App fc fn q arg)
       = apply fc !(eval locs env fn) q (eval locs env arg)
   eval locs env (As fc use as pat)
       = case eflags of
@@ -421,21 +410,17 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
 parameters {auto c : Ref Ctxt Defs}
 
   export
-  nf : {vars : _} ->
-       Env Term vars -> Term vars -> Core (Glued vars)
+  nf : Env Term vars -> Term vars -> Core (Glued vars)
   nf = eval Full [<]
 
   export
-  nfLHS : {vars : _} ->
-          Env Term vars -> Term vars -> Core (Glued vars)
+  nfLHS : Env Term vars -> Term vars -> Core (Glued vars)
   nfLHS = eval KeepAs [<]
 
   export
-  nfKeepLet : {vars : _} ->
-          Env Term vars -> Term vars -> Core (Glued vars)
+  nfKeepLet : Env Term vars -> Term vars -> Core (Glued vars)
   nfKeepLet = eval KeepLet [<]
 
   export
-  nfTotality : {vars : _} ->
-          Env Term vars -> Term vars -> Core (Glued vars)
+  nfTotality : Env Term vars -> Term vars -> Core (Glued vars)
   nfTotality = eval Totality [<]

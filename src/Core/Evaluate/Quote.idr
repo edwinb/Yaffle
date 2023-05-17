@@ -55,12 +55,12 @@ applySpine tm (args :< (fc, q, arg)) = App fc (applySpine tm args) q arg
 
 parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 
-  quoteGen : {bound, vars : _} ->
+  quoteGen : {bound : _} ->
              Bounds bound -> Env Term vars ->
              Value f vars -> Strategy -> Core (Term (vars ++ bound))
 
   -- probably ought to make traverse work on SnocList/Vect too
-  quoteSpine : {bound, vars : _} ->
+  quoteSpine : {bound : _} ->
                Strategy -> Bounds bound -> Env Term vars ->
                Spine vars -> Core (SnocList (FC, RigCount, Term (vars ++ bound)))
   quoteSpine s bounds env [<] = pure [<]
@@ -71,7 +71,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   mkTmpVar : FC -> Name -> Core (Glued vars)
   mkTmpVar fc n = pure $ VApp fc Bound n [<] (pure Nothing)
 
-  quoteAlt : {bound, vars : _} ->
+  quoteAlt : {bound : _} ->
              Strategy -> Bounds bound -> Env Term vars ->
              VCaseAlt vars -> Core (CaseAlt (vars ++ bound))
   quoteAlt {vars} s bounds env (VConCase fc n t a sc)
@@ -117,7 +117,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       = do sc' <- quoteGen bounds env sc s
            pure (DefaultCase fc sc')
 
-  quotePi : {bound, vars : _} ->
+  quotePi : {bound : _} ->
             Strategy -> Bounds bound -> Env Term vars ->
             PiInfo (Glued vars) -> Core (PiInfo (Term (vars ++ bound)))
   quotePi s bounds env Explicit = pure Explicit
@@ -127,7 +127,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       = do t' <- quoteGen bounds env t s
            pure (DefImplicit t')
 
-  quoteBinder : {bound, vars : _} ->
+  quoteBinder : {bound : _} ->
                 Strategy -> Bounds bound -> Env Term vars ->
                 Binder (Glued vars) -> Core (Binder (Term (vars ++ bound)))
   quoteBinder s bounds env (Lam fc r p ty)
@@ -321,33 +321,28 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
   quoteGen bounds env (VType fc n) s = pure $ TType fc n
 
 parameters {auto c : Ref Ctxt Defs}
-  quoteStrategy : {vars : _} ->
-            Strategy -> Env Term vars -> Value f vars -> Core (Term vars)
+  quoteStrategy : Strategy -> Env Term vars -> Value f vars -> Core (Term vars)
   quoteStrategy s env val
       = do q <- newRef QVar 100
            quoteGen None env val s
 
   export
-  quoteNFall : {vars : _} ->
-            Env Term vars -> Value f vars -> Core (Term vars)
+  quoteNFall : Env Term vars -> Value f vars -> Core (Term vars)
   quoteNFall = quoteStrategy (NF Nothing)
 
   export
-  quoteHNFall : {vars : _} ->
-          Env Term vars -> Value f vars -> Core (Term vars)
+  quoteHNFall : Env Term vars -> Value f vars -> Core (Term vars)
   quoteHNFall = quoteStrategy (HNF Nothing)
 
   export
-  quoteNF : {vars : _} ->
-            Env Term vars -> Value f vars -> Core (Term vars)
+  quoteNF : Env Term vars -> Value f vars -> Core (Term vars)
   quoteNF env val
       = do defs <- get Ctxt
            quoteStrategy (NF (Just (currentNS defs :: nestedNS defs)))
                          env val
 
   export
-  quoteHNF : {vars : _} ->
-            Env Term vars -> Value f vars -> Core (Term vars)
+  quoteHNF : Env Term vars -> Value f vars -> Core (Term vars)
   quoteHNF env val
       = do defs <- get Ctxt
            quoteStrategy (HNF (Just (currentNS defs :: nestedNS defs)))
@@ -355,22 +350,18 @@ parameters {auto c : Ref Ctxt Defs}
 
   -- Keep quoting while we're still going under binders
   export
-  quoteBinders : {vars : _} ->
-          Env Term vars -> Value f vars -> Core (Term vars)
+  quoteBinders : Env Term vars -> Value f vars -> Core (Term vars)
   quoteBinders = quoteStrategy Binders
 
   -- Keep quoting while we're still going under binders
   export
-  quoteOnePi : {vars : _} ->
-          Env Term vars -> Value f vars -> Core (Term vars)
+  quoteOnePi : Env Term vars -> Value f vars -> Core (Term vars)
   quoteOnePi = quoteStrategy OnePi
 
   export
-  quoteHoles : {vars : _} ->
-          Env Term vars -> Value f vars -> Core (Term vars)
+  quoteHoles : Env Term vars -> Value f vars -> Core (Term vars)
   quoteHoles = quoteStrategy ExpandHoles
 
   export
-  quote : {vars : _} ->
-          Env Term vars -> Value f vars -> Core (Term vars)
+  quote : Env Term vars -> Value f vars -> Core (Term vars)
   quote = quoteStrategy BlockApp

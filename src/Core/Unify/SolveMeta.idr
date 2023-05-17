@@ -22,8 +22,7 @@ import Libraries.Data.NameMap
 -- We use this to check that the pattern unification rule is applicable
 -- when solving a metavariable applied to arguments
 -- ASSUMPTION: VApp has been reduced first
-getVars : {vars : _} ->
-          List Nat -> SnocList (NF vars) -> Maybe (SnocList (Var vars))
+getVars : List Nat -> SnocList (NF vars) -> Maybe (SnocList (Var vars))
 getVars got [<] = Just [<]
 getVars got (xs :< VLocal fc idx v [<])
     = if inArgs idx got then Nothing
