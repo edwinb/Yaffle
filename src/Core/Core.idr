@@ -82,19 +82,16 @@ export %inline
 ma >> mb = ma >>= const mb
 
 -- Flipped bind
-infixr 1 =<<
 export %inline
 (=<<) : (a -> CoreE err b) -> CoreE err a -> CoreE err b
 (=<<) = flip (>>=)
 
 -- Kleisli compose
-infixr 1 >=>
 export %inline
 (>=>) : (a -> CoreE err b) -> (b -> CoreE err c) -> (a -> CoreE err c)
 f >=> g = (g =<<) . f
 
 -- Flipped kleisli compose
-infixr 1 <=<
 export %inline
 (<=<) : (b -> CoreE err c) -> (a -> CoreE err b) -> (a -> CoreE err c)
 (<=<) = flip (>=>)

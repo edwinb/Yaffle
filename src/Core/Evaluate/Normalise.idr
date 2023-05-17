@@ -247,12 +247,17 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
               LocalEnv free vars ->
               Core (Glued vars)
   evalLocal env fc p [<]
-      = case eflags of
-             KeepAs => pure $ VLocal fc _ p [<]
-             KeepLet => pure $ VLocal fc _ p [<]
-             _ => case getLet p env of
-                       Just val => eval [<] env val
-                       _ => pure $ VLocal fc _ p [<]
+      = let loc = VLocal fc _ p [<] in
+        if keepBinder eflags
+           then pure loc
+           else case getLet p env of
+                     Nothing => pure loc
+                     Just val => eval [<] env val
+    where
+      keepBinder : EvalFlags -> Bool
+      keepBinder KeepAs = True
+      keepBinder KeepLet = True
+      keepBinder _ = False
   evalLocal env fc First (locs :< x) = x
   evalLocal env fc (Later p) (locs :< x) = evalLocal env fc p locs
 
@@ -286,32 +291,12 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
   evalBinder locs env (PVTy fc c ty)
      = pure $ PVTy fc c !(eval locs env ty)
 
---   Declared above with this type:
---   eval : {vars : _} ->
---          LocalEnv free vars ->
---          Env Term vars ->
---          Term (vars ++ free) -> Core (Glued vars)
-  eval locs env (Local fc idx p) = evalLocal env fc p locs
-  eval locs env (Ref fc (DataCon t a) n)
-      = pure $ VDCon fc n t a [<]
-  eval locs env (Ref fc (TyCon a) n)
-      = pure $ VTCon fc n a [<]
-  eval locs env tm@(Ref fc nt n)
-      = do defs <- get Ctxt
-           Just def <- lookupCtxtExact n (gamma defs)
-                | Nothing => pure (VApp fc nt n [<] (pure Nothing))
-           let Function fi fn _ _ = definition def
-                | _ => pure (VApp fc nt n [<] (pure Nothing))
-           if alwaysReduce fi || (reduceForTC eflags (flags def))
-              then eval locs env (embed fn)
-              else pure $ VApp fc nt n [<] $
-                          do res <- eval locs env (embed fn)
-                             pure (Just res)
-    where
-      reduceForTC : EvalFlags -> List DefFlag -> Bool
-      reduceForTC Totality f = elem TCInline f
-      reduceForTC _ _ = False
-  eval locs env (Meta fc n i scope)
+  evalMeta : {vars : _} ->
+             LocalEnv free vars ->
+             Env Term vars ->
+             FC -> Name -> Int -> List (RigCount, Term (vars ++ free)) ->
+             Core (Glued vars)
+  evalMeta locs env fc n i scope
        = do scope' <- traverse (\ (q, val) =>
                                      do let val' = eval locs env val
                                         pure (q, val')) scope
@@ -331,19 +316,62 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
       reduceForTC : EvalFlags -> RigCount -> Bool
       reduceForTC Totality c = not (isErased c)
       reduceForTC _ _ = False
-  eval locs env (Bind fc x (Lam bfc r p ty) sc)
+
+  evalRef : {vars : _} ->
+            LocalEnv free vars ->
+            Env Term vars ->
+            FC -> NameType -> Name ->
+            Core (Glued vars)
+  evalRef locs env fc (DataCon t a) n
+      = pure $ VDCon fc n t a [<]
+  evalRef locs env fc (TyCon a) n
+      = pure $ VTCon fc n a [<]
+  evalRef locs env fc nt n
+      = do defs <- get Ctxt
+           Just def <- lookupCtxtExact n (gamma defs)
+                | Nothing => pure (VApp fc nt n [<] (pure Nothing))
+           let Function fi fn _ _ = definition def
+                | _ => pure (VApp fc nt n [<] (pure Nothing))
+           if alwaysReduce fi || (reduceForTC eflags (flags def))
+              then eval locs env (embed fn)
+              else pure $ VApp fc nt n [<] $
+                          do res <- eval locs env (embed fn)
+                             pure (Just res)
+    where
+      reduceForTC : EvalFlags -> List DefFlag -> Bool
+      reduceForTC Totality f = elem TCInline f
+      reduceForTC _ _ = False
+
+  evalBind : {vars : _} ->
+         LocalEnv free vars ->
+         Env Term vars ->
+         FC -> (x : Name) -> (b : Binder (Term (vars ++ free))) ->
+         (scope : (Term ((vars ++ free) :< x))) ->
+         Core (Glued vars)
+  evalBind locs env fc x (Lam bfc r p ty) sc
       = pure $ VLam fc x r !(evalPiInfo locs env p) !(eval locs env ty)
-                    (\arg => eval (locs :< arg) env sc)
-  eval locs env (Bind fc x b@(Let bfc c val ty) sc)
+                        (\arg => eval (locs :< arg) env sc)
+  evalBind locs env fc x b@(Let bfc c val ty) sc
       = case eflags of
              KeepLet =>
                   pure $ VBind fc x !(evalBinder locs env b)
                                (\arg => eval (locs :< arg) env sc)
              _ => do val' <- eval locs env val
                      eval (locs :< pure val') env sc
-  eval locs env (Bind fc x b sc)
+  evalBind locs env fc x b sc
       = pure $ VBind fc x !(evalBinder locs env b)
                      (\arg => eval (locs :< arg) env sc)
+
+--   Declared above with this type:
+--   eval : {vars : _} ->
+--          LocalEnv free vars ->
+--          Env Term vars ->
+--          Term (vars ++ free) -> Core (Glued vars)
+  eval locs env (Local fc idx p) = evalLocal env fc p locs
+  eval locs env (Ref fc nt n) = evalRef locs env fc nt n
+  eval locs env (Meta fc n i scope)
+       = evalMeta locs env fc n i scope
+  eval locs env (Bind fc x b sc) = evalBind locs env fc x b sc
   eval locs env (App fc fn q arg)
       = apply fc !(eval locs env fn) q (eval locs env arg)
   eval locs env (As fc use as pat)

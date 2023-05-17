@@ -33,11 +33,10 @@ lengthExplicitPi (rho :< _) = lengthExplicitPi rho
 -- in big environments
 -- Also reversing the names at the end saves significant time over concatenating
 -- when environments get fairly big.
-getBinderUnder : Weaken tm =>
-                 {vars : _} -> {idx : Nat} ->
+getBinderUnder : {vars : _} -> {idx : Nat} ->
                  (ns : SnocList Name) ->
-                 (0 p : IsVar x idx vars) -> Env tm vars ->
-                 Binder (tm (reverseOnto vars ns))
+                 (0 p : IsVar x idx vars) -> Env Term vars ->
+                 Binder (Term (reverseOnto vars ns))
 getBinderUnder {idx = Z} {vars = vs :< v} ns First (env :< b)
     = rewrite revOnto (vs :< x) ns in
         rewrite sym $ appendAssociative vs [<v] (reverse ns) in
@@ -46,9 +45,8 @@ getBinderUnder {idx = S k} {vars = vs :< v} ns (Later lp) (env :< b)
     = getBinderUnder (ns :< v) lp env
 
 export
-getBinder : Weaken tm =>
-            {vars : _} -> {idx : Nat} ->
-            (0 p : IsVar x idx vars) -> Env tm vars -> Binder (tm vars)
+getBinder : {vars : _} -> {idx : Nat} ->
+            (0 p : IsVar x idx vars) -> Env Term vars -> Binder (Term vars)
 getBinder el env = getBinderUnder [<] el env
 
 -- For getBinderLoc, we are not reusing getBinder because there is no need to
@@ -58,11 +56,10 @@ getBinderLoc : {vars : _} -> {idx : Nat} -> (0 p : IsVar x idx vars) -> Env tm v
 getBinderLoc {idx = Z}   First     (_ :< b)   = binderLoc b
 getBinderLoc {idx = S k} (Later p) (env :< _) = getBinderLoc p env
 
-getLetUnder : Weaken tm =>
-                 {vars : _} -> {idx : Nat} ->
+getLetUnder : {vars : _} -> {idx : Nat} ->
                  (ns : SnocList Name) ->
-                 (0 p : IsVar x idx vars) -> Env tm vars ->
-                 Maybe (tm (reverseOnto vars ns))
+                 (0 p : IsVar x idx vars) -> Env Term vars ->
+                 Maybe (Term (reverseOnto vars ns))
 getLetUnder {idx = Z} {vars = vs :< v} ns First (env :< Let _ _ val _)
     = rewrite revOnto (vs :< x) ns in
         rewrite sym $ appendAssociative vs [<v] (reverse ns) in
@@ -74,9 +71,8 @@ getLetUnder _ _ _ = Nothing
 -- as getBinder but only return result if it's a let bound name
 -- to save unnecessary weakening
 export
-getLet : Weaken tm =>
-         {vars : _} -> {idx : Nat} ->
-         (0 p : IsVar x idx vars) -> Env tm vars -> Maybe (tm vars)
+getLet : {vars : _} -> {idx : Nat} ->
+         (0 p : IsVar x idx vars) -> Env Term vars -> Maybe (Term vars)
 getLet el env = getLetUnder [<] el env
 
 public export
