@@ -216,11 +216,12 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
   tryAlts locs env sc (a :: as) stuck = tryAlts locs env sc as stuck
   tryAlts locs env sc [] stuck = stuck
 
-  evalCase : FC -> LocalEnv free vars -> Env Term vars ->
+  evalCaseBlock
+           : FC -> LocalEnv free vars -> Env Term vars ->
              CaseType -> RigCount -> (sc : NF vars) -> (scTy : Term (vars ++ free)) ->
              List (CaseAlt (vars ++ free)) ->
              Core (Glued vars)
-  evalCase fc locs env t r sc ty alts
+  evalCaseBlock fc locs env t r sc ty alts
       = if isCanonical sc
            then tryAlts locs env sc alts (blockedCase fc locs env t r sc ty alts)
            else blockedCase fc locs env t r sc ty alts
@@ -235,6 +236,26 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
       isCanonical (VType{}) = True
       isCanonical (VErased _ (Dotted t)) = isCanonical t
       isCanonical _ = False
+
+  evalCase : LocalEnv free vars ->
+             Env Term vars ->
+             FC -> CaseType -> RigCount ->
+             Term (vars ++ free) -> Term (vars ++ free) ->
+             List (CaseAlt (vars ++ free)) -> Core (Glued vars)
+  evalCase locs env fc t r sc ty alts
+      = do sc' <- case eflags of
+                       -- Don't expand in totality mode or we might reduce too
+                       -- much
+                       Totality => believe_me $ eval locs env sc
+                       _ => expand !(eval locs env sc)
+           locs' <- case sc of
+                         Local _ _ p => pure $ updateEnv locs p (pure (asGlued sc'))
+                         _ => pure locs
+           evalCaseBlock fc locs' env t r (stripAs sc') ty alts
+    where
+      stripAs : Value f vars -> Value f vars
+      stripAs (VAs _ _ _ p) = stripAs p
+      stripAs x = x
 
   evalLocal : {idx : _} ->
               Env Term vars ->
@@ -352,6 +373,30 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
       = pure $ VBind fc x !(evalBinder locs env b)
                      (\arg => eval (locs :< arg) env sc)
 
+  evalForce : LocalEnv free vars ->
+              Env Term vars ->
+              FC -> LazyReason -> Term (vars ++ free) ->
+              Core (Glued vars)
+  evalForce locs env fc r tm =
+      do val <- eval locs env tm
+         VDelay _ _ _ arg <- expand val
+             | tm' => pure $ VForce fc r val [<]
+         pure arg
+
+  evalPrimOp : {arity : _} ->
+               LocalEnv free vars ->
+               Env Term vars ->
+               FC -> PrimFn arity -> Vect arity (Term (vars ++ free)) ->
+               Core (Glued vars)
+  evalPrimOp {free} {vars} locs env fc op args
+      = do nf <- runOp fc op !(evalArgs args)
+           pure (believe_me nf) -- switch back to Glued
+    where
+      -- No traverse for Vect in Core...
+      evalArgs : Vect n (Term (vars ++ free)) -> Core (Vect n (Glued vars))
+      evalArgs [] = pure []
+      evalArgs (a :: as) = pure $ !(eval locs env a) :: !(evalArgs as)
+
 --   Declared above with this type:
 --   eval : LocalEnv free vars ->
 --          Env Term vars ->
@@ -371,38 +416,16 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
                                           !(eval locs env pat)
              _ => eval locs env pat
   eval locs env (Case fc t r sc ty alts)
-      = do sc' <- case eflags of
-                       -- Don't expand in totality mode or we might reduce too
-                       -- much
-                       Totality => believe_me $ eval locs env sc
-                       _ => expand !(eval locs env sc)
-           locs' <- case sc of
-                         Local _ _ p => pure $ updateEnv locs p (pure (asGlued sc'))
-                         _ => pure locs
-           evalCase fc locs' env t r (stripAs sc') ty alts
-    where
-      stripAs : Value f vars -> Value f vars
-      stripAs (VAs _ _ _ p) = stripAs p
-      stripAs x = x
+      = evalCase locs env fc t r sc ty alts
   eval locs env (TDelayed fc r tm)
       = pure $ VDelayed fc r !(eval locs env tm)
   eval locs env (TDelay fc r ty arg)
       = pure $ VDelay fc r !(eval locs env ty) !(eval locs env arg)
   eval locs env (TForce fc r tm)
-      = do val <- eval locs env tm
-           VDelay _ _ _ arg <- expand val
-               | tm' => pure $ VForce fc r val [<]
-           pure arg
+      = evalForce locs env fc r tm
   eval locs env (PrimVal fc c) = pure $ VPrimVal fc c
   eval {free} {vars} locs env (PrimOp fc op args)
-      = do nf <- runOp fc op !(evalArgs args)
-           pure (believe_me nf) -- switch back to Glued
-    where
-      -- No traverse for Vect in Core...
-      evalArgs : Vect n (Term (vars ++ free)) -> Core (Vect n (Glued vars))
-      evalArgs [] = pure []
-      evalArgs (a :: as) = pure $ !(eval locs env a) :: !(evalArgs as)
-
+      = evalPrimOp locs env fc op args
   eval locs env (Erased fc why) = VErased fc <$> traverse @{%search} @{CORE} (eval locs env) why
   eval locs env (Unmatched fc str) = pure $ VUnmatched fc str
   eval locs env (TType fc n) = pure $ VType fc n
