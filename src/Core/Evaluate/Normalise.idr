@@ -192,28 +192,39 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
       = evalCaseScope (locs :< v) env sp sc stuck
   evalCaseScope _ _ _ _ stuck = stuck
 
+  tryAlt : LocalEnv free vars -> Env Term vars ->
+           (sc : NF vars) -> -- scrutinee, which we assume to be in
+                 -- canonical form since we've checked (so not blocked)
+           (CaseAlt (vars ++ free)) ->
+           Core (Glued vars) -> -- what to do if stuck
+           Maybe (Core (Glued vars))
+  tryAlt locs env sc (DefaultCase _ rhs) stuck = Just (eval locs env rhs)
+  tryAlt {vars} locs env (VDCon _ _ t a sp) (ConCase _ _ t' cscope) stuck
+      = if t == t' then Just (evalCaseScope locs env (cast sp) cscope stuck)
+           else Nothing
+  tryAlt {vars} locs env (VTCon _ n a sp) (ConCase _ n' _ cscope) stuck
+      = if n == n' then Just (evalCaseScope locs env (cast sp) cscope stuck)
+           else Nothing
+  tryAlt locs env (VDelay _ _ ty arg) (DelayCase _ ty' arg' rhs) stuck
+      = Just (eval (locs :< pure ty :< pure arg) env rhs)
+  tryAlt locs env (VPrimVal _ c) (ConstCase _ c' rhs) stuck
+      = if c == c'
+           then Just (eval locs env rhs)
+           else Nothing
+  tryAlt locs env (VErased _ (Dotted v)) alt stuck
+      = tryAlt locs env v alt stuck
+  tryAlt _ _ _ _ _ = Nothing
+
   tryAlts : LocalEnv free vars -> Env Term vars ->
             (sc : NF vars) -> -- scrutinee, which we assume to be in
                   -- canonical form since we've checked (so not blocked)
             List (CaseAlt (vars ++ free)) ->
             Core (Glued vars) -> -- what to do if stuck
             Core (Glued vars)
-  tryAlts locs env (VErased _ (Dotted v)) alts stuck
-      = tryAlts locs env v alts stuck
-  tryAlts {vars} locs env sc@(VDCon _ _ t a sp) (ConCase _ _ t' cscope :: as) stuck
-      = if t == t' then evalCaseScope locs env (cast sp) cscope stuck
-           else tryAlts locs env sc as stuck
-  tryAlts {vars} locs env sc@(VTCon _ n a sp) (ConCase _ n' _ cscope :: as) stuck
-      = if n == n' then evalCaseScope locs env (cast sp) cscope stuck
-           else tryAlts locs env sc as stuck
-  tryAlts locs env sc@(VDelay _ _ ty arg) (DelayCase _ ty' arg' rhs :: as) stuck
-      = eval (locs :< pure ty :< pure arg) env rhs
-  tryAlts locs env sc@(VPrimVal _ c) (ConstCase _ c' rhs :: as) stuck
-      = if c == c'
-           then eval locs env rhs
-           else tryAlts locs env sc as stuck
-  tryAlts locs env sc (DefaultCase _ rhs :: as) stuck = eval locs env rhs
-  tryAlts locs env sc (a :: as) stuck = tryAlts locs env sc as stuck
+  tryAlts locs env sc (a :: alts) stuck
+      = case tryAlt locs env sc a stuck of
+             Nothing => tryAlts locs env sc alts stuck
+             Just res => res
   tryAlts locs env sc [] stuck = stuck
 
   evalCaseBlock
