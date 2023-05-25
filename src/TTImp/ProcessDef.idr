@@ -297,10 +297,12 @@ findLinear top bound rig tm
       findLinArg : {vars : _} ->
                    RigCount -> SnocList (RigCount, Term vars) ->
                    Core (List (Name, RigCount))
-      findLinArg rig (as :< (c, As fc UseLeft _ p))
-          = findLinArg rig (as :< (c, p))
-      findLinArg rig (as :< (c, As fc UseRight p _))
-          = findLinArg rig (as :< (c, p))
+      findLinArg rig (as :< (c, As fc u a p))
+          = if isLinear c
+               then case u of
+                         UseLeft => findLinArg rig (as :< (c, p))
+                         UseRight => findLinArg rig (as :< (c, a))
+               else findLinArg rig (as :< (c, p) :< (c, a))
       findLinArg rig (as :< (c, Local fc idx prf))
           = do let a = nameAt prf
                if idx < bound
