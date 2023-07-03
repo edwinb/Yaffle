@@ -330,18 +330,19 @@ perrorRaw (AmbiguousName fc ns)
     = pure $ errorDesc (reflow "Ambiguous name" <++> code (cast $ prettyList ns))
         <+> line <+> !(ploc fc)
 perrorRaw (AmbiguousElab fc env ts_in)
-    = do pp <- getPPrint
-         setPPrint ({ fullNamespace := True } pp)
-         ts_show <- traverse (\ (gam, t) =>
+    = do ts_show <- traverse (\ (gam, t) =>
                                   do defs <- get Ctxt
                                      put Ctxt gam
+                                     -- This gets reset when we put the main
+                                     -- context back
+                                     pp <- getPPrint
+                                     setPPrint ({ fullNamespace := True } pp)
                                      res <- pshow env t
                                      put Ctxt defs
                                      pure res) ts_in
          let res = vsep [ errorDesc (reflow "Ambiguous elaboration. Possible results" <+> colon)
                         , indent 4 (vsep ts_show)
                         ] <+> line <+> !(ploc fc)
-         setPPrint pp
          pure res
 perrorRaw (AmbiguousSearch fc env tgt ts)
     = pure $ vsep [ errorDesc (reflow "Multiple solutions found in search of" <+> colon)
