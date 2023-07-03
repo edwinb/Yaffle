@@ -527,7 +527,8 @@ getArgTys env (n :: ns) (VBind pfc _ (Pi _ c _ farg) fsc)
     = do rest <- getArgTys env ns !(expand !(fsc (pure (vRef pfc Bound n))))
          pure (Known c !(quote env farg) :: rest)
 getArgTys env (n :: ns) t
-    = pure [Stuck !(quote env t)]
+      -- pad with 'Unknown' so we have the right arity
+    = pure (Stuck !(quote env t) :: map (const Unknown) ns)
 getArgTys _ _ _ = pure []
 
 mkVarUnder : (args : _) ->
@@ -1103,7 +1104,10 @@ mutual
            groups <- groupCons fc fn pvars refinedcs
            ty <- case fty of
                       Known _ t => pure t
-                      _ => throw (CaseCompile fc fn UnknownType)
+                      Stuck tm => do logTerm "compile.casetree" 25 "Stuck" tm
+                                     throw (CaseCompile fc fn UnknownType)
+                      _ => do log "compile.casetree" 25 "Unknown type"
+                              throw (CaseCompile fc fn UnknownType)
            -- The 'pmaps' carry on being propagated through the rest of the
            -- tree (via 'groups') so we don't use them here
            caseGroups fc fn phase c pprf ty groups err
@@ -1217,8 +1221,9 @@ mkPatClause fc fn args ty pid (ps, rhs)
             (\eq =>
                do nty <- expand !(nf [<] ty)
                   -- The arguments are in reverse order, so we need to
-                  -- read what we know off 'nty' then reverse it
+                  -- read what we know off 'nty', and reverse it
                   argTys <- getArgTys [<] (cast args) nty
+                  log "compile.casetree" 20 $ "Argument types " ++ show argTys
                   ns <- mkNames args ps eq (reverse argTys)
                   log "compile.casetree" 20 $
                     "Make pat clause for names " ++ show ns
