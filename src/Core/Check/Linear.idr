@@ -11,6 +11,7 @@ import Core.Context
 import Core.Context.Log
 import Core.Env
 import Core.Error
+import Core.Evaluate
 import Core.TT
 
 import Data.SnocList
@@ -365,7 +366,8 @@ parameters {auto c : Ref Ctxt Defs}
   lcheck {vars} rig env (Local fc idx prf)
       = let b = getBinder prf env
             rigb = multiplicity b in
-            do rigSafe rigb rig
+            do log "quantity" 10 $ show rigb ++ " " ++ show (getName vars prf) ++ " in " ++ show rig
+               rigSafe rigb rig
                pure (HUsage fc (used (rigMult rig rigb)) [] [])
     where
       getName : {idx : _} -> (vs : SnocList Name) -> (0 p : IsVar n idx vs) -> Name
@@ -503,5 +505,6 @@ parameters {auto c : Ref Ctxt Defs}
                 FC -> RigCount -> Env Term vars -> Term vars -> Core ()
   linearCheck fc rig env tm
       = do logTerm "quantity" 10 "Checking linearity" tm
+           logEnv "quantity" 10 "In env" env
            used <- lcheck rig env tm
            checkEnvUsage {done = [<]} fc rig env used tm
