@@ -118,7 +118,7 @@ dropLazy val@(VDelay _ r t v)
 dropLazy val@(VForce fc r v sp)
     = case r of
            LInf => pure (asGlued val)
-           _ => applyAll fc v (cast (map snd sp))
+           _ => applyAll fc v (cast (map (\ e => (multiplicity e, value e)) sp))
 dropLazy val = pure (asGlued val)
 
 -- Equal for the purposes of size change means, ignoring as patterns, all
@@ -127,9 +127,9 @@ scEq : Value f vars -> Value f' vars -> Core Bool
 
 scEqSpine : Spine vars -> Spine vars -> Core Bool
 scEqSpine [<] [<] = pure True
-scEqSpine (sp :< (_, _, x)) (sp' :< (_, _, y))
-    = do x' <- x
-         y' <- y
+scEqSpine (sp :< x) (sp' :< y)
+    = do x' <- value x
+         y' <- value y
          if !(scEq x' y')
             then scEqSpine sp sp'
             else pure False
@@ -205,7 +205,7 @@ smallerArg inc big s tm
          else case tm of
                    VDCon _ _ _ _ sp
                        => anyM (smaller True big s)
-                                (cast !(traverseSnocList (snd . snd) sp))
+                                (cast !(traverseSnocList value sp))
                    _ => case s of
                              VApp fc nt n sp@(_ :< _) _ =>
                                 -- Higher order recursive argument
@@ -276,9 +276,9 @@ canonicalise eqs (VDCon fc cn t a sp)
   where
     canonSp : Spine vars -> Core (Spine vars)
     canonSp [<] = pure [<]
-    canonSp (rest :< (fc, c, arg))
+    canonSp (rest :< MkSpineEntry fc c arg)
         = do rest' <- canonSp rest
-             pure (rest' :< (fc, c, canonicalise eqs !arg))
+             pure (rest' :< MkSpineEntry fc c (canonicalise eqs !arg))
 -- for matching on types, convert to the form the case tree builder uses
 canonicalise eqs (VPrimVal fc (PrT c))
     = pure $ (VTCon fc (UN (Basic $ show c)) 0 [<])
@@ -288,9 +288,9 @@ canonicalise eqs val = pure val
 
 -- if the argument is an 'assert_smaller', return the thing it's smaller than
 asserted : ForcedEqs -> Name -> Glued [<] -> Core (Maybe (Glued [<]))
-asserted eqs aSmaller (VApp _ nt fn [<_, _, (_, _, b), _] _)
+asserted eqs aSmaller (VApp _ nt fn [<_, _, e, _] _)
      = if fn == aSmaller
-          then Just <$> canonicalise eqs !b
+          then Just <$> canonicalise eqs !(value e)
           else pure Nothing
 asserted _ _ _ = pure Nothing
 
@@ -357,9 +357,9 @@ substNameInVal n rep (VDCon fc cn t a sp)
   where
     substNameInSpine : Spine vars -> Core (Spine vars)
     substNameInSpine [<] = pure [<]
-    substNameInSpine (rest :< (fc, c, arg))
+    substNameInSpine (rest :< MkSpineEntry fc c arg)
         = do rest' <- substNameInSpine rest
-             pure (rest' :< (fc, c, substNameInVal n rep !arg))
+             pure (rest' :< MkSpineEntry fc c (substNameInVal n rep !arg))
 substNameInVal n rep (VDelay fc r t v)
     = pure $ VDelay fc r !(substNameInVal n rep t) !(substNameInVal n rep v)
 substNameInVal n rep tm = pure tm
@@ -409,7 +409,7 @@ findSCscope g eqs args var fc pat (cargs :< (c, xn)) sc
    = do varg <- nextVar
         pat' <- the (Core (Glued [<])) $ case pat of
                   VDCon vfc n t a sp =>
-                      pure (VDCon vfc n t a (sp :< (fc, c, pure varg)))
+                      pure (VDCon vfc n t a (sp :< MkSpineEntry fc c (pure varg)))
                   _ => throw (InternalError "Not a data constructor in findSCscope")
         findSCscope g eqs args var fc pat' cargs (sc (pure varg))
 
@@ -446,8 +446,8 @@ findSCspine : {auto c : Ref Ctxt Defs} ->
          Spine [<] ->
          Core (List SCCall)
 findSCspine g eqs pats [<] = pure []
-findSCspine g eqs pats (sp :< (_, _, v))
-    = do vCalls <- findSC g eqs pats !v
+findSCspine g eqs pats (sp :< e)
+    = do vCalls <- findSC g eqs pats !(value e)
          spCalls <- findSCspine g eqs pats sp
          pure (vCalls ++ spCalls)
 
@@ -460,16 +460,16 @@ findSCapp : {auto c : Ref Ctxt Defs} ->
                       -- of some sort
          Core (List SCCall)
 findSCapp g eqs pats (VLocal fc _ _ sp)
-    = do args <- traverseSnocList (snd . snd) sp
+    = do args <- traverseSnocList value sp
          scs <- traverseSnocList (findSC g eqs pats) args
          pure (concat scs)
 findSCapp g eqs pats (VApp fc Bound _ sp _)
-    = do args <- traverseSnocList (snd . snd) sp
+    = do args <- traverseSnocList value sp
          scs <- traverseSnocList (findSC g eqs pats) args
          pure (concat scs)
 findSCapp g eqs pats (VApp fc Func fn sp _)
     = do defs <- get Ctxt
-         args <- traverseSnocList (snd . snd) sp
+         args <- traverseSnocList value sp
          Just ty <- lookupTyExact fn (gamma defs)
             | Nothing => do
                 log "totality" 50 $ "Lookup failed"
@@ -760,7 +760,7 @@ posArg tyns nf@(VTCon loc tc _ args) =
                          let params = paramPos ti
                          log "totality.positivity" 50 $
                            unwords [show tc, "has", show (length params), "parameters"]
-                         pure $ splitParams 0 params !(traverseSnocList spineArg args)
+                         pure $ splitParams 0 params !(traverseSnocList value args)
                     _ => throw (GenericMsg loc (show tc ++ " not a data type"))
      let (params, indices) = testargs
      False <- anyM (nameIn tyns) (cast !(traverseSnocList expand indices))

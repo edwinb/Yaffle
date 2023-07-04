@@ -583,7 +583,7 @@ getPArgs : {auto c : Ref Ctxt Defs} ->
 getPArgs defs cl
     = do VDCon fc _ _ _ args <- expand cl
              | nf => throw (GenericMsg (getLoc nf) "Badly formed struct type")
-         case !(traverseSnocList spineArg args) of
+         case !(traverseSnocList value args) of
               (_ :< n :< tydesc) =>
                   do VPrimVal _ (Str n') <- expand n
                          | nf => throw (GenericMsg (getLoc nf) "Unknown field name")
@@ -595,7 +595,7 @@ getFieldArgs : {auto c : Ref Ctxt Defs} ->
 getFieldArgs defs cl
     = do VDCon fc _ _ _ args <- expand cl
              | nf => throw (GenericMsg (getLoc nf) "Badly formed struct type")
-         case !(traverseSnocList spineArg args) of
+         case !(traverseSnocList value args) of
               -- cons
               [< _, t, rest] =>
                   do rest' <- getFieldArgs defs rest
@@ -649,7 +649,7 @@ nfToCFType _ True (VBind fc _ _ _)
 nfToCFType _ s (VTCon fc n_in _ args)
     = do defs <- get Ctxt
          n <- toFullNames n_in
-         case !(getNArgs defs n $ cast !(traverseSnocList spineArg args)) of
+         case !(getNArgs defs n $ cast !(traverseSnocList value args)) of
               User un uargs =>
                 do nargs <- traverse expand uargs
                    cargs <- traverse (nfToCFType fc s) nargs

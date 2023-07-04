@@ -209,12 +209,12 @@ mightMatch (VBind{}) (VBind{}) = pure Poly -- lambdas might match
 mightMatch (VLam{}) (VLam{}) = pure Poly -- lambdas might match
 mightMatch (VTCon _ n a args) (VTCon _ n' a' args')
     = if n == n'
-         then do amatch <- mightMatchArgs (map spineArg args) (map spineArg args')
+         then do amatch <- mightMatchArgs (map value args) (map value args')
                  if amatch then pure Concrete else pure NoMatch
          else pure NoMatch
 mightMatch (VDCon _ n t a args) (VDCon _ n' t' a' args')
     = if t == t'
-         then do amatch <- mightMatchArgs (map spineArg args) (map spineArg args')
+         then do amatch <- mightMatchArgs (map value args) (map value args')
                  if amatch then pure Concrete else pure NoMatch
          else pure NoMatch
 mightMatch (VPrimVal _ x) (VPrimVal _ y)

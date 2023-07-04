@@ -228,7 +228,7 @@ parameters {auto c : Ref Ctxt Defs}
 
       repArgAll : Spine vars -> Core (SnocList (FC, RigCount, Term vars), Bool)
       repArgAll [<] = pure ([<], False)
-      repArgAll (xs :< (f, r, tm))
+      repArgAll (xs :< MkSpineEntry f r tm)
           = do (xs', upd) <- repArgAll xs
                (tm', upd') <- repArg !tm
                pure (xs' :< (f, r, tm'), upd || upd')

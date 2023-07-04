@@ -60,8 +60,8 @@ parameters {auto c : Ref Ctxt Defs}
               Strategy -> Env Term vars ->
               Spine vars -> Spine vars -> Core Bool
   convSpine s env [<] [<] = pure True
-  convSpine s env (xs :< (_, _, x)) (ys :< (_, _, y))
-      = do True <- convGen s env !x !y | False => pure False
+  convSpine s env (xs :< x) (ys :< y)
+      = do True <- convGen s env !(value x) !(value y) | False => pure False
            convSpine s env xs ys
   convSpine s env _ _ = pure False
 

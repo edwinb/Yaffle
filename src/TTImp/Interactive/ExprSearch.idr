@@ -485,7 +485,7 @@ searchLocalWith {vars} fc nofn rig opts hints env ((p, pty) :: rest) ty topty
     findPos : Defs -> Term vars ->
               (Term vars -> Term vars) ->
               NF vars -> NF vars -> Core (Search (Term vars, ExprDefs))
-    findPos defs prf f x@(VTCon pfc pn _ [< (fc1, xc, xty), (fc2, yc, yty)]) target
+    findPos defs prf f x@(VTCon pfc pn _ [< MkSpineEntry fc1 xc xty, MkSpineEntry fc2 yc yty]) target
         = getSuccessful fc rig opts False env ty topty
               [findDirect defs prf f x target,
                  (do fname <- maybe (throw (InternalError "No fst"))

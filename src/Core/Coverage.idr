@@ -119,14 +119,14 @@ conflict defs env nfty n
       conflictNF i (VDCon _ n t a args) (VDCon _ n' t' a' args')
           = if t == t'
                then conflictArgs i
-                       !(traverseSnocList spineArg args)
-                       !(traverseSnocList spineArg args')
+                       !(traverseSnocList value args)
+                       !(traverseSnocList value args')
                else pure Nothing
       conflictNF i (VTCon _ n a args) (VTCon _ n' a' args')
           = if n == n'
                then conflictArgs i
-                      !(traverseSnocList spineArg args)
-                      !(traverseSnocList spineArg args')
+                      !(traverseSnocList value args)
+                      !(traverseSnocList value args')
                else pure Nothing
       conflictNF i (VPrimVal _ c) (VPrimVal _ c')
           = if c == c'

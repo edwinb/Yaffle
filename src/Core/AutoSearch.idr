@@ -205,7 +205,7 @@ usableLocal loc defaults env (VMeta{})
     = pure False
 usableLocal {vars} loc defaults env (VTCon _ n _ args)
     = do sd <- getSearchData loc (not defaults) n
-         usableLocalArg 0 (detArgs sd) (cast !(traverseSnocList spineArg args))
+         usableLocalArg 0 (detArgs sd) (cast !(traverseSnocList value args))
   -- usable if none of the determining arguments of the local's type are
   -- holes
   where
@@ -296,7 +296,7 @@ searchLocalWith {vars} fc rigc defaults trying depth def top env (prf, ty) targe
               NF vars ->  -- local's type
               (target : NF vars) ->
               Core (Term vars)
-    findPos p f nty@(VTCon pfc pn _ [< (_, (xc, xty)), (_, (yc, yty))]) target
+    findPos p f nty@(VTCon pfc pn _ [< MkSpineEntry _ xc xty, MkSpineEntry _ yc yty]) target
         = handleUnify (findDirect prf f nty target) (\e =>
            if ambig e then throw e else
              do defs <- get Ctxt
@@ -456,11 +456,11 @@ concreteDets {vars} fc defaults env top pos dets (arg :: args)
         = do sd <- getSearchData nfc False n
              let args' = drop 0 (detArgs sd) (cast args)
              traverse_ (\ parg => do argnf <- expand parg
-                                     concrete argnf False) !(traverse spineArg args')
+                                     concrete argnf False) !(traverse value args')
     concrete (VDCon nfc n t a args) atTop
         = do traverse_ (\ parg => do argnf <- expand parg
                                      concrete argnf False)
-                       !(traverse spineArg (cast args))
+                       !(traverse value (cast args))
     concrete (VMeta _ n i _ _ _) True
         = do defs <- get Ctxt
              Just (Hole _ b) <- lookupDefExact n (gamma defs)
@@ -486,21 +486,21 @@ checkConcreteDets fc defaults env top (VTCon tfc tyn t args)
     = do defs <- get Ctxt
          if !(isPairType tyn)
             then case args of
-                      [< (_, (_, aty)), (_, (_, bty))] =>
+                      [< MkSpineEntry _ _ aty, MkSpineEntry _ _ bty] =>
                           do anf <- expand !aty
                              bnf <- expand !bty
                              checkConcreteDets fc defaults env top anf
                              checkConcreteDets fc defaults env top bnf
                       _ => do sd <- getSearchData fc defaults tyn
                               concreteDets fc defaults env top 0 (detArgs sd)
-                                  (cast !(traverseSnocList spineArg args))
+                                  (cast !(traverseSnocList value args))
             else
               do sd <- getSearchData fc defaults tyn
                  log "auto.determining" 10 $
                    "Determining arguments for " ++ show !(toFullNames tyn)
                    ++ " " ++ show (detArgs sd)
                  concreteDets fc defaults env top 0 (detArgs sd)
-                     (cast !(traverseSnocList spineArg args))
+                     (cast !(traverseSnocList value args))
 checkConcreteDets fc defaults env top _
     = pure ()
 

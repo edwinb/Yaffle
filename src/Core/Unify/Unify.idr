@@ -31,9 +31,6 @@ parameters {auto c : Ref Ctxt Defs}
                 | Nothing => throw (UndefinedName fc (Resolved i))
            pure (invertible gdef)
 
-third : (s, t, u) -> u
-third (x, y, z) = z
-
 parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
   -- Defined in Core.AutoSearch
   export
@@ -168,11 +165,11 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
               Spine vars -> Spine vars ->
               Core UnifyResult
   unifySpine mode fc env [<] [<] = pure success
-  unifySpine mode fc env (cxs :< (_, _, cx)) (cys :< (_, _, cy))
+  unifySpine mode fc env (cxs :< ex) (cys :< ey)
       = do -- We might know more about cx and cy now, so normalise again to
            -- reduce any newly solved holes
-           cx' <- nf env !(quote env !cx)
-           cy' <- nf env !(quote env !cy)
+           cx' <- nf env !(quote env !(value ex))
+           cy' <- nf env !(quote env !(value ey))
            cs <- unify (lower mode) fc env cx' cy'
            res <- unifySpine mode fc env cxs cys
            pure (union cs res)
@@ -183,8 +180,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
               Spine vars -> Spine vars ->
               Core Bool
   convertSpine fc env [<] [<] = pure True
-  convertSpine fc env (cxs :< (_, _, cx)) (cys :< (_, _, cy))
-      = if !(convert env !cx !cy)
+  convertSpine fc env (cxs :< ex) (cys :< ey)
+      = if !(convert env !(value ex) !(value ey))
            then convertSpine fc env cxs cys
            else pure False
   convertSpine fc env _ _ = pure False
@@ -205,7 +202,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                              convertError loc env x y
 
   spineToValues : Spine vars -> List (Core (Glued vars))
-  spineToValues sp = toList (map third sp)
+  spineToValues sp = toList (map value sp)
 
   headsConvert : {vars : _} ->
                  UnifyInfo ->
@@ -253,10 +250,10 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            Just vty <- lookupTyExact (Resolved mref) (gamma defs)
                 | Nothing => ufail fc ("No such metavariable " ++ show mname)
            vargTys <- getArgTypes !(expand !(nf env (embed vty)))
-                                  (reverse (cast (map snd args) ++ map third sp)) --  ++ sp)
+                                  (reverse (cast (map snd args) ++ map value sp)) --  ++ sp)
            nargTys <- maybe (pure Nothing)
                             (\ty => getArgTypes !(expand !(nf env (embed ty)))
-                                                $ reverse (map third args'))
+                                                $ reverse (map value args'))
                             nty
 --            -- If the rightmost arguments have the same type, or we don't
 --            -- know the types of the arguments, we'll get on with it.
@@ -268,8 +265,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                      (hargs :< h, fargs :< f) =>
                         tryUnify
                           (if not swap then
-                              do hv <- third h
-                                 fv <- third f
+                              do hv <- value h
+                                 fv <- value f
                                  logNF "unify.invertible" 10 "Unifying rightmost" env hv
                                  logNF "unify.invertible" 10 "With rightmost...." env fv
                                  ures <- unify mode fc env hv fv
@@ -280,7 +277,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                                  pure (union ures uargs)
                              else
                               do log "unify.invertible" 10 "Unifying invertible"
-                                 ures <- unify mode fc env !(third f) !(third h)
+                                 ures <- unify mode fc env !(value f) !(value h)
                                  log "unify.invertible" 10 $ "Constraints " ++ show (constraints ures)
                                  uargs <- unify {f'=Normal} mode fc env
                                                 (con fargs)
@@ -391,7 +388,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
               Core UnifyResult
   unifyHole swap mode fc env nfc mname mref args sp tmnf
       = do let margs = cast !(traverse snd args)
-           margs' <- traverseSnocList third sp
+           margs' <- traverseSnocList value sp
            let pargs = if isLin margs' then margs else margs ++ margs'
            defs <- get Ctxt
            logNF "elab" 10 ("Trying to solve " ++ show mname ++ " with") env tmnf

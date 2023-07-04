@@ -57,7 +57,7 @@ elabScript rig fc nest env script@(VDCon nfc nm t ar args) exp
          case fnm of
               NS ns (UN (Basic n))
                  => if ns == reflectionNS
-                      then elabCon defs n (cast !(traverseSnocList spineArg args))
+                      then elabCon defs n (cast !(traverseSnocList value args))
                              `catch` \case -- wrap into `RunElabFail` any non-elab error
                                e@(BadRunElab _ _ _ _) => throw e
                                e@(RunElabFail _)      => throw e

@@ -33,7 +33,7 @@ getRewriteTerms : {vars : _} ->
                   Core (Glued vars, Glued vars, Glued vars)
 getRewriteTerms loc defs (VTCon nfc eq a args) err
     = if !(isEqualTy eq)
-         then case map spineArg args of
+         then case map value args of
                    (_ :< lhsty :< rhsty :< lhs :< rhs) =>
                         pure (!lhs, !rhs, !lhsty)
                    _ => throw err

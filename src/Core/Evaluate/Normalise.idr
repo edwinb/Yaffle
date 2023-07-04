@@ -27,27 +27,27 @@ apply fc (VBind bfc x (Let lfc c val ty) sc) q arg
     = pure $ VBind bfc x (Let lfc c val ty)
                    (\val' => apply fc !(sc val') q arg)
 apply fc (VApp afc nt n spine go) q arg
-    = pure $ VApp afc nt n (spine :< (fc, q, arg)) $
+    = pure $ VApp afc nt n (spine :< MkSpineEntry fc q arg) $
            do Just go' <- go
                    | Nothing => pure Nothing
               res <- apply fc go' q arg
               pure (Just res)
 apply fc (VLocal lfc idx p spine) q arg
-    = pure $ VLocal lfc idx p (spine :< (fc, q, arg))
+    = pure $ VLocal lfc idx p (spine :< MkSpineEntry fc q arg)
 apply fc (VMeta mfc n i sc spine go) q arg
-    = pure $ VMeta mfc n i sc (spine :< (fc, q, arg)) $
+    = pure $ VMeta mfc n i sc (spine :< MkSpineEntry fc q arg) $
            do Just go' <- go
                    | Nothing => pure Nothing
               res <- apply fc go' q arg
               pure (Just res)
 apply fc (VDCon dfc n t a spine) q arg
-    = pure $ VDCon dfc n t a (spine :< (fc, q, arg))
+    = pure $ VDCon dfc n t a (spine :< MkSpineEntry fc q arg)
 apply fc (VTCon tfc n a spine) q arg
-    = pure $ VTCon tfc n a (spine :< (fc, q, arg))
+    = pure $ VTCon tfc n a (spine :< MkSpineEntry fc q arg)
 apply fc (VAs _ _ _ pat) q arg
     = apply fc pat q arg -- doesn't really make sense to keep the name
 apply fc (VForce ffc r v spine) q arg
-    = pure $ VForce ffc r v (spine :< (fc, q, arg))
+    = pure $ VForce ffc r v (spine :< MkSpineEntry fc q arg)
 apply fc (VCase cfc t r sc ty alts) q arg
     = pure $ VCase cfc t r sc ty !(traverse (applyAlt arg) alts)
   where
@@ -184,12 +184,12 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
   -- We've turned the spine into a list so that the argument positions
   -- correspond when going through the CaseScope
   evalCaseScope : LocalEnv free vars -> Env Term vars ->
-                  List (FC, RigCount, Core (Glued vars)) -> CaseScope (vars ++ free) ->
+                  List (SpineEntry vars) -> CaseScope (vars ++ free) ->
                   Core (Glued vars) -> -- what to do if stuck
                   Core (Glued vars)
   evalCaseScope locs env [] (RHS _ tm) stuck = eval locs env tm
-  evalCaseScope locs env ((_, _, v) :: sp) (Arg r x sc) stuck
-      = evalCaseScope (locs :< v) env sp sc stuck
+  evalCaseScope locs env (e :: sp) (Arg r x sc) stuck
+      = evalCaseScope (locs :< value e) env sp sc stuck
   evalCaseScope _ _ _ _ stuck = stuck
 
   tryAlt : LocalEnv free vars -> Env Term vars ->

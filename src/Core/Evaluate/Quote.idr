@@ -64,7 +64,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
                Strategy -> Bounds bound -> Env Term vars ->
                Spine vars -> Core (SnocList (FC, RigCount, Term (vars ++ bound)))
   quoteSpine s bounds env [<] = pure [<]
-  quoteSpine s bounds env (args :< (fc, q, arg))
+  quoteSpine s bounds env (args :< MkSpineEntry fc q arg)
       = pure $ !(quoteSpine s bounds env args) :<
                (fc, q, !(quoteGen bounds env !arg s))
 

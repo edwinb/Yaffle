@@ -26,8 +26,15 @@ public export
 data VCaseAlt : SnocList Name -> Type
 
 public export
+record SpineEntry vars where
+  constructor MkSpineEntry
+  loc : FC
+  multiplicity : RigCount
+  value : Core (Glued vars)
+
+public export
 0 Spine : SnocList Name -> Type
-Spine vars = SnocList (FC, RigCount, Core (Glued vars))
+Spine vars = SnocList (SpineEntry vars)
 
 -- The 'Form' is a phantom type index that says whether we know the value is
 -- in normal form, or whether it might be 'Glued'
@@ -157,13 +164,9 @@ asGlued : Value f vars -> Glued vars
 asGlued = believe_me -- justification as above
 
 export
-spineArg : (FC, RigCount, Core (Glued vars)) -> Core (Glued vars)
-spineArg (_, _, val) = val
-
-export
 spineVal : {auto c : Ref Ctxt Defs} ->
-           (FC, RigCount, Core (Glued vars)) -> Core (NF vars)
-spineVal (_, _, val) = expand !val
+           SpineEntry vars -> Core (NF vars)
+spineVal e = expand !(value e)
 
 public export
 0 VCaseScope : SnocList (RigCount, Name) -> SnocList Name -> Type
