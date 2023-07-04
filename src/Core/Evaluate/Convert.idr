@@ -113,12 +113,12 @@ parameters {auto c : Ref Ctxt Defs}
   convNF s env (VLam fc x r p ty sc) (VLam fc' x' r' p' ty' sc')
       = do True <- convGen s env ty ty' | False => pure False
            var <- genVar fc "conv"
-           convGen s env !(sc (pure var)) !(sc' (pure var))
+           convGen s env !(sc var) !(sc' var)
   convNF {vars} s env tmx@(VLam fc x r p ty sc) tmy
-      = do let etay = VLam fc x r p ty (\x => apply fc tmy r x)
+      = do let etay = VLam fc x r p ty (\x => apply fc tmy r (pure x))
            convGen {f'=Normal} s env tmx etay
   convNF {vars} s env tmx tmy@(VLam fc x r p ty sc)
-      = do let etax = VLam fc x r p ty (\x => apply fc tmx r x)
+      = do let etax = VLam fc x r p ty (\x => apply fc tmx r (pure x))
            convGen {f=Normal} s env etax tmy
   convNF {vars} s env (VBind fc x b sc) (VBind fc' x' b' sc')
       = do True <- convBinders b b' | False => pure False

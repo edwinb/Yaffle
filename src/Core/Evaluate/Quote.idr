@@ -68,8 +68,11 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
       = pure $ !(quoteSpine s bounds env args) :<
                (fc, q, !(quoteGen bounds env !arg s))
 
+  mkTmp : FC -> Name -> Glued vars
+  mkTmp fc n = VApp fc Bound n [<] (pure Nothing)
+
   mkTmpVar : FC -> Name -> Core (Glued vars)
-  mkTmpVar fc n = pure $ VApp fc Bound n [<] (pure Nothing)
+  mkTmpVar fc n = pure $ mkTmp fc n
 
   quoteAlt : {bound : _} ->
              Strategy -> Bounds bound -> Env Term vars ->
@@ -163,7 +166,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
            p' <- quotePi s bounds env p
            ty' <- quoteGen bounds env ty s
            sc' <- quoteGen (Add x var bounds) env
-                             !(sc (mkTmpVar fc var)) s
+                             !(sc (mkTmp fc var)) s
            pure (Bind fc x (Lam fc c p' ty') sc')
   quoteGen bounds env (VBind fc x b sc) s
       = do var <- genName "qv"
@@ -238,7 +241,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
 
       blockedApp : Value f vars -> Core Bool
       blockedApp (VLam fc _ _ _ _ sc)
-          = blockedApp !(sc (pure (VErased fc Placeholder)))
+          = blockedApp !(sc (VErased fc Placeholder))
       blockedApp (VCase _ PatMatch _ _ _ _) = pure True
       blockedApp (VPrimOp{}) = pure True
       blockedApp _ = pure False

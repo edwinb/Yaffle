@@ -21,7 +21,7 @@ data EvalFlags
 
 export
 apply : FC -> Value f vars -> RigCount -> Core (Glued vars) -> Core (Glued vars)
-apply fc (VLam _ _ _ _ _ sc) _ arg = sc arg
+apply fc (VLam _ _ _ _ _ sc) _ arg = sc !arg
 -- might happen if we're in KeepLet mode
 apply fc (VBind bfc x (Let lfc c val ty) sc) q arg
     = pure $ VBind bfc x (Let lfc c val ty)
@@ -372,7 +372,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
          Core (Glued vars)
   evalBind locs env fc x (Lam bfc r p ty) sc
       = pure $ VLam fc x r !(evalPiInfo locs env p) !(eval locs env ty)
-                        (\arg => eval (locs :< arg) env sc)
+                        (\arg => eval (locs :< pure arg) env sc)
   evalBind locs env fc x b@(Let bfc c val ty) sc
       = case eflags of
              KeepLet =>

@@ -561,8 +561,11 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       = unifyHole True mode fc env fcm n i margs args (asGlued tm)
   unifyNoEta mode fc env tm tm' = unifyNotMetavar mode fc env tm tm'
 
+  mkArgVar : FC -> Name -> Glued vars
+  mkArgVar fc var = VApp fc Bound var [<] (pure Nothing)
+
   mkArg : FC -> Name -> Core (Glued vars)
-  mkArg fc var = pure $ VApp fc Bound var [<] (pure Nothing)
+  mkArg fc var = pure $ mkArgVar fc var
 
   -- In practice, just Pi
   unifyBothBinders : {vars : _} ->
@@ -632,8 +635,8 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                   txtm <- quote env tx
                   let env' : Env Term (_ :< nx)
                            = env :< Lam fcx cx Explicit txtm
-                  tscx <- scx (mkArg fc var)
-                  tscy <- scy (mkArg fc var)
+                  tscx <- scx (mkArgVar fc var)
+                  tscy <- scy (mkArgVar fc var)
                   tmx <- quote env tscx
                   tmy <- quote env tscy
                   logTerm "unify.binder" 10 "Unifying lambda scope" tmx

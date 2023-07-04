@@ -50,7 +50,7 @@ data Value : Form -> SnocList Name -> Type where
      -- lambdas are the most common, so save the pattern match/indirection
      VLam : FC -> (x : Name) -> RigCount -> PiInfo (Glued vars) ->
             (ty : Glued vars) ->
-            (sc : Core (Glued vars) -> Core (Glued vars)) ->
+            (sc : Glued vars -> Core (Glued vars)) ->
             Value f vars
      VBind : FC -> (x : Name) -> Binder (Glued vars) ->
              (sc : Core (Glued vars) -> Core (Glued vars)) ->
@@ -137,7 +137,7 @@ expand' cases v@(VApp fc nt n sp val)
   where
     blockedApp : forall f . Value f vars -> Core Bool
     blockedApp (VLam fc _ _ _ _ sc)
-        = blockedApp !(sc (pure (VErased fc Placeholder)))
+        = blockedApp !(sc (VErased fc Placeholder))
     blockedApp (VCase _ PatMatch _ _ _ _) = pure True
     blockedApp (VPrimOp{}) = pure True
     blockedApp _ = pure False

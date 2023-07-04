@@ -305,7 +305,7 @@ parameters {auto c : Ref Ctxt Defs}
           = do (b', u) <- repBinder (Lam fc c p ty)
                let x' = MN "tmplam" tmpi
                let var = VApp fc Bound x' [<] (pure Nothing)
-               (sc', u') <- replace' expand (tmpi + 1) env orig parg !(scfn (pure var))
+               (sc', u') <- replace' expand (tmpi + 1) env orig parg !(scfn var)
                pure (Bind fc x b' (refsToLocals (Add x x' None) sc'), u || u')
       repSub (VBind fc x b scfn)
           = do (b', u) <- repBinder b
@@ -342,7 +342,7 @@ parameters {auto c : Ref Ctxt Defs}
 
           blockedApp : Value f vars -> Core Bool
           blockedApp (VLam fc _ _ _ _ sc)
-              = blockedApp !(sc (pure (VErased fc Placeholder)))
+              = blockedApp !(sc (VErased fc Placeholder))
           blockedApp (VCase _ PatMatch _ _ _ _) = pure True
           blockedApp (VPrimOp{}) = pure True
           blockedApp _ = pure False
