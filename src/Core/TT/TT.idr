@@ -153,7 +153,7 @@ constantEq (Ch x) (Ch y) = case decEq x y of
                                 Yes Refl => Just Refl
                                 No contra => Nothing
 constantEq (Db x) (Db y) = Nothing -- no DecEq for Doubles!
-constantEq (PrT x) (PrT y) = cong PrT <$> primTypeEq x y
+constantEq (PrT x) (PrT y) = (\ eq => cong PrT eq) <$> primTypeEq x y
 constantEq WorldVal WorldVal = Just Refl
 constantEq _ _ = Nothing
 

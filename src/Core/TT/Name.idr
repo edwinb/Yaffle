@@ -387,7 +387,7 @@ nameEq (NS xs x) (NS ys y) with (decEq xs ys)
     nameEq (NS ys x) (NS ys y) | (Yes Refl) | Nothing = Nothing
     nameEq (NS ys y) (NS ys y) | (Yes Refl) | (Just Refl) = Just Refl
   nameEq (NS xs x) (NS ys y) | (No contra) = Nothing
-nameEq (UN x) (UN y) = map (cong UN) (userNameEq x y)
+nameEq (UN x) (UN y) = map (\ eq => cong UN eq) (userNameEq x y)
 nameEq (MN x t) (MN x' t') with (decEq x x')
   nameEq (MN x t) (MN x t') | (Yes Refl) with (decEq t t')
     nameEq (MN x t) (MN x t) | (Yes Refl) | (Yes Refl) = Just Refl
