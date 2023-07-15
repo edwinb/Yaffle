@@ -181,12 +181,17 @@ parameters {auto c : Ref Ctxt Defs}
            True <- convGen s env ty ty' | False => pure False
            convAlts alts alts'
    where
+     blockIfPat : CaseType -> Strategy
+     blockIfPat PatMatch = BlockApp
+     blockIfPat _ = s
+
      convScope : (args : SnocList (RigCount, Name)) ->
                  VCaseScope args vars ->
                  (args' : SnocList (RigCount, Name)) ->
                  VCaseScope args' vars ->
                  Core Bool
-     convScope [<] sc [<] sc' = convGen BlockApp env (snd !sc) (snd !sc')
+     -- block applications to avoid reducing indefinitely
+     convScope [<] sc [<] sc' = convGen (blockIfPat t) env (snd !sc) (snd !sc')
      convScope (xs :< x) sc (ys :< y) sc'
          = do xn <- genVar fc "arg"
               convScope xs (sc (pure xn)) ys (sc' (pure xn))

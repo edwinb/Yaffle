@@ -704,7 +704,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
           UnifyInfo -> FC -> Env Term vars ->
           Glued vars -> Glued vars -> Core UnifyResult
   -- If the values convert already, we're done
-  unifyExpandApps lazy mode fc env x@(VApp fcx ntx nx spx valx) y@(VApp fcy nty ny spy valy)
+  unifyExpandApps lazy mode fc env x@(VApp fcx ntx nx spx _) y@(VApp fcy nty ny spy _)
       = if nx == ny
            then do c <- convertSpine fc env spx spy
                    if c
@@ -720,7 +720,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
                       then unifyLazy mode fc env valx' valy'
                       else unifyWithEta mode fc env valx' valy'
   -- Same quick check for metavars
-  unifyExpandApps {vars} lazy mode fc env x@(VMeta fcx nx ix scx spx valx) y@(VMeta fcy ny iy scy spy valy)
+  unifyExpandApps {vars} lazy mode fc env x@(VMeta fcx nx ix scx spx _) y@(VMeta fcy ny iy scy spy _)
       = do True <- do let True = ix == iy
                            | False => pure False
                       True <- convertSpine fc env spx spy
