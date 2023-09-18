@@ -602,7 +602,7 @@ compileAndInlineAll
              traverse_ fixArityDef cns
              traverse_ inlineHeuristics cns
              traverse_ constantFold cns
-             traverse_ setIdentity cns
+--              traverse_ setIdentity cns
              transform k cns
 
     nonErased : Name -> Core Bool

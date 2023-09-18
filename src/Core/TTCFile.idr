@@ -475,6 +475,6 @@ readTotalReq fname
     = do Right buffer <- readNoStringTable "TT2" fname
              | _ => pure Nothing
          bin <- newRef Bin buffer -- for reading the file into
-         importHashes <- fromBuf {a = List (Namespace,Int)}
+         importHashes <- fromBuf {a = List (RawNamespace,Int)}
          totalReq <- fromBuf
          pure (Just totalReq)

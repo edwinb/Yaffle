@@ -70,6 +70,11 @@ lookup fc (MkVar p) rho = case go p rho of
       Z => Left (MkVar First)
       S i' => bimap later weaken (go (dropLater p) (Wk rho ws'))
 
+replace : CExp vars -> Bool
+replace (CLocal _ _)   = True
+replace (CPrimVal _ _) = True
+replace _              = False
+
 -- constant folding of primitive functions
 -- if a primitive function is applied to only constant
 -- then replace with the result
@@ -82,13 +87,11 @@ constFold rho (CLocal fc p) = lookup fc (MkVar p) rho
 constFold rho e@(CRef fc x) = CRef fc x
 constFold rho (CLam fc x y)
   = CLam fc x $ constFold (wk rho (mkSizeOf [<x])) y
-constFold rho (CLet fc x inlineOK y z) =
+constFold rho (CLet fc x inl y z) =
     let val = constFold rho y
-     in case val of
-        CPrimVal _ _ => if inlineOK
-            then constFold (rho :< val) z
-            else CLet fc x inlineOK val (constFold (wk rho (mkSizeOf [<x])) z)
-        _ => CLet fc x inlineOK val (constFold (wk rho (mkSizeOf [<x])) z)
+     in if replace val
+          then constFold (rho :< val) z
+          else CLet fc x inl val (constFold (wk rho (mkSizeOf [<x])) z)
 constFold rho (CApp fc (CRef fc2 n) [x]) =
   if n == NS typesNS (UN $ Basic "prim__integerToNat")
      then case constFold rho x of
@@ -98,6 +101,7 @@ constFold rho (CApp fc (CRef fc2 n) [x]) =
      else CApp fc (CRef fc2 n) [constFold rho x]
 constFold rho (CApp fc x xs) = CApp fc (constFold rho x) (constFold rho <$> xs)
 constFold rho (CCon fc x y tag xs) = CCon fc x y tag $ constFold rho <$> xs
+constFold rho (COp fc BelieveMe [CErased _, CErased _ , x]) = constFold rho x
 constFold rho (COp {arity} fc fn xs) =
     let xs' = map (constFold rho) xs
         e = constRight fc fn xs'

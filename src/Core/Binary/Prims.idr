@@ -311,7 +311,7 @@ TTC String where
            tbl <- get STable
            idx <- fromBuf
            case lookup idx tbl of
-                Nothing => do coreLift $ printLn (IntMap.toList tbl)
+                Nothing => do coreLift $ putStrLn ("String table error " ++ show (IntMap.toList tbl))
                               corrupt ("StringTable entry " ++ show idx)
                 Just str => pure str
 

@@ -1,6 +1,5 @@
 module Core.Coverage
 
-import Core.Case.Tree
 import Core.Case.Util
 import Core.Context
 import Core.Context.Log
@@ -308,24 +307,25 @@ buildArgs defs known not ps cs@(Case fc PatMatch c (Local lfc idx el) ty altsIn)
          let var = nameAt el
          buildArgsAlt var not altsN
   where
-    buildArgSc : {vars : _} ->
+    buildArgSc : {vars, more : _} ->
+                 SizeOf more ->
                  FC -> Name ->
                  KnownVars vars Int -> KnownVars vars (List Int) ->
                  Name -> Int -> SnocList (RigCount, Name) ->
-                 CaseScope vars -> Core (List (SnocList (RigCount, ClosedTerm)))
-    buildArgSc fc var known not' n t args (RHS _ tm)
+                 CaseScope (vars ++ more) -> Core (List (SnocList (RigCount, ClosedTerm)))
+    buildArgSc s fc var known not' n t args (RHS _ tm)
         = do let con = Ref fc (DataCon t (length args)) n
              let app = applySpine fc con
                              (map (\ (c, n) => (c, (Ref fc Bound n))) args)
              let ps' = map (\ (c, t) => (c, substName var app t)) ps
-             buildArgs defs known not' ps' tm
-    buildArgSc fc var known not' n t args (Arg c x sc)
-        = buildArgSc fc var (weaken known) (weaken not') n t (args :< (c, x)) sc
+             buildArgs defs (weakenNs s known) (weakenNs s not') ps' tm
+    buildArgSc s fc var known not' n t args (Arg c x sc)
+        = buildArgSc (suc s) fc var known not' n t (args :< (c, x)) sc
 
     buildArgAlt : Name -> KnownVars vars (List Int) ->
                   CaseAlt vars -> Core (List (SnocList (RigCount, ClosedTerm)))
     buildArgAlt var not' (ConCase cfc n t sc)
-        = buildArgSc cfc var ((MkVar el, t) :: known) not' n t [<] sc
+        = buildArgSc zero cfc var ((MkVar el, t) :: known) not' n t [<] sc
     buildArgAlt var not' (DelayCase cfc t a sc)
         = let l = mkSizeOf [< t, a]
               ps' = map (\ (c, tm) =>

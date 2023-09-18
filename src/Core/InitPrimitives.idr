@@ -39,6 +39,7 @@ addPrim p
                               (Function (MkFnInfo NotHole False False)
                                         fndef fndef Nothing)
          ignore $ addDef (opName (fn p)) primdef
+         setFlag EmptyFC (opName (fn p)) Inline
          compileDef (opName (fn p))
 
 export

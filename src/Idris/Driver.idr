@@ -82,9 +82,9 @@ updateEnv
          catch (addPkgDir "prelude" anyBounds) (const (pure ()))
          catch (addPkgDir "base" anyBounds) (const (pure ()))
          addDataDir (prefix_dir (dirs (options defs)) </>
-                        ("idris2-" ++ showVersion False version) </> "support")
+                        ("yaffle-" ++ showVersion False version) </> "support")
          addLibDir (prefix_dir (dirs (options defs)) </>
-                        ("idris2-" ++ showVersion False version) </> "lib")
+                        ("yaffle-" ++ showVersion False version) </> "lib")
          Just cwd <- coreLift $ currentDir
               | Nothing => throw (InternalError "Can't get current directory")
          addLibDir cwd

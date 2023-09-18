@@ -146,7 +146,8 @@ checkTotalReq sourceFile ttcFile expected
   = catch (do log "totality.requirement" 20 $
                 "Reading totalReq from " ++ ttcFile
               Just got <- ttc $ readTotalReq ttcFile
-                | Nothing => pure False
+                | Nothing => do coreLift $ putStrLn "Not here"
+                                pure False
               log "totality.requirement" 20 $ unwords
                 [ "Got", show got, "and expected", show expected ++ ":"
                 , "we", ifThenElse (got < expected) "should" "shouldn't"
@@ -155,7 +156,8 @@ checkTotalReq sourceFile ttcFile expected
               -- first time around) was strictly less stringent than what we
               -- expect now then we need to rebuild.
               pure (got < expected))
-          (\error => pure False)
+          (\error => do coreLift $ printLn error
+                        pure False)
 
 needsBuildingTime : {auto c : Ref Ctxt Defs} ->
                     (sourceFile : String) -> (ttcFile : String) ->

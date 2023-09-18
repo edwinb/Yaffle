@@ -749,7 +749,10 @@ toCDef n ty erased (Function fi _ tree _)
     toLam _ d = d
 toCDef n ty _ (ExternDef arity)
     = let (ns ** args) = mkArgList 0 arity in
-          pure $ MkFun _ (CExtPrim emptyFC !(getFullName n) (map toArgExp (getVars args)))
+          -- Reverse the args since we build them in the wrong order (most
+          -- recently bound lambda is last argument to primitive)
+          pure $ MkFun _ (CExtPrim emptyFC !(getFullName n)
+                             (reverse (map toArgExp (getVars args))))
   where
     toArgExp : (Var ns) -> CExp ns
     toArgExp (MkVar p) = CLocal emptyFC p

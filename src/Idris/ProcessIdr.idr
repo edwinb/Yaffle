@@ -55,18 +55,13 @@ readIncData : (headerID : String) -> -- TTM or TT2
               (fname : String) ->
               CoreTTC (List (CG, String, List String))
 readIncData hdr fname
-    = do Right b <- coreLift $ createBufferFromFile fname
-               | Left err => pure []
-         bsize <- cast {to = Integer} <$> coreLift (rawSize b)
-         stRef <- newRef STable empty
-         let filebuf = MkBin b stRef 0 bsize bsize
-         bin <- newRef Bin filebuf
-         -- Check header is okay
-         hdrR <- fromBuf @{RawString}
-         version <- fromBuf @{Wasteful}
-         hash <- fromBuf {a=Int}
-         incData <- fromBuf @{IncData}
-         pure incData
+    = do Right buffer <- readNoStringTable "TT2" fname
+              | _ => pure []
+         bin <- newRef Bin buffer
+         _ <- fromBuf {a = List (RawNamespace, Int)}
+         r <- fromBuf {a = TotalReq}
+         d <- fromBuf @{IncData}
+         pure d
 
 -- If we're on an incremental codegen, check to see if the ttc was
 -- built with incremental.

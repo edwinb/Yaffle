@@ -68,7 +68,8 @@ mkAlt fc sc (MkDataCon cn t ar qs)
     mkScope (q :: qs) (vs :< v) = TArg q v (weaken (mkScope qs vs))
 
 emptyRHSTm : FC -> Term vars -> Term vars
-emptyRHSTm fc (Case cfc ct c sc scTy alts) = Case cfc ct c sc scTy (map emptyRHSalt alts)
+emptyRHSTm fc (Case cfc ct c sc scTy alts)
+    = Case cfc ct c sc scTy (map emptyRHSalt alts)
   where
     emptyRHSscope : forall vars . FC -> CaseScope vars -> CaseScope vars
     emptyRHSscope fc (RHS fs tm) = RHS fs (emptyRHSTm fc tm)
@@ -86,12 +87,13 @@ export
 mkAltTm : {vars : _} ->
         FC -> Term vars -> DataCon -> CaseAlt vars
 mkAltTm fc sc (MkDataCon cn t ar qs)
-    = ConCase fc cn t (mkScope qs (map (MN "m") (take ar [0..])))
+    = ConCase fc cn t (mkScope zero qs (map (MN "m") (take ar [0..])))
   where
-    mkScope : List RigCount -> SnocList Name -> CaseScope vars
-    mkScope _ [<] = RHS [] (emptyRHSTm fc sc)
-    mkScope [] (vs :< v) = Arg top v (weaken (mkScope [] vs))
-    mkScope (q :: qs) (vs :< v) = Arg q v (weaken (mkScope qs vs))
+    mkScope : SizeOf more -> List RigCount -> SnocList Name ->
+              CaseScope (vars ++ more)
+    mkScope s _ [<] = RHS [] (weakenNs s (emptyRHSTm fc sc))
+    mkScope s [] (vs :< v) = Arg top v (mkScope (suc s) [] vs)
+    mkScope s (q :: qs) (vs :< v) = Arg q v (mkScope (suc s) qs vs)
 
 export
 tagIs : Int -> TCaseAlt vars -> Bool

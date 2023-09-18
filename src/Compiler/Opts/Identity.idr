@@ -119,7 +119,8 @@ checkIdentity fn (v :: vs) exp idx = if cexpIdentity fn idx v Nothing Nothing ex
 
 calcIdentity : (fullName : Name) -> CDef -> Maybe Nat
 calcIdentity fn (MkFun args exp)
-   = checkIdentity fn (makeArgs {vars=[<]} args) (rewrite appendLinLeftNeutral args in exp) Z
+   = checkIdentity fn (makeArgs {vars=[<]} args)
+                   (rewrite appendLinLeftNeutral args in exp) Z
 calcIdentity _ _ = Nothing
 
 getArg : FC -> Nat -> (args : SnocList Name) -> Maybe (CExp args)
