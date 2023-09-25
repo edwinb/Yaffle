@@ -1052,7 +1052,7 @@ addMetas res ns (PrimOp fc op args) = addMetaArgs ns args
     addMetaArgs : NameMap Bool -> Vect n (Term vars) -> NameMap Bool
     addMetaArgs ns [] = ns
     addMetaArgs ns (t :: ts) = addMetaArgs (addMetas res ns t) ts
-addMetas res ns (Erased fc i) = ns
+addMetas res ns (Erased fc i) = foldr (flip $ addMetas res) ns i
 addMetas res ns (Unmatched fc str) = ns
 addMetas res ns (TType fc u) = ns
 
@@ -1113,7 +1113,7 @@ addRefs ua at ns (PrimOp fc op args) = addRefArgs ns args
     addRefArgs : NameMap Bool -> Vect n (Term vars) -> NameMap Bool
     addRefArgs ns [] = ns
     addRefArgs ns (t :: ts) = addRefArgs (addRefs ua at ns t) ts
-addRefs ua at ns (Erased fc i) = ns
+addRefs ua at ns (Erased fc i) = foldr (flip $ addRefs ua at) ns i
 addRefs ua at ns (Unmatched fc str) = ns
 addRefs ua at ns (TType fc u) = ns
 

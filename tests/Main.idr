@@ -40,9 +40,9 @@ idrisTestsBasic : TestPool
 idrisTestsBasic = MkTestPool "Fundamental language features" [] Nothing
       -- Fundamental language features
       ["basic001", "basic002", "basic003", "basic004", "basic005",
-       "basic006", "basic007", "basic008", "basic009", "basic010"]
---        "basic011", "basic012", "basic013", "basic014", "basic015",
---        "basic016", "basic017", "basic018", "basic019", "basic020",
+       "basic006", "basic007", "basic008", "basic009", "basic010",
+       "basic011", "basic012", "basic013", "basic014", "basic015",
+       "basic016", "basic017", "basic018", "basic019", "basic020",
 --        "basic021", "basic022", "basic023", "basic024", "basic025",
 --        "basic026", "basic027", "basic028", "basic029", "basic030",
 --        "basic031", "basic032", "basic033", "basic034", "basic035",
@@ -54,10 +54,10 @@ idrisTestsBasic = MkTestPool "Fundamental language features" [] Nothing
 --        "basic061", "basic062", "basic063", "basic064", "basic065",
 --        "basic066", "basic067", "basic068", "basic069"]
 --        "idiom001",
---        "dotted001",
---        "rewrite001",
---        "interpolation001", "interpolation002", "interpolation003",
---        "interpolation004"]
+       "dotted001",
+       "rewrite001",
+       "interpolation001", "interpolation002", "interpolation003",
+       "interpolation004"]
 
 idrisTestsRegression : TestPool
 idrisTestsRegression = MkTestPool "Various regressions" [] Nothing

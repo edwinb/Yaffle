@@ -484,12 +484,6 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            pure (union cs cs')
   unifyNotMetavar mode fc env x@(VCase{}) y@(VCase{})
       = unifyIfEq True fc mode env (asGlued x) (asGlued y)
-  unifyNotMetavar mode fc env (VErased _ (Dotted x)) (VErased _ (Dotted y))
-      = unifyNoEta mode fc env !(expand x) !(expand y)
-  unifyNotMetavar mode fc env x (VErased _ (Dotted y))
-      = unifyNoEta mode fc env x !(expand y)
-  unifyNotMetavar mode fc env (VErased _ (Dotted x)) y
-      = unifyNoEta mode fc env !(expand x) y
   unifyNotMetavar mode fc env x@(VApp{}) y
       -- conversion check first, in case app is a blocked case
       = if !(convert env x y)
@@ -555,6 +549,12 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       localsIn [] = 0
       localsIn (VLocal{} :: xs) = 1 + localsIn xs
       localsIn (_ :: xs) = localsIn xs
+  unifyNoEta mode fc env (VErased _ (Dotted x)) (VErased _ (Dotted y))
+      = unifyNoEta mode fc env !(expand x) !(expand y)
+  unifyNoEta mode fc env x (VErased _ (Dotted y))
+      = unifyNoEta mode fc env x !(expand y)
+  unifyNoEta mode fc env (VErased _ (Dotted x)) y
+      = unifyNoEta mode fc env !(expand x) y
   unifyNoEta mode fc env (VMeta fcm n i margs args _) tm
       = unifyHole False mode fc env fcm n i margs args (asGlued tm)
   unifyNoEta mode fc env tm (VMeta fcm n i margs args _)

@@ -1,6 +1,7 @@
 module TTImp.Elab.Dot
 
 import Core.Context
+import Core.Context.Log
 import Core.Core
 import Core.Env
 import Core.Metadata
@@ -28,6 +29,7 @@ registerDot rig env fc reason wantedTm gexpty
          expty <- quote env gexpty
          metaval <- metaVar fc rig env nm expty
          addDot fc env nm wantedTm reason metaval
+         logTerm "unify.constraint" 5 "Register dot" wantedTm
          let tm = case reason of
                     UserDotted => Erased fc (Dotted metaval)
                     _ => metaval
