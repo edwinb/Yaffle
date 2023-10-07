@@ -59,6 +59,16 @@ idrisTestsBasic = MkTestPool "Fundamental language features" [] Nothing
        "interpolation001", "interpolation002", "interpolation003",
        "interpolation004"]
 
+idrisTestsInterface : TestPool
+idrisTestsInterface = MkTestPool "Interfaces" [] Nothing
+      ["interface001", "interface002", "interface003", "interface004", "interface005",
+       "interface006", "interface007", "interface008", "interface009", "interface010",
+       "interface011", "interface012", "interface013", "interface014", "interface015",
+       "interface016", "interface017", "interface018", "interface019", "interface020",
+       "interface021", "interface022", "interface023", "interface024", "interface025",
+       "interface026", "interface027", "interface028", "interface029"
+      ]
+
 idrisTestsRegression : TestPool
 idrisTestsRegression = MkTestPool "Various regressions" [] Nothing
        -- Miscellaneous regressions
@@ -106,6 +116,7 @@ main
     = runner $ [ testPaths "tt"     ttTests
                , testPaths "yaffle" yaffleTests
                , testPaths "idris2" idrisTestsBasic
+               , testPaths "idris2" idrisTestsInterface
                , testPaths "idris2" idrisTestsRegression
                , testPaths "chez"   chezTests
                , testPaths "tt"     failingTests]

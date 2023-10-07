@@ -1,0 +1,14 @@
+1/1: Building TwoNum (TwoNum.idr)
+Error: While processing right hand side of f. While processing right hand side of f,g. Multiple solutions found in search of:
+    Num a
+
+TwoNum:4:7--4:8
+ 1 | f : Num a => a
+ 2 | f = g where
+ 3 |   g : Num a => a
+ 4 |   g = 0
+           ^
+
+Possible correct results:
+    conArg (implicitly bound at TwoNum:4:3--4:8)
+    conArg (implicitly bound at TwoNum:2:1--4:8)
