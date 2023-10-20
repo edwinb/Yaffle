@@ -399,9 +399,21 @@ findSCapp g eqs pats (VApp fc Func fn sp _)
 findSCapp InDelay eqs pats (VDCon fc n t a sp)
     = findSCspine InDelay eqs pats sp
 findSCapp Guarded eqs pats (VDCon fc n t a sp)
-    = findSCspine Guarded eqs pats sp
+    = do defs <- get Ctxt
+         Just ty <- lookupTyExact n (gamma defs)
+              | Nothing => do
+                   log "totality" 50 $ "Lookup failed"
+                   findSCcall Guarded eqs pats fc n 0 (cast !(traverseSnocList value sp))
+         arity <- getArity [<] ty
+         findSCcall Guarded eqs pats fc n arity (cast !(traverseSnocList value sp))
 findSCapp Toplevel eqs pats (VDCon fc n t a sp)
-    = findSCspine Guarded eqs pats sp
+    = do defs <- get Ctxt
+         Just ty <- lookupTyExact n (gamma defs)
+              | Nothing => do
+                   log "totality" 50 $ "Lookup failed"
+                   findSCcall Guarded eqs pats fc n 0 (cast !(traverseSnocList value sp))
+         arity <- getArity [<] ty
+         findSCcall Guarded eqs pats fc n arity (cast !(traverseSnocList value sp))
 findSCapp g eqs pats tm = pure [] -- not an application (TODO: VTCon)
 
 -- If we're Guarded and find a Delay, continue with the argument as InDelay
