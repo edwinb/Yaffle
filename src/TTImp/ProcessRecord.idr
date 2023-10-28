@@ -4,6 +4,7 @@ import Core.Context
 import Core.Context.Log
 import Core.Core
 import Core.Env
+import Core.Evaluate
 import Core.Metadata
 import Core.Unify.State
 
@@ -59,6 +60,8 @@ elabRecord {vars} eopts fc env nest newns vis mbtot tn_in params0 opts conName_i
          whenJust mbtot $ \tot => do
            log "declare.record" 5 $ "setting totality flag for " ++ show tn
            setFlag fc tn (SetTotal tot)
+
+         logTerm "declare.record" 5 "Elaborating getters from" conty
 
          -- Go into new namespace, if there is one, for getters
          case newns of
@@ -251,6 +254,11 @@ elabRecord {vars} eopts fc env nest newns vis mbtot tn_in params0 opts conName_i
                    rfNameNS <- inCurrentNS (UN $ Field fldNameStr)
                    unNameNS <- inCurrentNS (UN $ Basic fldNameStr)
 
+                   -- We can't have metas in the type or they'll be added as
+                   -- new top level metas, even though they're solved. They
+                   -- may appear as solutions of auto implicits at Rig 0.
+                   -- So, expand them.
+                   ty_chk <- normaliseHoles tyenv ty_chk
                    ty <- unelabNest !nestDrop tyenv ty_chk
                    let ty' = substNames (cast vars) upds $ map rawName ty
                    log "declare.record.field" 5 $ "Field type: " ++ show ty'

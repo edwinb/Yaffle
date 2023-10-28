@@ -878,12 +878,17 @@ parameters {auto c : Ref Ctxt Defs} {auto c : Ref UST UState}
                case definition def of
                  BySearch rig depth defining =>
                     handleUnify
-                       (do tm <- search loc rig (smode == Defaults) depth defining
+                       (do logTerm "unify.retry" 5
+                              ("Searching for " ++ show (fullname def))
+                              (type def)
+                           tm <- search loc rig (smode == Defaults) depth defining
                                         (type def) [<]
                            let fi = if isErased rig
                                        then defaultFI
                                        else reduceFI
                            let gdef = { definition := Function fi tm tm Nothing } def
+                           logTerm "unify.retry" 10 ("Success " ++ show rig) tm
+                           log "unify.retry" 10 $ "Always reduce " ++ show (alwaysReduce fi)
                            ignore $ addDef (Resolved hid) gdef
                            removeGuess hid
                            pure True)

@@ -11,7 +11,6 @@ FromDouble Newtype where
 Show Newtype where
   showPrec p (MkNewtype v) = showCon p "MkNewtype" $ showArg v
 
-
 record InUnit where
   constructor MkInUnit
   value      : Double

@@ -53,7 +53,7 @@ parameters {auto c : Ref Ctxt Defs}
   export
   normaliseHoles : Env Term vars -> Term vars -> Core (Term vars)
   normaliseHoles env tm
-      = do val <- nf env tm
+      = do val <- nfHoles env tm
            quoteHoles env val
 
   export

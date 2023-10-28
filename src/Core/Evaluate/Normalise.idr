@@ -18,6 +18,7 @@ data EvalFlags
     | KeepAs -- keep @ patterns, don't expand any 'let' in the environment
     | KeepLet -- don't expand any 'let' at all, just expand 'alwaysInline'
     | Totality
+    | HolesOnly -- expand all defined holes, and nothing else
 
 export
 apply : FC -> Value f vars -> RigCount -> Core (Glued vars) -> Core (Glued vars)
@@ -284,6 +285,7 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
       keepBinder : EvalFlags -> Bool
       keepBinder KeepAs = True
       keepBinder KeepLet = True
+      keepBinder HolesOnly = True
       keepBinder _ = False
   evalLocal env fc First (locs :< x) = x
   evalLocal env fc (Later p) (locs :< x) = evalLocal env fc p locs
@@ -329,7 +331,11 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
                  | Nothing => pure (VMeta fc n i scope' [<] (pure Nothing))
             let Function fi fn _ _ = definition def
                  | _ => pure (VMeta fc n i scope' [<] (pure Nothing))
-            if alwaysReduce fi || (reduceForTC eflags (multiplicity def))
+            log "declare.record" 5 (show n ++ ", " ++ show (alwaysReduce fi))
+            let exph = case eflags of
+                            HolesOnly => True
+                            _ => False
+            if exph || alwaysReduce fi || (reduceForTC eflags (multiplicity def))
                then do evalfn <- eval locs env (embed fn)
                        applyAll fc evalfn scope'
                else pure $ VMeta fc n i scope' [<] $
@@ -376,6 +382,9 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
   evalBind locs env fc x b@(Let bfc c val ty) sc
       = case eflags of
              KeepLet =>
+                  pure $ VBind fc x !(evalBinder locs env b)
+                               (\arg => eval (locs :< arg) env sc)
+             HolesOnly =>
                   pure $ VBind fc x !(evalBinder locs env b)
                                (\arg => eval (locs :< arg) env sc)
              _ => do val' <- eval locs env val
@@ -425,6 +434,8 @@ parameters {auto c : Ref Ctxt Defs} (eflags : EvalFlags)
                                          !(eval locs env pat)
              KeepLet => pure $ VAs fc use !(eval locs env as)
                                           !(eval locs env pat)
+             HolesOnly => pure $ VAs fc use !(eval locs env as)
+                                            !(eval locs env pat)
              _ => eval locs env pat
   eval locs env (Case fc t r sc ty alts)
       = evalCase locs env fc t r sc ty alts
@@ -450,6 +461,10 @@ parameters {auto c : Ref Ctxt Defs}
   export
   nfLHS : Env Term vars -> Term vars -> Core (Glued vars)
   nfLHS = eval KeepAs [<]
+
+  export
+  nfHoles : Env Term vars -> Term vars -> Core (Glued vars)
+  nfHoles = eval HolesOnly [<]
 
   export
   nfKeepLet : Env Term vars -> Term vars -> Core (Glued vars)
