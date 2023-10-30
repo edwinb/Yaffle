@@ -23,7 +23,7 @@ import Libraries.System.File.Buffer
 export
 ttcVersion : Int
 ttcVersion
-  = 20230917 -- the date of the update
+  = 20231017 -- the date of the update
     * 1000   -- so as to be bigger than Idris 2!
     + 0      -- update number on given date
 

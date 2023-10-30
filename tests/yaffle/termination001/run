@@ -1,0 +1,2 @@
+rm -rf build
+$1 --yaffle IdrisIssue2448.yaff < input

@@ -8,7 +8,7 @@ import Core.Evaluate
 import Core.Syntax.Decls
 import Core.Syntax.Raw
 import Core.Check.Typecheck
-import Core.Termination
+import Core.Termination.CallGraph
 import Core.Unify.State
 import Core.Unify
 

@@ -1,0 +1,73 @@
+-- The size-change principle for program termination
+-- https://doi.org/10.1145/360204.360210
+
+data Nat : Type where
+  Z : Nat
+  S : Nat -> Nat
+
+total
+add : Nat -> Nat -> Nat
+add Z n = n
+add (S m) n = S (add m n)
+
+public export
+data List : Type -> Type where
+  Nil : {0 a : Type} -> List a
+  Cons : {0 a : Type} -> a -> List a -> List a
+
+-- Ex 1
+total
+rev : List Nat -> List Nat
+total
+r1 : List Nat -> List Nat -> List Nat
+
+rev ls = r1 ls Nil
+
+r1 Nil a = a
+r1 (Cons x xs) a = r1 xs (Cons x xs)
+
+-- Ex 2
+
+total
+f2 : Nat -> Nat -> Nat
+
+total
+g2 : Nat -> Nat -> Nat -> Nat
+
+f2 Z x = x
+f2 i@(S i') x = g2 i' x i
+
+g2 a b c = f2 a (add b c)
+
+-- Ex 3
+total
+a : Nat -> Nat -> Nat
+a Z n = add n (S Z)
+a (S m) Z = a m (S Z)
+a (S m) (S n) = a m (a (S m) n)
+
+-- Ex 4
+total
+p : Nat -> Nat -> Nat -> Nat
+p m n (S r) = p m r n
+p m (S n) r = p r n m
+p m n r = m
+
+-- Ex 5
+total
+f5 : List Nat -> List Nat -> List Nat
+f5 xs Nil = xs
+f5 Nil ys@(Cons _ ys') = f5 ys ys'
+f5 xs@(Cons _ xs') ys@(Cons _ ys') = f5 ys xs'
+
+-- Ex 6
+total
+f6 : List Nat -> List Nat -> List Nat
+total
+g6 : List Nat -> List Nat -> List Nat
+
+f6 as Nil = g6 as Nil
+f6 as (Cons b bs) = f6 (Cons b as) bs
+
+g6 Nil ds = ds
+g6 (Cons c cs) ds = g6 cs (Cons c ds)
