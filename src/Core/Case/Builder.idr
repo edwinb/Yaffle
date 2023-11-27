@@ -836,6 +836,7 @@ sameType {ns} fc phase fn env (p :: xs)
     headEq : NF ns -> NF ns -> Phase -> Bool
     headEq (VBind _ _ (Pi _ _ _ _) _) (VBind _ _ (Pi _ _ _ _) _) _ = True
     headEq (VTCon _ n _ _) (VTCon _ n' _ _) _ = n == n'
+    headEq (VCase _ _ _ _ _ _) (VCase _ _ _ _ _ _) _ = True
     headEq (VPrimVal _ c) (VPrimVal _ c') _ = c == c'
     headEq (VType _ _) (VType _ _) _ = True
     headEq (VApp _ _ n _ _) (VApp _ _ n' _ _) RunTime = n == n'
