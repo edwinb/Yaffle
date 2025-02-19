@@ -5,10 +5,6 @@ import Data.List1
 
 %default total
 
-export
-minimum : Ord a => (xs : List a) -> {auto 0 _ : NonEmpty xs} -> a
-minimum (x :: xs) = foldl min x xs
-
 ||| Fetches the element at a given position.
 ||| Returns `Nothing` if the position beyond the list's end.
 public export

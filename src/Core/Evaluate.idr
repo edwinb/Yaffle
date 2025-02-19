@@ -223,7 +223,7 @@ parameters {auto c : Ref Ctxt Defs}
               then pure (parg, True)
               else repSub tm
     where
-      repArg : Value f vars -> Core (Term vars, Bool)
+      repArg : forall f . Value f vars -> Core (Term vars, Bool)
       repArg = replace' expand tmpi env orig parg
 
       repArgAll : Spine vars -> Core (SnocList (FC, RigCount, Term vars), Bool)
@@ -266,9 +266,9 @@ parameters {auto c : Ref Ctxt Defs}
           = do (rhs', u) <- repArg rhs
                pure (DefaultCase fc rhs', u)
 
-      repSub : Value f vars -> Core (Term vars, Bool)
+      repSub : forall f . Value f vars -> Core (Term vars, Bool)
 
-      repPiInfo : PiInfo (Value f vars) -> Core (PiInfo (Term vars), Bool)
+      repPiInfo : forall f . PiInfo (Value f vars) -> Core (PiInfo (Term vars), Bool)
       repPiInfo Explicit = pure (Explicit, False)
       repPiInfo Implicit = pure (Implicit, False)
       repPiInfo AutoImplicit = pure (AutoImplicit, False)
@@ -276,7 +276,7 @@ parameters {auto c : Ref Ctxt Defs}
          = do (t', u) <- repSub t
               pure (DefImplicit t', u)
 
-      repBinder : Binder (Value f vars) -> Core (Binder (Term vars), Bool)
+      repBinder : forall f . Binder (Value f vars) -> Core (Binder (Term vars), Bool)
       repBinder (Lam fc c p ty)
           = do (p', u) <- repPiInfo p
                (ty', u') <- repSub ty
@@ -340,7 +340,7 @@ parameters {auto c : Ref Ctxt Defs}
                         | Nothing => pure []
                    pure (flags gdef)
 
-          blockedApp : Value f vars -> Core Bool
+          blockedApp : forall f . Value f vars -> Core Bool
           blockedApp (VLam fc _ _ _ _ sc)
               = blockedApp !(sc (VErased fc Placeholder))
           blockedApp (VCase _ PatMatch _ _ _ _) = pure True

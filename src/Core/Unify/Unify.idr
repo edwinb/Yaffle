@@ -103,7 +103,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
            logTerm "unify.postpone" 10 "Y" ytm
            pure (constrain c)
     where
-      checkDefined : Defs -> Value f vars -> Core ()
+      checkDefined : forall f . Defs -> Value f vars -> Core ()
       checkDefined defs (VApp _ _ n _ _)
           = do Just _ <- lookupCtxtExact n (gamma defs)
                     | _ => undefinedName loc n
@@ -545,7 +545,7 @@ parameters {auto c : Ref Ctxt Defs} {auto u : Ref UST UState}
       pv (PV _ _) = True
       pv _ = False
 
-      localsIn : List (Value f vars) -> Nat
+      localsIn : forall f . List (Value f vars) -> Nat
       localsIn [] = 0
       localsIn (VLocal{} :: xs) = 1 + localsIn xs
       localsIn (_ :: xs) = localsIn xs

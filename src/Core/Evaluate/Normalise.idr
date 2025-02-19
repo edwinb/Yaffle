@@ -61,7 +61,7 @@ apply fc (VCase cfc t r sc ty alts) q arg
         = do (fs, rhs') <- rhs
              sc <- apply fc rhs' q arg
              pure (fs, sc)
-    applyConCase arg n t (args :< (r, a)) sc
+    applyConCase arg n t (args :< _) sc
         = \a' => applyConCase arg n t args (sc a')
 
     -- Need to apply the argument to the rhs of every case branch

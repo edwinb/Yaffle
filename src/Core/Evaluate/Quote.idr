@@ -234,12 +234,12 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
                                 pure $ applySpine (Ref fc nt n) sp'
                         else quoteGen bounds env v s
     where
-      isBinder : Value f vars -> Core Bool
+      isBinder : forall f . Value f vars -> Core Bool
       isBinder (VLam fc _ _ _ _ sc) = pure True
       isBinder (VBind{}) = pure True
       isBinder _ = pure False
 
-      blockedApp : Value f vars -> Core Bool
+      blockedApp : forall f . Value f vars -> Core Bool
       blockedApp (VLam fc _ _ _ _ sc)
           = blockedApp !(sc (VErased fc Placeholder))
       blockedApp (VCase _ PatMatch _ _ _ _) = pure True
@@ -314,7 +314,7 @@ parameters {auto c : Ref Ctxt Defs} {auto q : Ref QVar Int}
            pure $ PrimOp fc fn args'
     where
       -- No traverse for Vect in Core...
-      quoteArgs : Vect n (Value f vars) -> Core (Vect n (Term (vars ++ bound)))
+      quoteArgs : forall f . Vect n (Value f vars) -> Core (Vect n (Term (vars ++ bound)))
       quoteArgs [] = pure []
       quoteArgs (a :: as)
           = pure $ !(quoteGen bounds env a s) :: !(quoteArgs as)

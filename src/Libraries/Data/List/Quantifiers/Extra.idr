@@ -14,10 +14,10 @@ lookup v (px :: pxs)
       No _ => lookup v pxs
       Yes Refl => Just px
 
-export
-(++) : All p xs -> All p ys -> All p (xs ++ ys)
-[] ++ pys = pys
-(px :: pxs) ++ pys = px :: (pxs ++ pys)
+-- export
+-- (++) : All p xs -> All p ys -> All p (xs ++ ys)
+-- [] ++ pys = pys
+-- (px :: pxs) ++ pys = px :: (pxs ++ pys)
 
 export
 tabulate : ((x : a) -> p x) -> (xs : List a) -> All p xs
