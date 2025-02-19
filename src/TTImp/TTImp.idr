@@ -43,37 +43,37 @@ data BindMode = PI RigCount | PATTERN | COVERAGE | NONE
 
 -- Forward declare everything here
 public export
-RawImp : Type
+0 RawImp : Type
 
 public export
-IRawImp : Type
+0 IRawImp : Type
 
 public export
-ImpClause : Type
+0 ImpClause : Type
 
 public export
-IImpClause : Type
+0 IImpClause : Type
 
 public export
 data ImpClause' : Type -> Type
 
 public export
-IFieldUpdate : Type
+0 IFieldUpdate : Type
 
 public export
 data IFieldUpdate' : Type -> Type
 
 public export
-AltType : Type
+0 AltType : Type
 
 public export
-data AltType' : Type -> Type where
+data AltType' : Type -> Type
 
 public export
-data RawImp' : Type -> Type where
+data RawImp' : Type -> Type
 
 public export
-FnOpt : Type
+0 FnOpt : Type
 
 public export
 data FnOpt' : Type -> Type
@@ -82,7 +82,7 @@ public export
 isTotalityReq : FnOpt' nm -> Bool
 
 public export
-ImpTy : Type
+0 ImpTy : Type
 
 public export
 data ImpTy' : Type -> Type
@@ -91,7 +91,7 @@ public export
 data DataOpt : Type
 
 public export
-ImpData : Type
+0 ImpData : Type
 
 public export
 data ImpData' : Type -> Type
@@ -99,25 +99,25 @@ data ImpData' : Type -> Type
 -- TODO: turn into a proper datatype when possible.
 -- Annoyingly records don't forward declare
 public export
-ImpParameter' : Type -> Type
+0 ImpParameter' : Type -> Type
 
 public export
-ImpParameter : Type
+0 ImpParameter : Type
 
 public export
-ImpDecl : Type
+0 ImpDecl : Type
 
 public export
 data ImpDecl' : Type -> Type
 
 public export
-IField : Type
+0 IField : Type
 
 public export
 data IField' : Type -> Type
 
 public export
-ImpRecord : Type
+0 ImpRecord : Type
 
 public export
 data ImpRecord' : Type -> Type

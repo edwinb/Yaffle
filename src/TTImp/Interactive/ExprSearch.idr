@@ -44,7 +44,7 @@ record RecData where
   lhsapp : Term localVars
 
 -- Additional definitions required to support the result
-ExprDefs : Type
+0 ExprDefs : Type
 ExprDefs = List ImpDecl
 
 export
